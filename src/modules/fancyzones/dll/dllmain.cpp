@@ -167,6 +167,8 @@ public:
     {
         if (m_app)
         {
+			auto event = reinterpret_cast<WinHookEvent*>(data);
+
             if (wcscmp(name, ll_keyboard) == 0)
             {
                 // Return 1 if the keypress is to be suppressed (not forwarded to Windows), otherwise return 0.
