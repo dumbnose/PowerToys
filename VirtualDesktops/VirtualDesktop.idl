@@ -1,0 +1,9 @@
+namespace VirtualDesktops
+{
+	[default_interface]
+	runtimeclass VirtualDesktop
+	{
+		VirtualDesktop();
+		String Id;
+	}
+}

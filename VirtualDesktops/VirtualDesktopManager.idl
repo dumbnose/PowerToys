@@ -1,0 +1,9 @@
+namespace VirtualDesktops
+{
+    [default_interface]
+    runtimeclass VirtualDesktopManager
+    {
+		VirtualDesktopManager();
+        Int32 MyProperty;
+    }
+}
