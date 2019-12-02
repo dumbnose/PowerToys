@@ -1,9 +1,17 @@
 namespace VirtualDesktops
 {
+
 	[default_interface]
 	runtimeclass VirtualDesktop
 	{
 		VirtualDesktop();
 		String Id;
+	}
+
+	[default_interface]
+	runtimeclass VirtualDesktopManager
+	{
+		VirtualDesktopManager();
+		Int32 MyProperty;
 	}
 }

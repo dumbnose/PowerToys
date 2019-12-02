@@ -110,28 +110,19 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
-    <ClInclude Include="VirtualDesktop.h">
-      <DependentUpon>VirtualDesktop.idl</DependentUpon>
-    </ClInclude>
-    <ClInclude Include="VirtualDesktopManager.h">
-      <DependentUpon>VirtualDesktopManager.idl</DependentUpon>
-    </ClInclude>
+    <ClInclude Include="VirtualDesktop.h" />
+    <ClInclude Include="VirtualDesktopManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="VirtualDesktop.cpp">
-      <DependentUpon>VirtualDesktop.idl</DependentUpon>
-    </ClCompile>
-    <ClCompile Include="VirtualDesktopManager.cpp">
-      <DependentUpon>VirtualDesktopManager.idl</DependentUpon>
-    </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <ClCompile Include="VirtualDesktop.cpp" />
+    <ClCompile Include="VirtualDesktopManager.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Midl Include="VirtualDesktop.idl" />
-    <Midl Include="VirtualDesktopManager.idl" />
+    <Midl Include="VirtualDesktops.idl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
