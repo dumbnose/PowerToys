@@ -18,7 +18,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="VirtualDesktop.cpp" />
     <ClCompile Include="pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -49,9 +48,11 @@
     <ClCompile Include="VirtualDesktopRemovedEventArgs.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="VirtualDesktop.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="VirtualDesktop.h" />
     <ClInclude Include="pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -77,6 +78,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="VirtualDesktopRemovedEventArgs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VirtualDesktop.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VirtualDesktopsInternal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -117,6 +117,7 @@
     <ClInclude Include="VirtualDesktopChangedEventArgs.h" />
     <ClInclude Include="VirtualDesktopManager.h" />
     <ClInclude Include="VirtualDesktopRemovedEventArgs.h" />
+    <ClInclude Include="VirtualDesktopsInternal.h" />
     <ClInclude Include="WindowChangedDesktopEventArgs.h" />
   </ItemGroup>
   <ItemGroup>

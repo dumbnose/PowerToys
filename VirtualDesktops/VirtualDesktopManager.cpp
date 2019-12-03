@@ -1,10 +1,35 @@
 #include "pch.h"
 #include "VirtualDesktopManager.h"
 #include "VirtualDesktopManager.g.cpp"
+#include "VirtualDesktopsInternal.h"
 
 
 namespace winrt::VirtualDesktops::implementation
 {
+	VirtualDesktopManager::VirtualDesktopManager()
+	{
+		HRESULT hr = ::CoInitializeEx(NULL, COINIT_MULTITHREADED);
+		if (FAILED(hr)) throw hresult_error(hr);
+
+		IServiceProvider* pServiceProvider = nullptr;
+		IVirtualDesktopManagerInternal* pDesktopManagerInternal = nullptr;
+		IVirtualDesktopManager* pDesktopManager = nullptr;
+		IApplicationViewCollection* viewCollection = nullptr;
+		IVirtualDesktopPinnedApps* pinnedApps = nullptr;
+		IVirtualDesktopNotificationService* pDesktopNotificationService = nullptr;
+
+		hr = ::CoCreateInstance(CLSID_ImmersiveShell, nullptr, CLSCTX_LOCAL_SERVER, IID_IServiceProvider, (PVOID*)&pServiceProvider);
+		if(FAILED(hr)) throw hresult_error(hr);
+
+		//pServiceProvider->QueryService(IID_PPV_ARGS(&viewCollection));
+
+		//pServiceProvider->QueryService(__uuidof(IVirtualDesktopManager), &pDesktopManager);
+
+		//pServiceProvider->QueryService(CLSID_VirtualDesktopPinnedApps, IID_PPV_ARGS(&pinnedApps));
+
+		//pServiceProvider->QueryService(CLSID_VirtualDesktopManagerInternal, IID_PPV_ARGS(&pDesktopManagerInternal));
+	}
+
     winrt::event_token VirtualDesktopManager::CurrentDesktopChanged(Windows::Foundation::EventHandler<VirtualDesktops::VirtualDesktopChangedEventArgs> const& handler)
     {
         throw hresult_not_implemented();

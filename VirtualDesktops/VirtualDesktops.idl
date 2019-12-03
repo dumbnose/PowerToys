@@ -68,6 +68,8 @@ namespace VirtualDesktops
 	[default_interface]
 	runtimeclass VirtualDesktopManager
 	{
+		VirtualDesktopManager();
+
 		event Windows.Foundation.EventHandler<VirtualDesktopChangedEventArgs> CurrentDesktopChanged;
 		event Windows.Foundation.EventHandler<VirtualDesktopAddedEventArgs> VirtualDesktopAdded;
 		event Windows.Foundation.EventHandler<VirtualDesktopRemovedEventArgs> VirtualDesktopRemoved;
