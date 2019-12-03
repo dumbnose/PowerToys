@@ -109,23 +109,36 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ApplicationId.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="TopLevelWindow.h" />
     <ClInclude Include="VirtualDesktop.h" />
+    <ClInclude Include="VirtualDesktopAddedEventArgs.h" />
+    <ClInclude Include="VirtualDesktopChangedEventArgs.h" />
     <ClInclude Include="VirtualDesktopManager.h" />
+    <ClInclude Include="VirtualDesktopRemovedEventArgs.h" />
+    <ClInclude Include="WindowChangedDesktopEventArgs.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ApplicationId.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <ClCompile Include="TopLevelWindow.cpp" />
     <ClCompile Include="VirtualDesktop.cpp" />
+    <ClCompile Include="VirtualDesktopAddedEventArgs.cpp" />
+    <ClCompile Include="VirtualDesktopChangedEventArgs.cpp" />
     <ClCompile Include="VirtualDesktopManager.cpp" />
+    <ClCompile Include="VirtualDesktopRemovedEventArgs.cpp" />
+    <ClCompile Include="WindowChangedDesktopEventArgs.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Midl Include="VirtualDesktops.idl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="VirtualDesktopApi.cs" />
     <None Include="VirtualDesktops.def" />
   </ItemGroup>
   <ItemGroup>

@@ -2,16 +2,101 @@ namespace VirtualDesktops
 {
 
 	[default_interface]
+	runtimeclass TopLevelWindow
+	{
+		Int32 HWnd;
+	}
+
+
+	[default_interface]
+	runtimeclass ApplicationId
+	{
+		String AUMID;
+	}
+	
+	
+	[default_interface]
+	runtimeclass WindowChangedDesktopEventArgs
+	{
+		TopLevelWindow Window;
+	}
+
+
+	[default_interface]
+	runtimeclass VirtualDesktopChangedEventArgs
+	{
+		VirtualDesktop OriginalDesktop;
+		VirtualDesktop NewDesktop;
+	}
+
+
+	[default_interface]
+	runtimeclass VirtualDesktopAddedEventArgs
+	{
+		VirtualDesktop Desktop;
+	}
+
+
+	[default_interface]
+	runtimeclass VirtualDesktopRemovedEventArgs
+	{
+		VirtualDesktop RemovedDesktop;
+	}
+
+
+	[default_interface]
 	runtimeclass VirtualDesktop
 	{
-		VirtualDesktop();
 		String Id;
+
+		Boolean IsWindowVisible(TopLevelWindow window);
+		Boolean IsWindowPresent(TopLevelWindow window);
+		Boolean IsApplicationPresent(ApplicationId app);
+
+		Windows.Foundation.Collections.IVectorView<ApplicationId> Applications;
+		Windows.Foundation.Collections.IVectorView<TopLevelWindow> Windows;
 	}
+
+		
+	enum VirtualDesktopAdjacentDirection
+	{
+		Left = 3,
+		Right = 4
+	};
+
 
 	[default_interface]
 	runtimeclass VirtualDesktopManager
 	{
-		VirtualDesktopManager();
-		Int32 MyProperty;
-	}
+		event Windows.Foundation.EventHandler<VirtualDesktopChangedEventArgs> CurrentDesktopChanged;
+		event Windows.Foundation.EventHandler<VirtualDesktopAddedEventArgs> VirtualDesktopAdded;
+		event Windows.Foundation.EventHandler<VirtualDesktopRemovedEventArgs> VirtualDesktopRemoved;
+		event Windows.Foundation.EventHandler<WindowChangedDesktopEventArgs> WindowChangedDesktops;
+
+		Windows.Foundation.Collections.IVectorView<VirtualDesktop> VirtualDesktops;
+		VirtualDesktop CurrentDesktop;
+
+		VirtualDesktop GetAdjacentDesktop(VirtualDesktopAdjacentDirection direction);
+		VirtualDesktop GetAdjacentDesktop(VirtualDesktopAdjacentDirection direction, VirtualDesktop desktopReference);
+
+		Boolean TrySwitchToDesktop(VirtualDesktop newDesktop);
+		VirtualDesktop AddDesktop(VirtualDesktopAdjacentDirection direction);
+		VirtualDesktop AddDesktop(VirtualDesktopAdjacentDirection direction, VirtualDesktop desktopReference);
+		Boolean CanRemoveDesktop(VirtualDesktop desktop);
+		Boolean TryRemoveDesktop(VirtualDesktop desktop, VirtualDesktop newTargetDesktop);
+		VirtualDesktop GetById(String virtualDesktopId);
+
+		void MoveWindowToDesktop(TopLevelWindow window, VirtualDesktop desktop);
+		void MoveApplicationToDesktop(ApplicationId appId, VirtualDesktop desktop);
+
+		// Why are these on the Manager and not on a VirtualDesktop? I assume you're pinning them to a specific desktop?
+		// Also, no events for when the user does this via the UI?
+		// Do any of these need to be 'Try'?
+		Boolean PinApplication(ApplicationId appId);
+		Boolean PinWindow(TopLevelWindow window);
+		Boolean UnpinApplication(ApplicationId appId);
+		Boolean UnpinWindow(TopLevelWindow window);
+		Boolean IsApplicationPinned(ApplicationId appId);
+		Boolean IsWindowPinned(TopLevelWindow window);
+	} 
 }
