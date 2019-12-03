@@ -83,9 +83,6 @@
     <ClInclude Include="VirtualDesktop.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="VirtualDesktopsInternal.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

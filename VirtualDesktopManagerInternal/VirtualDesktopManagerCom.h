@@ -2,19 +2,6 @@
 
 #include "pch.h"
 
-#include <windows.h>
-#include <inspectable.h>
-
-#include <stdio.h>
-#include <tchar.h>
-
-#include <string>
-#include <objbase.h>
-#include <ObjectArray.h>
-#include <iostream>
-#include <map>
-#include <vector>
-#include <algorithm>
 
 const IID IID_IServiceProvider = {
 	0x6D5140C1, 0x7436, 0x11CE, 0x80, 0x34, 0x00, 0xAA, 0x00, 0x60, 0x09, 0xFA };
@@ -298,4 +285,39 @@ public:
 
 	virtual HRESULT STDMETHODCALLTYPE Unregister(
 		DWORD dwCookie) = 0;
+};
+
+class windows_exception : public std::exception {
+public:
+	windows_exception(const char* desc, unsigned long num = GetLastError())
+		: std::exception(desc), num_(num)
+	{
+		//desc_ = (boost::format("Error %d: %s \n %s") % num_ % desc % windows_error()).str();
+	}
+
+	virtual const char* what() const {
+		return desc_.c_str();
+	}
+
+	virtual unsigned long num() const {
+		return num_;
+	}
+
+	std::string windows_error() {
+
+		char* message = 0;
+		DWORD dw = GetLastError();
+
+		DWORD result = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, num_, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&message, 0, NULL);
+		if (result == 0 || message == 0) return "";
+
+		std::string win_err(message);
+		LocalFree(message);
+
+		return win_err;
+	}
+
+private:
+	unsigned long num_;
+	std::string desc_;
 };
