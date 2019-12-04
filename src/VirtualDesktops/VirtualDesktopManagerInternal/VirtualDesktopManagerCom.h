@@ -292,7 +292,9 @@ public:
 	windows_exception(const char* desc, unsigned long num = GetLastError())
 		: std::exception(desc), num_(num)
 	{
-		//desc_ = (boost::format("Error %d: %s \n %s") % num_ % desc % windows_error()).str();
+		std::stringstream message;
+		message << "Error " << num_ << ": " << desc << '\n' << windows_error();
+		desc_ = message.str();
 	}
 
 	virtual const char* what() const {
