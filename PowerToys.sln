@@ -90,7 +90,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "VirtualDesktops", "VirtualD
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VirtualDesktopsUnitTest", "src\VirtualDesktops\VirtualDesktopsUnitTest\VirtualDesktopsUnitTest.vcxproj", "{8674E3E9-32FA-484F-901B-8DA4B7DB2567}"
 	ProjectSection(ProjectDependencies) = postProject
-		{49288767-8B6D-4E58-A7D8-451BD88B3E55} = {49288767-8B6D-4E58-A7D8-451BD88B3E55}
+		{D3BC198E-42EF-48FE-A1DF-624E1D75611E} = {D3BC198E-42EF-48FE-A1DF-624E1D75611E}
 	EndProjectSection
 EndProject
 Global

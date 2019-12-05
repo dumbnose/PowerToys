@@ -7,8 +7,7 @@
 
 VirtualDesktopManagerInternal::VirtualDesktopManagerInternal()
 {
-	HRESULT hr = ::CoInitializeEx(NULL, COINIT_MULTITHREADED);
-	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": CoInitializeEx failed", hr);
+	HRESULT hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
 	hr = ::CoCreateInstance(CLSID_ImmersiveShell, nullptr, CLSCTX_LOCAL_SERVER, IID_PPV_ARGS(&immersiveShellServiceProvider_));
 	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": CoCreateInstance failed", hr);
@@ -25,4 +24,3 @@ VirtualDesktopManagerInternal::VirtualDesktopManagerInternal()
 	immersiveShellServiceProvider_->QueryService(CLSID_VirtualDesktopManagerInternal, IID_PPV_ARGS(&desktopManagerInternal_));
 	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": QueryService(CLSID_VirtualDesktopManagerInternal) failed", hr);
 }
-
