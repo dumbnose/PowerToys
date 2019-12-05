@@ -4,9 +4,23 @@
 // However, files listed here are ALL re-compiled if any one of them is updated between builds.
 // Do not add files here that you will be updating frequently as this negates the performance advantage.
 
-#ifndef PCH_H
-#define PCH_H
+#pragma once
 
-// add headers that you want to pre-compile here
+#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
+#include <windows.h>
+#include <inspectable.h>
 
-#endif //PCH_H
+#include <stdio.h>
+#include <tchar.h>
+
+#include <string>
+#include <objbase.h>
+#include <ObjectArray.h>
+#include <iostream>
+#include <sstream> 
+#include <map>
+#include <vector>
+#include <algorithm>
+
+#include "..\VirtualDesktopManagerInternal\VirtualDesktopManagerCom.h"
+#include "..\VirtualDesktopManagerInternal\VirtualDesktopManagerInternal.h"

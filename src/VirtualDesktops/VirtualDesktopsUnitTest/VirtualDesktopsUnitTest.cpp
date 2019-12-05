@@ -12,6 +12,8 @@ namespace VirtualDesktopsUnitTest
 		
 		TEST_METHOD(TestMethod1)
 		{
+			VirtualDesktopManagerInternal vdmi;
+			
 		}
 	};
 }
