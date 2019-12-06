@@ -22,4 +22,6 @@
 #include <vector>
 #include <algorithm>
 
+#include <winrt/Windows.Foundation.h>
+
 #include "VirtualDesktopManagerCom.h"
