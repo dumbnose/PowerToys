@@ -41,7 +41,7 @@ void VirtualDesktopManagerInternal::InitializeWindowManagerComObjects()
 // Virtual Desktop Notifications
 //
 VirtualDesktopManagerInternal::VirtualDesktopNotifier::VirtualDesktopNotifier(VirtualDesktopManagerInternal* vdmi,
-																			  desktop_changed_event_t* desktop_changed_event) :
+																			  CurrentDesktopChanged_T* desktop_changed_event) :
 	vdmi_(vdmi),
 	desktop_changed_event_(desktop_changed_event)
 {
@@ -75,15 +75,20 @@ VirtualDesktopManagerInternal::VirtualDesktopNotifier::VirtualDesktopDestroyed(I
 HRESULT STDMETHODCALLTYPE 
 VirtualDesktopManagerInternal::VirtualDesktopNotifier::ViewVirtualDesktopChanged(IApplicationView* view)
 {
-	VirtualDesktopChangedEventArgs args{ view };
-	desktop_changed_event_->raise(*vdmi_, args);
+	WindowChangedDesktopEventArgs args{ {view} };
+	//WindowChangedDesktops->raise(*vdmi_, args);
 
 	return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE 
-VirtualDesktopManagerInternal::VirtualDesktopNotifier::CurrentVirtualDesktopChanged(IVirtualDesktop* pDesktopOld, IVirtualDesktop* pDesktopNew)
+VirtualDesktopManagerInternal::VirtualDesktopNotifier::CurrentVirtualDesktopChanged(IVirtualDesktop* oldDesktop, IVirtualDesktop* newDesktop)
 {
+	auto oldVirtualDesktop = VirtualDesktop(oldDesktop);
+	auto newVirtualDesktop = VirtualDesktop(newDesktop);
+	VirtualDesktopChangedEventArgs args{ oldVirtualDesktop, newVirtualDesktop };
+	desktop_changed_event_->raise(*vdmi_, args);
+
 	return S_OK;
 }
 

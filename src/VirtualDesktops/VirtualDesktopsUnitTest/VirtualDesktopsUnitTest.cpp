@@ -14,9 +14,9 @@ namespace VirtualDesktopsUnitTest
 		{
 			VirtualDesktopManagerInternal vdmi;
 			uint64_t cookie = vdmi.CurrentDesktopChanged.register_listener([](const VirtualDesktopManagerInternal& src, const VirtualDesktopChangedEventArgs& args) {
-				OutputDebugString(L"Event fired\n");
+				OutputDebugString(L"Current virtual desktop changed\n");
 			});
-			Sleep(60000);
+			Sleep(10000);
 			vdmi.CurrentDesktopChanged.unregister_listener(cookie);
 		}
 	};

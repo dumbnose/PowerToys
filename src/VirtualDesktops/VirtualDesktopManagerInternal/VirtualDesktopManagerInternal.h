@@ -4,19 +4,19 @@
 #include <dumbnose/event_source.hpp>
 
 
-class TopLevelWindow
+struct TopLevelWindow
 {
-	int32_t HWnd;
+	IApplicationView* View;
 };
 
 
-class ApplicationId
+struct ApplicationId
 {
 	std::string AUMID;
 };
 
 
-class WindowChangedDesktopEventArgs
+struct WindowChangedDesktopEventArgs
 {
 	TopLevelWindow Window;
 };
@@ -25,6 +25,8 @@ class WindowChangedDesktopEventArgs
 class VirtualDesktop
 {
 public:
+	VirtualDesktop(IVirtualDesktop* desktop) : desktop_(desktop) {}
+
 	std::string Id;
 
 	bool IsWindowVisible(TopLevelWindow window);
@@ -33,14 +35,16 @@ public:
 
 	std::list<ApplicationId> Applications;
 	std::list<TopLevelWindow> Windows;
+
+private:
+	IVirtualDesktop* desktop_;
 };
 
 
 struct VirtualDesktopChangedEventArgs
 {
-	//VirtualDesktop* OriginalDesktop;
-	//VirtualDesktop* NewDesktop;
-	IApplicationView* view;
+	VirtualDesktop& OriginalDesktop;
+	VirtualDesktop& NewDesktop;
 };
 
 
@@ -69,11 +73,14 @@ public:
 	VirtualDesktopManagerInternal();
 	~VirtualDesktopManagerInternal();
 
-	typedef dumbnose::event_source<const VirtualDesktopManagerInternal&, const VirtualDesktopChangedEventArgs&> desktop_changed_event_t;
-	desktop_changed_event_t CurrentDesktopChanged;
-	dumbnose::event_source<const VirtualDesktopManagerInternal&, const VirtualDesktopAddedEventArgs&> VirtualDesktopAdded;
-	dumbnose::event_source<const VirtualDesktopManagerInternal&, const VirtualDesktopRemovedEventArgs&> VirtualDesktopRemoved;
-	dumbnose::event_source<const VirtualDesktopManagerInternal&, const WindowChangedDesktopEventArgs&> WindowChangedDesktops;
+	typedef dumbnose::event_source<const VirtualDesktopManagerInternal&, const VirtualDesktopChangedEventArgs&> CurrentDesktopChanged_T;
+	CurrentDesktopChanged_T CurrentDesktopChanged;
+	typedef dumbnose::event_source<const VirtualDesktopManagerInternal&, const VirtualDesktopAddedEventArgs&> VirtualDesktopAdded_T;
+	VirtualDesktopAdded_T VirtualDesktopAdded;
+	typedef dumbnose::event_source<const VirtualDesktopManagerInternal&, const VirtualDesktopRemovedEventArgs&> VirtualDesktopRemoved_T;
+	VirtualDesktopRemoved_T VirtualDesktopRemoved;
+	typedef dumbnose::event_source<const VirtualDesktopManagerInternal&, const WindowChangedDesktopEventArgs&> WindowChangedDesktops_T;
+	WindowChangedDesktops_T WindowChangedDesktops;
 
 	std::list<VirtualDesktop> VirtualDesktops;
 	std::shared_ptr<VirtualDesktop> CurrentDesktop();
@@ -109,10 +116,10 @@ protected:
 	struct VirtualDesktopNotifier : public winrt::implements<VirtualDesktopNotifier, IVirtualDesktopNotification>
 	{
 		VirtualDesktopManagerInternal* vdmi_;
-		VirtualDesktopManagerInternal::desktop_changed_event_t* desktop_changed_event_;
+		VirtualDesktopManagerInternal::CurrentDesktopChanged_T* desktop_changed_event_;
 
 		VirtualDesktopNotifier(VirtualDesktopManagerInternal* vdmi,
-							   VirtualDesktopManagerInternal::desktop_changed_event_t* desktop_changed_event);
+							   VirtualDesktopManagerInternal::CurrentDesktopChanged_T* desktop_changed_event);
 
 		virtual HRESULT STDMETHODCALLTYPE VirtualDesktopCreated(IVirtualDesktop* pDesktop);
 		virtual HRESULT STDMETHODCALLTYPE VirtualDesktopDestroyBegin(IVirtualDesktop* pDesktopDestroyed, IVirtualDesktop* pDesktopFallback);
