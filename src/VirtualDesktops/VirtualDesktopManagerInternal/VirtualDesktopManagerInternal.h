@@ -50,13 +50,13 @@ struct VirtualDesktopChangedEventArgs
 
 struct VirtualDesktopAddedEventArgs
 {
-	VirtualDesktop* Desktop;
+	VirtualDesktop& Desktop;
 };
 
 
 struct VirtualDesktopRemovedEventArgs
 {
-	VirtualDesktop* RemovedDesktop;
+	VirtualDesktop& RemovedDesktop;
 };
 
 
@@ -116,10 +116,17 @@ protected:
 	struct VirtualDesktopNotifier : public winrt::implements<VirtualDesktopNotifier, IVirtualDesktopNotification>
 	{
 		VirtualDesktopManagerInternal* vdmi_;
-		VirtualDesktopManagerInternal::CurrentDesktopChanged_T* desktop_changed_event_;
+		CurrentDesktopChanged_T* currentDesktopChanged_;
+		VirtualDesktopAdded_T* virtualDesktopAdded_;
+		VirtualDesktopRemoved_T* virtualDesktopRemoved_;
+		WindowChangedDesktops_T* windowChangedDesktops_;
 
 		VirtualDesktopNotifier(VirtualDesktopManagerInternal* vdmi,
-							   VirtualDesktopManagerInternal::CurrentDesktopChanged_T* desktop_changed_event);
+							   CurrentDesktopChanged_T* desktopChanged,
+							   VirtualDesktopAdded_T* virtualDesktopAdded,
+							   VirtualDesktopRemoved_T* virtualDesktopRemoved,
+							   WindowChangedDesktops_T* windowChangedDesktops
+		);
 
 		virtual HRESULT STDMETHODCALLTYPE VirtualDesktopCreated(IVirtualDesktop* pDesktop);
 		virtual HRESULT STDMETHODCALLTYPE VirtualDesktopDestroyBegin(IVirtualDesktop* pDesktopDestroyed, IVirtualDesktop* pDesktopFallback);

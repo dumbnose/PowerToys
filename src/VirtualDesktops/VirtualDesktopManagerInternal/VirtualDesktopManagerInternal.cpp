@@ -37,38 +37,72 @@ void VirtualDesktopManagerInternal::InitializeWindowManagerComObjects()
 	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": QueryService(CLSID_VirtualDesktopPinnedApps) failed", hr);
 }
 
+
+void VirtualDesktopManagerInternal::InitializeEventHandlers()
+{
+	HRESULT hr = immersiveShellServiceProvider_->QueryService(CLSID_IVirtualNotificationService, __uuidof(desktopNotificationService_), desktopNotificationService_.put_void());
+	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": QueryService(CLSID_IVirtualNotificationService) failed", hr);
+
+	notifier_ = winrt::make<VirtualDesktopNotifier>(this, &CurrentDesktopChanged, &VirtualDesktopAdded, &VirtualDesktopRemoved, &WindowChangedDesktops);
+	desktopNotificationService_->Register(notifier_.get(), &notificationRegistrationCookie_);
+}
+
+void VirtualDesktopManagerInternal::UninitializeEventHandlers()
+{
+	if (notificationRegistrationCookie_ == 0) return;
+
+	desktopNotificationService_->Unregister(notificationRegistrationCookie_);
+}
+
+
 //
 // Virtual Desktop Notifications
 //
-VirtualDesktopManagerInternal::VirtualDesktopNotifier::VirtualDesktopNotifier(VirtualDesktopManagerInternal* vdmi,
-																			  CurrentDesktopChanged_T* desktop_changed_event) :
+VirtualDesktopManagerInternal::VirtualDesktopNotifier::VirtualDesktopNotifier(
+		VirtualDesktopManagerInternal* vdmi,
+		CurrentDesktopChanged_T* desktopChanged,
+		VirtualDesktopAdded_T* virtualDesktopAdded,
+		VirtualDesktopRemoved_T* virtualDesktopRemoved,
+		WindowChangedDesktops_T* windowChangedDesktops)	:
 	vdmi_(vdmi),
-	desktop_changed_event_(desktop_changed_event)
+	currentDesktopChanged_(desktopChanged),
+	virtualDesktopAdded_(virtualDesktopAdded),
+	virtualDesktopRemoved_(virtualDesktopRemoved),
+	windowChangedDesktops_(windowChangedDesktops)
 {
-
 }
 
 HRESULT STDMETHODCALLTYPE 
-VirtualDesktopManagerInternal::VirtualDesktopNotifier::VirtualDesktopCreated(IVirtualDesktop* pDesktop)
+VirtualDesktopManagerInternal::VirtualDesktopNotifier::VirtualDesktopCreated(IVirtualDesktop* createdDesktop)
+{
+	auto createdVirtualDesktop = VirtualDesktop(createdDesktop);
+	VirtualDesktopAddedEventArgs args{ createdVirtualDesktop };
+	virtualDesktopAdded_->raise(*vdmi_, args);
+
+	return S_OK;
+}
+
+// Don't care about beginning of event, just if it succeeds
+HRESULT STDMETHODCALLTYPE 
+VirtualDesktopManagerInternal::VirtualDesktopNotifier::VirtualDesktopDestroyBegin(IVirtualDesktop* /*destroyedDesktop*/, IVirtualDesktop* /*fallbackDesktop*/)
+{
+	return S_OK;
+}
+
+// Don't care about failed event, just if it succeeds
+HRESULT STDMETHODCALLTYPE
+VirtualDesktopManagerInternal::VirtualDesktopNotifier::VirtualDesktopDestroyFailed(IVirtualDesktop* /*destroyedDesktop*/, IVirtualDesktop* /*fallbackDesktop*/)
 {
 	return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE 
-VirtualDesktopManagerInternal::VirtualDesktopNotifier::VirtualDesktopDestroyBegin(IVirtualDesktop* pDesktopDestroyed, IVirtualDesktop* pDesktopFallback)
+VirtualDesktopManagerInternal::VirtualDesktopNotifier::VirtualDesktopDestroyed(IVirtualDesktop* destroyedDesktop, IVirtualDesktop* /*fallbackDesktop*/)
 {
-	return S_OK;
-}
+	auto destroyedVirtualDesktop = VirtualDesktop(destroyedDesktop);
+	VirtualDesktopRemovedEventArgs args{ destroyedVirtualDesktop };
+	virtualDesktopRemoved_->raise(*vdmi_, args);
 
-HRESULT STDMETHODCALLTYPE 
-VirtualDesktopManagerInternal::VirtualDesktopNotifier::VirtualDesktopDestroyFailed(IVirtualDesktop* pDesktopDestroyed, IVirtualDesktop* pDesktopFallback)
-{
-	return S_OK;
-}
-
-HRESULT STDMETHODCALLTYPE 
-VirtualDesktopManagerInternal::VirtualDesktopNotifier::VirtualDesktopDestroyed(IVirtualDesktop* pDesktopDestroyed, IVirtualDesktop* pDesktopFallback)
-{
 	return S_OK;
 }
 
@@ -76,7 +110,7 @@ HRESULT STDMETHODCALLTYPE
 VirtualDesktopManagerInternal::VirtualDesktopNotifier::ViewVirtualDesktopChanged(IApplicationView* view)
 {
 	WindowChangedDesktopEventArgs args{ {view} };
-	//WindowChangedDesktops->raise(*vdmi_, args);
+	windowChangedDesktops_->raise(*vdmi_, args);
 
 	return S_OK;
 }
@@ -87,25 +121,9 @@ VirtualDesktopManagerInternal::VirtualDesktopNotifier::CurrentVirtualDesktopChan
 	auto oldVirtualDesktop = VirtualDesktop(oldDesktop);
 	auto newVirtualDesktop = VirtualDesktop(newDesktop);
 	VirtualDesktopChangedEventArgs args{ oldVirtualDesktop, newVirtualDesktop };
-	desktop_changed_event_->raise(*vdmi_, args);
+	currentDesktopChanged_->raise(*vdmi_, args);
 
 	return S_OK;
 }
 
 
-
-void VirtualDesktopManagerInternal::InitializeEventHandlers()
-{
-	HRESULT hr = immersiveShellServiceProvider_->QueryService(CLSID_IVirtualNotificationService, __uuidof(desktopNotificationService_), desktopNotificationService_.put_void());
-	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": QueryService(CLSID_IVirtualNotificationService) failed", hr);
-
-	notifier_ = winrt::make<VirtualDesktopNotifier>(this, &CurrentDesktopChanged);
-	desktopNotificationService_->Register(notifier_.get(), &notificationRegistrationCookie_);
-}
-
-void VirtualDesktopManagerInternal::UninitializeEventHandlers()
-{
-	if (notificationRegistrationCookie_ == 0) return;
-
-	desktopNotificationService_->Unregister(notificationRegistrationCookie_);
-}
