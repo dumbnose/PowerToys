@@ -157,6 +157,8 @@
   <ItemGroup>
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="TopLevelWindow.hpp" />
+    <ClInclude Include="VirtualDesktop.hpp" />
     <ClInclude Include="VirtualDesktopManagerCom.h" />
     <ClInclude Include="VirtualDesktopManagerInternal.h" />
   </ItemGroup>
@@ -167,6 +169,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="TopLevelWindow.cpp" />
+    <ClCompile Include="VirtualDesktop.cpp" />
     <ClCompile Include="VirtualDesktopManagerInternal.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

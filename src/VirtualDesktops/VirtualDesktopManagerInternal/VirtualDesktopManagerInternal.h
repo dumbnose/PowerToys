@@ -2,42 +2,13 @@
 
 #include <list>
 #include <dumbnose/event_source.hpp>
-
-
-struct TopLevelWindow
-{
-	IApplicationView* View;
-};
-
-
-struct ApplicationId
-{
-	std::string AUMID;
-};
+#include "TopLevelWindow.hpp"
+#include "VirtualDesktop.hpp"
 
 
 struct WindowChangedDesktopEventArgs
 {
 	TopLevelWindow Window;
-};
-
-
-class VirtualDesktop
-{
-public:
-	VirtualDesktop(IVirtualDesktop* desktop) : desktop_(desktop) {}
-
-	std::string Id;
-
-	bool IsWindowVisible(TopLevelWindow window);
-	bool IsWindowPresent(TopLevelWindow window);
-	bool IsApplicationPresent(ApplicationId app);
-
-	std::list<ApplicationId> Applications;
-	std::list<TopLevelWindow> Windows;
-
-private:
-	IVirtualDesktop* desktop_;
 };
 
 

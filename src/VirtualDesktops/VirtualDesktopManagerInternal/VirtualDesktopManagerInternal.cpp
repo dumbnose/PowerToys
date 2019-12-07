@@ -22,7 +22,7 @@ void VirtualDesktopManagerInternal::InitializeWindowManagerComObjects()
 	HRESULT hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
 	hr = ::CoCreateInstance(CLSID_ImmersiveShell, nullptr, CLSCTX_LOCAL_SERVER, __uuidof(immersiveShellServiceProvider_), immersiveShellServiceProvider_.put_void());
-	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": CoCreateInstance failed", hr);
+	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": CoCreateInstance() failed", hr);
 
 	hr = immersiveShellServiceProvider_->QueryService(__uuidof(IVirtualDesktopManager), desktopManager_.put());
 	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": QueryService(IVirtualDesktopManager) failed", hr);
@@ -52,6 +52,14 @@ void VirtualDesktopManagerInternal::UninitializeEventHandlers()
 	if (notificationRegistrationCookie_ == 0) return;
 
 	desktopNotificationService_->Unregister(notificationRegistrationCookie_);
+}
+
+
+std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::CurrentDesktop()
+{
+	IVirtualDesktop* desktop;
+	HRESULT hr = desktopManagerInternal_->GetCurrentDesktop(&desktop);
+	return std::make_shared<VirtualDesktop>(desktop);
 }
 
 

@@ -27,12 +27,24 @@
     <ClInclude Include="VirtualDesktopManagerInternal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="VirtualDesktop.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TopLevelWindow.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VirtualDesktopManagerInternal.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VirtualDesktop.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TopLevelWindow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
