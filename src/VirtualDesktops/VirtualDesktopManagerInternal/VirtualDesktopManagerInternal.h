@@ -53,7 +53,7 @@ public:
 	typedef dumbnose::event_source<const VirtualDesktopManagerInternal&, const WindowChangedDesktopEventArgs&> WindowChangedDesktops_T;
 	WindowChangedDesktops_T WindowChangedDesktops;
 
-	std::list<VirtualDesktop> VirtualDesktops;
+	std::list<VirtualDesktop> VirtualDesktops();
 	std::shared_ptr<VirtualDesktop> CurrentDesktop();
 
 	std::shared_ptr<VirtualDesktop> GetAdjacentDesktop(VirtualDesktopAdjacentDirection direction);

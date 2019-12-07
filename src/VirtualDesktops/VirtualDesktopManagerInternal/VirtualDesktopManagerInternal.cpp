@@ -17,6 +17,7 @@ VirtualDesktopManagerInternal::~VirtualDesktopManagerInternal()
 	UninitializeEventHandlers();
 }
 
+
 void VirtualDesktopManagerInternal::InitializeWindowManagerComObjects()
 {
 	HRESULT hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -47,6 +48,7 @@ void VirtualDesktopManagerInternal::InitializeEventHandlers()
 	desktopNotificationService_->Register(notifier_.get(), &notificationRegistrationCookie_);
 }
 
+
 void VirtualDesktopManagerInternal::UninitializeEventHandlers()
 {
 	if (notificationRegistrationCookie_ == 0) return;
@@ -55,12 +57,40 @@ void VirtualDesktopManagerInternal::UninitializeEventHandlers()
 }
 
 
+std::list<VirtualDesktop> VirtualDesktopManagerInternal::VirtualDesktops()
+{
+	std::list<VirtualDesktop> desktops;
+	winrt::com_ptr<IObjectArray> comDesktops;
+	HRESULT hr = desktopManagerInternal_->GetDesktops(comDesktops.put());
+	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": GetDesktops() failed", hr);
+
+	UINT count = 0;
+	comDesktops->GetCount(&count);
+	for (UINT i = 0; i < count; i++) {
+		winrt::com_ptr<IVirtualDesktop> comDesktop;
+		comDesktops->GetAt(i, __uuidof(comDesktop), comDesktop.put_void());
+		desktops.push_back(VirtualDesktop(comDesktop.get()));
+	}
+
+	return desktops;
+}
+
 std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::CurrentDesktop()
 {
 	IVirtualDesktop* desktop;
 	HRESULT hr = desktopManagerInternal_->GetCurrentDesktop(&desktop);
 	return std::make_shared<VirtualDesktop>(desktop);
 }
+
+
+bool VirtualDesktopManagerInternal::TrySwitchToDesktop(VirtualDesktop& newDesktop)
+{
+	HRESULT hr = desktopManagerInternal_->SwitchDesktop(newDesktop.ComVirtualDesktop().get());
+
+	return SUCCEEDED(hr);
+}
+
+
 
 
 //

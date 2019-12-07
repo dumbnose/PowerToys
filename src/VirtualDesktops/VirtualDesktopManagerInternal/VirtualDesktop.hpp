@@ -15,6 +15,7 @@ public:
 	VirtualDesktop(IVirtualDesktop* desktop);
 
 	std::wstring Id;
+	winrt::com_ptr<IVirtualDesktop> ComVirtualDesktop() { return desktop_; }
 
 	bool IsWindowVisible(TopLevelWindow& window);
 	bool IsWindowPresent(TopLevelWindow& window);

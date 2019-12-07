@@ -23,7 +23,6 @@ namespace VirtualDesktopsUnitTest
 						<< "New Desktop:       " << args.NewDesktop.Id << std::endl
 						<< "Current Desktop:   " << vdmi.CurrentDesktop()->Id << std::endl;
 
-
 				OutputDebugString(message.str().c_str());
 			});
 
@@ -39,7 +38,36 @@ namespace VirtualDesktopsUnitTest
 				OutputDebugString(L"Window changed desktop\n");
 			});
 
-			Sleep(10000);
+			CycleThroughDesktops(vdmi);
+
+			Sleep(1000);
+		}
+
+		TEST_METHOD(TestEnumeration)
+		{
+			VirtualDesktopManagerInternal vdmi;
+			auto desktops = vdmi.VirtualDesktops();
+
+			std::wstringstream message;
+			message << L"Virtual Desktops:\n";
+			for (auto& desktop : desktops) {
+				message << L"Desktop: " << desktop.Id << std::endl;
+			}
+
+			OutputDebugString(message.str().c_str());
+		}
+
+		void CycleThroughDesktops(VirtualDesktopManagerInternal& vdmi)
+		{
+			auto originalDesktop = vdmi.CurrentDesktop();
+
+			auto desktops = vdmi.VirtualDesktops();
+			for (auto& desktop : desktops) {
+				vdmi.TrySwitchToDesktop(desktop);
+				Sleep(2000);
+			}
+
+			vdmi.TrySwitchToDesktop(*originalDesktop);
 		}
 	};
 }
