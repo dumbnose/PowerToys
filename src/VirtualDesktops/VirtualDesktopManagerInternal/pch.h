@@ -25,3 +25,5 @@
 #include <winrt/Windows.Foundation.h>
 
 #include "VirtualDesktopManagerCom.h"
+#include <dumbnose/windows_exception.hpp>
+using dumbnose::windows_exception;

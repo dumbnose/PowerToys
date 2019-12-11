@@ -74,7 +74,7 @@ public:
 	bool TryRemoveDesktop(VirtualDesktop& desktop, VirtualDesktop& newTargetDesktop);
 	std::shared_ptr<VirtualDesktop> GetById(std::string& virtualDesktopId);
 
-	void MoveWindowToDesktop(TopLevelWindow& window, VirtualDesktop& desktop);
+	bool TryMoveWindowToDesktop(TopLevelWindow& window, VirtualDesktop& desktop);
 	void MoveApplicationToDesktop(ApplicationId& appId, VirtualDesktop& desktop);
 
 	// Why are these on the Manager and not on a VirtualDesktop? I assume you're pinning them to a specific desktop?
