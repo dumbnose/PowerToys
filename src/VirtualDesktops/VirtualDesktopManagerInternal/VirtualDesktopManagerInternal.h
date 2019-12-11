@@ -37,6 +37,14 @@ enum class VirtualDesktopAdjacentDirection
 	Right = 4
 };
 
+struct VirtualDesktopAdjacentDirectionOps
+{
+	static AdjacentDesktop Convert(VirtualDesktopAdjacentDirection direction)
+	{
+		return direction == VirtualDesktopAdjacentDirection::Left ? AdjacentDesktop::LeftDirection : AdjacentDesktop::RightDirection;
+	}
+};
+
 
 class VirtualDesktopManagerInternal
 {
@@ -57,7 +65,7 @@ public:
 	std::shared_ptr<VirtualDesktop> CurrentDesktop();
 
 	std::shared_ptr<VirtualDesktop> GetAdjacentDesktop(VirtualDesktopAdjacentDirection direction);
-	std::shared_ptr<VirtualDesktop> GetAdjacentDesktop(VirtualDesktopAdjacentDirection direction, const VirtualDesktop& desktopReference);
+	std::shared_ptr<VirtualDesktop> GetAdjacentDesktop(VirtualDesktopAdjacentDirection direction, VirtualDesktop& desktopReference);
 
 	bool TrySwitchToDesktop(VirtualDesktop& newDesktop);
 	std::shared_ptr<VirtualDesktop> AddDesktop(VirtualDesktopAdjacentDirection direction);

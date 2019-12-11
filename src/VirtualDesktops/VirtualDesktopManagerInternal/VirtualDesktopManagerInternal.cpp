@@ -91,6 +91,21 @@ bool VirtualDesktopManagerInternal::TrySwitchToDesktop(VirtualDesktop& newDeskto
 }
 
 
+std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::GetAdjacentDesktop(VirtualDesktopAdjacentDirection direction)
+{
+	return GetAdjacentDesktop(direction, *this->CurrentDesktop());
+}
+
+
+std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::GetAdjacentDesktop(VirtualDesktopAdjacentDirection direction, VirtualDesktop& desktopReference)
+{
+	AdjacentDesktop adjacency = VirtualDesktopAdjacentDirectionOps::Convert(direction);
+	winrt::com_ptr<IVirtualDesktop> comDesktop;
+	desktopManagerInternal_->GetAdjacentDesktop(desktopReference.ComVirtualDesktop().get(), adjacency, comDesktop.put());
+	std::shared_ptr<VirtualDesktop> desktop = std::make_shared<VirtualDesktop>(comDesktop.get());
+
+	return desktop;
+}
 
 
 //
