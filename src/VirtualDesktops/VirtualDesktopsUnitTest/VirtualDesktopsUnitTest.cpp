@@ -60,14 +60,57 @@ namespace VirtualDesktopsUnitTest
 		void CycleThroughDesktops(VirtualDesktopManagerInternal& vdmi)
 		{
 			auto originalDesktop = vdmi.CurrentDesktop();
+			Assert::IsNotNull(originalDesktop.get());
 
 			auto desktops = vdmi.VirtualDesktops();
 			for (auto& desktop : desktops) {
-				vdmi.TrySwitchToDesktop(desktop);
+				bool switched = vdmi.TrySwitchToDesktop(desktop);
+				Assert::IsTrue(switched, L"TrySwitchToDesktop()");
 				Sleep(2000);
 			}
 
-			vdmi.TrySwitchToDesktop(*originalDesktop);
+			bool switched = vdmi.TrySwitchToDesktop(*originalDesktop);
+			Assert::IsTrue(switched, L"TrySwitchToDesktop()");
 		}
+
+		TEST_METHOD(TestAdjacentDesktops)
+		{
+			VirtualDesktopManagerInternal vdmi;
+
+			// Create a new desktop to the right (currently, they always get appended to the right) so that it exists
+			auto newDesktop = vdmi.AddDesktop(VirtualDesktopAdjacentDirection::Right);
+			Assert::IsNotNull(newDesktop.get());
+
+			auto originalDesktop = vdmi.CurrentDesktop();
+			Assert::IsNotNull(originalDesktop.get());
+
+			auto rightDesktop = vdmi.GetAdjacentDesktop(VirtualDesktopAdjacentDirection::Right);
+			Assert::IsNotNull(rightDesktop.get());
+
+			std::wstringstream message;
+			message << L"Current Desktop:  " << originalDesktop->Id << std::endl
+					<< L"Right Desktop:    " << rightDesktop->Id    << std::endl;
+
+			bool switched = vdmi.TrySwitchToDesktop(*rightDesktop);
+			Assert::IsTrue(switched, L"TrySwitchToDesktop()");
+			Assert::AreEqual(vdmi.CurrentDesktop()->Id, rightDesktop->Id);
+			Sleep(1000);
+			message << L"Current Desktop:  " << vdmi.CurrentDesktop()->Id << std::endl;
+
+			switched = vdmi.TrySwitchToDesktop(*originalDesktop);
+			Assert::IsTrue(switched, L"TrySwitchToDesktop()");
+			Assert::AreEqual(vdmi.CurrentDesktop()->Id, originalDesktop->Id);
+			Sleep(1000);
+			message << L"Current Desktop:  " << vdmi.CurrentDesktop()->Id << std::endl;
+
+			// Clean up new desktop
+			bool removed = vdmi.TryRemoveDesktop(*newDesktop, *originalDesktop);
+			Assert::IsTrue(removed);
+			Sleep(1000);
+
+			OutputDebugString(message.str().c_str());
+		}
+
+
 	};
 }

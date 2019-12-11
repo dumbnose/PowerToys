@@ -201,7 +201,7 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE SwitchDesktop(
 		IVirtualDesktop* pDesktop) = 0;
 
-	virtual HRESULT STDMETHODCALLTYPE CreateDesktopW(
+	virtual HRESULT STDMETHODCALLTYPE CreateDesktop(
 		IVirtualDesktop** ppNewDesktop) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE RemoveDesktop(

@@ -107,6 +107,77 @@ std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::GetAdjacentDeskto
 	return desktop;
 }
 
+std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::AddDesktop(VirtualDesktopAdjacentDirection direction)
+{
+	return AddDesktop(direction, *this->CurrentDesktop());
+}
+
+std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::AddDesktop(VirtualDesktopAdjacentDirection direction, const VirtualDesktop& desktopReference)
+{
+	// @todo:  Underlying internal APIs do not currently allow the new desktop to be placed in a direction.  So, for now, just create a new one.
+	AdjacentDesktop adjacency = VirtualDesktopAdjacentDirectionOps::Convert(direction);
+	winrt::com_ptr<IVirtualDesktop> comDesktop;
+	desktopManagerInternal_->CreateDesktop(comDesktop.put());
+	std::shared_ptr<VirtualDesktop> desktop = std::make_shared<VirtualDesktop>(comDesktop.get());
+
+	return desktop;
+}
+
+bool VirtualDesktopManagerInternal::CanRemoveDesktop(const VirtualDesktop& desktop)
+{
+	return true;
+}
+
+bool VirtualDesktopManagerInternal::TryRemoveDesktop(VirtualDesktop& desktop, VirtualDesktop& newTargetDesktop)
+{
+	return SUCCEEDED(desktopManagerInternal_->RemoveDesktop(desktop.ComVirtualDesktop().get(), newTargetDesktop.ComVirtualDesktop().get()));
+}
+
+void VirtualDesktopManagerInternal::MoveWindowToDesktop(TopLevelWindow& window, VirtualDesktop& desktop)
+{
+	HRESULT hr = desktopManagerInternal_->MoveViewToDesktop(window.View, desktop.ComVirtualDesktop().get());
+	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": MoveViewToDesktop() failed", hr);
+}
+
+// @todo:  Implement Application-level functionality
+//void VirtualDesktopManagerInternal::MoveApplicationToDesktop(ApplicationId& appId, VirtualDesktop& desktop)
+//{
+//	throw windows_exception(__FUNCTION__ ": Not Implemented", E_NOTIMPL);
+//}
+
+// @todo:  Implement Application-level functionality
+//bool VirtualDesktopManagerInternal::PinApplication(ApplicationId& appId)
+//{
+//	return false;
+//}
+
+bool VirtualDesktopManagerInternal::PinWindow(TopLevelWindow& window)
+{
+	return false;
+}
+
+// @todo:  Implement Application-level functionality
+//bool VirtualDesktopManagerInternal::UnpinApplication(ApplicationId& appId)
+//{
+//	return false;
+//}
+
+bool VirtualDesktopManagerInternal::UnpinWindow(TopLevelWindow& window)
+{
+	return false;
+}
+
+// @todo:  Implement Application-level functionality
+//bool VirtualDesktopManagerInternal::IsApplicationPinned(const ApplicationId& appId)
+//{
+//	return false;
+//}
+
+bool VirtualDesktopManagerInternal::IsWindowPinned(const TopLevelWindow& window)
+{
+	return false;
+}
+
 
 //
 // Virtual Desktop Notifications
@@ -178,5 +249,4 @@ VirtualDesktopManagerInternal::VirtualDesktopNotifier::CurrentVirtualDesktopChan
 
 	return S_OK;
 }
-
 
