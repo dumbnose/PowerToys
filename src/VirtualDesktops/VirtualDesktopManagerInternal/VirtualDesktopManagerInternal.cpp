@@ -31,8 +31,8 @@ void VirtualDesktopManagerInternal::InitializeWindowManagerComObjects()
 	hr = immersiveShellServiceProvider_->QueryService(CLSID_VirtualDesktopManagerInternal, __uuidof(desktopManagerInternal_), desktopManagerInternal_.put_void());
 	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": QueryService(CLSID_VirtualDesktopManagerInternal) failed", hr);
 
-	//hr = immersiveShellServiceProvider_->QueryService(__uuidof(viewCollection_), &viewCollection_);
-	//if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": QueryService(IApplicationViewCollection) failed", hr);
+	hr = immersiveShellServiceProvider_->QueryService(__uuidof(viewCollection_), viewCollection_.put());
+	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": QueryService(IApplicationViewCollection) failed", hr);
 
 	hr = immersiveShellServiceProvider_->QueryService(CLSID_VirtualDesktopPinnedApps, __uuidof(pinnedApps_), pinnedApps_.put_void());
 	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": QueryService(CLSID_VirtualDesktopPinnedApps) failed", hr);
@@ -85,9 +85,7 @@ std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::CurrentDesktop()
 
 bool VirtualDesktopManagerInternal::TrySwitchToDesktop(VirtualDesktop& newDesktop)
 {
-	HRESULT hr = desktopManagerInternal_->SwitchDesktop(newDesktop.ComVirtualDesktop().get());
-
-	return SUCCEEDED(hr);
+	return SUCCEEDED(desktopManagerInternal_->SwitchDesktop(newDesktop.ComVirtualDesktop().get()));
 }
 
 
@@ -125,7 +123,15 @@ std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::AddDesktop(Virtua
 
 bool VirtualDesktopManagerInternal::CanRemoveDesktop(const VirtualDesktop& desktop)
 {
-	return true;
+	// Assumption is that, if there is more than one desktop, we can remove one
+	winrt::com_ptr<IObjectArray> comDesktops;
+	HRESULT hr = desktopManagerInternal_->GetDesktops(comDesktops.put());
+	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": GetDesktops() failed", hr);
+
+	UINT count = 0;
+	comDesktops->GetCount(&count);
+
+	return count > 1;
 }
 
 bool VirtualDesktopManagerInternal::TryRemoveDesktop(VirtualDesktop& desktop, VirtualDesktop& newTargetDesktop)
@@ -133,10 +139,9 @@ bool VirtualDesktopManagerInternal::TryRemoveDesktop(VirtualDesktop& desktop, Vi
 	return SUCCEEDED(desktopManagerInternal_->RemoveDesktop(desktop.ComVirtualDesktop().get(), newTargetDesktop.ComVirtualDesktop().get()));
 }
 
-void VirtualDesktopManagerInternal::MoveWindowToDesktop(TopLevelWindow& window, VirtualDesktop& desktop)
+bool VirtualDesktopManagerInternal::TryMoveWindowToDesktop(TopLevelWindow& window, VirtualDesktop& desktop)
 {
-	HRESULT hr = desktopManagerInternal_->MoveViewToDesktop(window.View, desktop.ComVirtualDesktop().get());
-	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": MoveViewToDesktop() failed", hr);
+	return SUCCEEDED(desktopManagerInternal_->MoveViewToDesktop(window.View, desktop.ComVirtualDesktop().get()));
 }
 
 // @todo:  Implement Application-level functionality
@@ -145,37 +150,42 @@ void VirtualDesktopManagerInternal::MoveWindowToDesktop(TopLevelWindow& window, 
 //	throw windows_exception(__FUNCTION__ ": Not Implemented", E_NOTIMPL);
 //}
 
-// @todo:  Implement Application-level functionality
-//bool VirtualDesktopManagerInternal::PinApplication(ApplicationId& appId)
-//{
-//	return false;
-//}
+bool VirtualDesktopManagerInternal::PinApplication(ApplicationId& appId)
+{
+	return SUCCEEDED(pinnedApps_->PinAppID(appId.AUMID.c_str()));
+}
 
 bool VirtualDesktopManagerInternal::PinWindow(TopLevelWindow& window)
 {
-	return false;
+	return SUCCEEDED(pinnedApps_->PinView(window.View));
 }
 
-// @todo:  Implement Application-level functionality
-//bool VirtualDesktopManagerInternal::UnpinApplication(ApplicationId& appId)
-//{
-//	return false;
-//}
+bool VirtualDesktopManagerInternal::UnpinApplication(ApplicationId& appId)
+{
+	return SUCCEEDED(pinnedApps_->UnpinAppID(appId.AUMID.c_str()));
+}
 
 bool VirtualDesktopManagerInternal::UnpinWindow(TopLevelWindow& window)
 {
-	return false;
+	return SUCCEEDED(pinnedApps_->UnpinView(window.View));
 }
 
-// @todo:  Implement Application-level functionality
-//bool VirtualDesktopManagerInternal::IsApplicationPinned(const ApplicationId& appId)
-//{
-//	return false;
-//}
+bool VirtualDesktopManagerInternal::IsApplicationPinned(const ApplicationId& appId)
+{
+	BOOL pinned = FALSE;
+	HRESULT hr = pinnedApps_->IsAppIdPinned(appId.AUMID.c_str(), &pinned);
+	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": IsAppIdPinned() failed", hr);
+
+	return pinned;
+}
 
 bool VirtualDesktopManagerInternal::IsWindowPinned(const TopLevelWindow& window)
 {
-	return false;
+	BOOL pinned = FALSE;
+	HRESULT hr = pinnedApps_->IsViewPinned(window.View, &pinned);
+	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": IsViewPinned() failed", hr);
+
+	return pinned;
 }
 
 
