@@ -1,5 +1,8 @@
 #include "pch.h"
 #include "CppUnitTest.h"
+#include <algorithm>
+#include <list>
+#include <map>
 #include <sstream>
 
 
@@ -36,18 +39,19 @@ namespace VirtualDesktopsUnitTest
 
 			auto windowChangedDesktopCookie = vdmi.WindowChangedDesktops.register_listener([&](const VirtualDesktopManagerInternal& src, const WindowChangedDesktopEventArgs& args) {
 
-				PWSTR aumid = nullptr;
-				HRESULT hr = args.Window.View->GetAppUserModelId(&aumid);
-				Assert::IsTrue(SUCCEEDED(hr));
+				auto desktop = vdmi.GetById(args.Window.GetVirtualDesktopId());
 
 				std::wstringstream message;
-				message << L"Window changed desktop"	<< std::endl
-						<< L"AUMID:  "					<< aumid << std::endl;
+				if (desktop != nullptr) {
+					message << L"Window changed desktop" << std::endl
+							<< L"AUMID:  " << args.Window.GetAppUserModelId() << std::endl
+							<< L"VDID:   " << desktop->Id << std::endl;
+				} else {
+					message << L"Window removed" << std::endl
+							<< L"AUMID:  " << args.Window.GetAppUserModelId() << std::endl;
+				}
 
 				OutputDebugString(message.str().c_str());
-
-				CoTaskMemFree(aumid);
-
 			});
 
 			CycleThroughDesktops(vdmi);
@@ -121,6 +125,71 @@ namespace VirtualDesktopsUnitTest
 			Sleep(1000);
 
 			OutputDebugString(message.str().c_str());
+		}
+
+		TEST_METHOD(TestViewVirtualDesktopManagement)
+		{
+			std::list<std::wstring> knownViews;
+			std::map<std::wstring, std::wstring> viewToVirtualDesktop;
+
+			VirtualDesktopManagerInternal vdmi;
+
+			auto windowChangedDesktopCookie = vdmi.WindowChangedDesktops.register_listener([&](VirtualDesktopManagerInternal& src, WindowChangedDesktopEventArgs& args) {
+
+				auto desktop = vdmi.GetById(args.Window.GetVirtualDesktopId());
+
+				std::wstring aumid = args.Window.GetAppUserModelId();
+
+				// View is closing, remove from knownViews
+				if (desktop == nullptr) {
+					knownViews.remove(aumid);
+					return;
+				}
+
+				std::wstringstream message;
+				message << L"AppUserModelId:    " << aumid << std::endl
+						<< L"VirtualDesktopId:  " << desktop->Id << std::endl;
+
+				// If we have not seen this view before during this run, it is new
+				if (std::find(knownViews.begin(), knownViews.end(),aumid) == knownViews.end()) {
+
+					message << L"New window found" << std::endl;
+					knownViews.push_back(aumid);
+
+					// Check to see where it last was and move it to there, if applicable
+					auto previousDesktopIter = viewToVirtualDesktop.find(aumid);
+					if (previousDesktopIter != viewToVirtualDesktop.end()) {
+
+						// Check to see if it is already on the correct desktop and move it if it isn't
+						if (desktop->Id.compare(previousDesktopIter->second) != 0) {
+							auto previousDesktop = vdmi.GetById(previousDesktopIter->second);
+
+							bool moved = vdmi.TryMoveWindowToDesktop(args.Window, *previousDesktop);
+							message << "Moved to previous window: " << moved << std::endl;
+						} else {
+							message << "Already on correct window" << std::endl;
+						}
+
+					} else {
+
+						// Remember this view's desktop for later
+						viewToVirtualDesktop[aumid] = desktop->Id;
+
+					}
+				} else {
+
+					// We have seen this window before, so it is moving between windows
+					message << L"Window changed desktop" << std::endl;
+
+					// Remember this value for later
+					viewToVirtualDesktop[aumid] = desktop->Id;
+				}
+
+				OutputDebugString(message.str().c_str());
+
+			});
+
+			Sleep(100000);
 		}
 
 

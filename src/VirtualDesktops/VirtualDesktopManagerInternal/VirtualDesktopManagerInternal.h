@@ -52,13 +52,13 @@ public:
 	VirtualDesktopManagerInternal();
 	~VirtualDesktopManagerInternal();
 
-	typedef dumbnose::event_source<const VirtualDesktopManagerInternal&, const VirtualDesktopChangedEventArgs&> CurrentDesktopChanged_T;
+	typedef dumbnose::event_source<VirtualDesktopManagerInternal&, VirtualDesktopChangedEventArgs&> CurrentDesktopChanged_T;
 	CurrentDesktopChanged_T CurrentDesktopChanged;
-	typedef dumbnose::event_source<const VirtualDesktopManagerInternal&, const VirtualDesktopAddedEventArgs&> VirtualDesktopAdded_T;
+	typedef dumbnose::event_source<VirtualDesktopManagerInternal&, VirtualDesktopAddedEventArgs&> VirtualDesktopAdded_T;
 	VirtualDesktopAdded_T VirtualDesktopAdded;
-	typedef dumbnose::event_source<const VirtualDesktopManagerInternal&, const VirtualDesktopRemovedEventArgs&> VirtualDesktopRemoved_T;
+	typedef dumbnose::event_source<VirtualDesktopManagerInternal&, VirtualDesktopRemovedEventArgs&> VirtualDesktopRemoved_T;
 	VirtualDesktopRemoved_T VirtualDesktopRemoved;
-	typedef dumbnose::event_source<const VirtualDesktopManagerInternal&, const WindowChangedDesktopEventArgs&> WindowChangedDesktops_T;
+	typedef dumbnose::event_source<VirtualDesktopManagerInternal&, WindowChangedDesktopEventArgs&> WindowChangedDesktops_T;
 	WindowChangedDesktops_T WindowChangedDesktops;
 
 	std::list<VirtualDesktop> VirtualDesktops();
@@ -72,7 +72,8 @@ public:
 	std::shared_ptr<VirtualDesktop> AddDesktop(VirtualDesktopAdjacentDirection direction, const VirtualDesktop& desktopReference);
 	bool CanRemoveDesktop(const VirtualDesktop& desktop);
 	bool TryRemoveDesktop(VirtualDesktop& desktop, VirtualDesktop& newTargetDesktop);
-	std::shared_ptr<VirtualDesktop> GetById(std::string& virtualDesktopId);
+	std::shared_ptr<VirtualDesktop> GetById(GUID& virtualDesktopId);
+	std::shared_ptr<VirtualDesktop> GetById(std::wstring& virtualDesktopId);
 
 	bool TryMoveWindowToDesktop(TopLevelWindow& window, VirtualDesktop& desktop);
 	void MoveApplicationToDesktop(ApplicationId& appId, VirtualDesktop& desktop);

@@ -139,6 +139,27 @@ bool VirtualDesktopManagerInternal::TryRemoveDesktop(VirtualDesktop& desktop, Vi
 	return SUCCEEDED(desktopManagerInternal_->RemoveDesktop(desktop.ComVirtualDesktop().get(), newTargetDesktop.ComVirtualDesktop().get()));
 }
 
+std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::GetById(GUID& virtualDesktopId)
+{
+	GUID nullGuid = { 0 };
+	if (virtualDesktopId == nullGuid) return std::shared_ptr<VirtualDesktop>();
+
+	winrt::com_ptr<IVirtualDesktop> comDesktop;
+	HRESULT hr = desktopManagerInternal_->FindDesktop(&virtualDesktopId, comDesktop.put());
+	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": FindDesktop() failed", hr);
+
+	return std::make_shared<VirtualDesktop>(comDesktop.get());
+}
+
+std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::GetById(std::wstring& virtualDesktopId)
+{
+	GUID vdId = { 0 };
+	HRESULT hr = CLSIDFromString(virtualDesktopId.c_str(), &vdId);
+	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": CLSIDFromString() failed", hr);
+
+	return GetById(vdId);
+}
+
 bool VirtualDesktopManagerInternal::TryMoveWindowToDesktop(TopLevelWindow& window, VirtualDesktop& desktop)
 {
 	return SUCCEEDED(desktopManagerInternal_->MoveViewToDesktop(window.View, desktop.ComVirtualDesktop().get()));
