@@ -19,9 +19,9 @@ namespace VirtualDesktopsUnitTest
 
 				std::wstringstream message;
 				message << L"Current virtual desktop changed" << std::endl
-						<< "Original Desktop:  " << args.OriginalDesktop.Id << std::endl
-						<< "New Desktop:       " << args.NewDesktop.Id << std::endl
-						<< "Current Desktop:   " << vdmi.CurrentDesktop()->Id << std::endl;
+						<< L"Original Desktop:  " << args.OriginalDesktop.Id << std::endl
+						<< L"New Desktop:       " << args.NewDesktop.Id << std::endl
+						<< L"Current Desktop:   " << vdmi.CurrentDesktop()->Id << std::endl;
 
 				OutputDebugString(message.str().c_str());
 			});
@@ -35,7 +35,19 @@ namespace VirtualDesktopsUnitTest
 			});
 
 			auto windowChangedDesktopCookie = vdmi.WindowChangedDesktops.register_listener([&](const VirtualDesktopManagerInternal& src, const WindowChangedDesktopEventArgs& args) {
-				OutputDebugString(L"Window changed desktop\n");
+
+				PWSTR aumid = nullptr;
+				HRESULT hr = args.Window.View->GetAppUserModelId(&aumid);
+				Assert::IsTrue(SUCCEEDED(hr));
+
+				std::wstringstream message;
+				message << L"Window changed desktop"	<< std::endl
+						<< L"AUMID:  "					<< aumid << std::endl;
+
+				OutputDebugString(message.str().c_str());
+
+				CoTaskMemFree(aumid);
+
 			});
 
 			CycleThroughDesktops(vdmi);
