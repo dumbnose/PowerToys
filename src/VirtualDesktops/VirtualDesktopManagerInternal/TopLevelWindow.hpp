@@ -23,7 +23,10 @@ public:
 
 		wil::unique_cotaskmem_string aumid;
 		HRESULT hr = view_->GetAppUserModelId(&aumid);
-		if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": GetAppUserModelId() failed", hr);
+
+		// There is a race condition where the Window may be gone by the time this is called.  Return "" for this case.
+		//if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": GetAppUserModelId() failed", hr);
+		if (FAILED(hr)) return L"";
 
 		std::wstring appUserModelId = aumid.get();
 

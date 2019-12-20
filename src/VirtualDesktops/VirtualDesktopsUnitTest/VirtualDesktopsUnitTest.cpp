@@ -133,7 +133,6 @@ namespace VirtualDesktopsUnitTest
 
 		void LoadPreviousVirtualDesktopMappings(std::map<std::wstring, std::wstring>& viewToVirtualDesktop)
 		{
-
 			auto settingsKey = dumbnose::registry::key::hkcu().open_all_access(RegistryHelpers::REG_SETTINGS);
 			auto key = settingsKey.open_all_access(keyRoot);
 			
@@ -161,6 +160,7 @@ namespace VirtualDesktopsUnitTest
 				auto desktop = vdmi.GetById(args.Window.GetVirtualDesktopId());
 
 				std::wstring aumid = args.Window.GetAppUserModelId();
+				if (aumid.length() == 0) return;
 
 				// View is closing, remove from knownViews
 				if (desktop == nullptr) {
