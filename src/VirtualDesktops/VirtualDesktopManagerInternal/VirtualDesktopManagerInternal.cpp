@@ -162,7 +162,7 @@ std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::GetById(std::wstr
 
 bool VirtualDesktopManagerInternal::TryMoveWindowToDesktop(TopLevelWindow& window, VirtualDesktop& desktop)
 {
-	return SUCCEEDED(desktopManagerInternal_->MoveViewToDesktop(window.View, desktop.ComVirtualDesktop().get()));
+	return SUCCEEDED(desktopManagerInternal_->MoveViewToDesktop(window.View().get(), desktop.ComVirtualDesktop().get()));
 }
 
 // @todo:  Implement Application-level functionality
@@ -178,7 +178,7 @@ bool VirtualDesktopManagerInternal::PinApplication(ApplicationId& appId)
 
 bool VirtualDesktopManagerInternal::PinWindow(TopLevelWindow& window)
 {
-	return SUCCEEDED(pinnedApps_->PinView(window.View));
+	return SUCCEEDED(pinnedApps_->PinView(window.View().get()));
 }
 
 bool VirtualDesktopManagerInternal::UnpinApplication(ApplicationId& appId)
@@ -188,7 +188,7 @@ bool VirtualDesktopManagerInternal::UnpinApplication(ApplicationId& appId)
 
 bool VirtualDesktopManagerInternal::UnpinWindow(TopLevelWindow& window)
 {
-	return SUCCEEDED(pinnedApps_->UnpinView(window.View));
+	return SUCCEEDED(pinnedApps_->UnpinView(window.View().get()));
 }
 
 bool VirtualDesktopManagerInternal::IsApplicationPinned(const ApplicationId& appId)
@@ -200,10 +200,10 @@ bool VirtualDesktopManagerInternal::IsApplicationPinned(const ApplicationId& app
 	return pinned;
 }
 
-bool VirtualDesktopManagerInternal::IsWindowPinned(const TopLevelWindow& window)
+bool VirtualDesktopManagerInternal::IsWindowPinned(TopLevelWindow& window)
 {
 	BOOL pinned = FALSE;
-	HRESULT hr = pinnedApps_->IsViewPinned(window.View, &pinned);
+	HRESULT hr = pinnedApps_->IsViewPinned(window.View().get(), &pinned);
 	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": IsViewPinned() failed", hr);
 
 	return pinned;

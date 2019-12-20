@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <tchar.h>
+#include <strsafe.h>
 
 #include <string>
 #include <objbase.h>

@@ -12,6 +12,9 @@
 
 #include <stdio.h>
 #include <tchar.h>
+#include <strsafe.h>
+#include <wil\resource.h>
+#include <wil\result.h>
 
 #include <string>
 #include <objbase.h>

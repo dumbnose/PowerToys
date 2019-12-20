@@ -4,6 +4,8 @@
 #include <list>
 #include <map>
 #include <sstream>
+#include <dumbnose/registry/key.hpp>
+#include "../../modules/fancyzones/lib/RegistryHelpers.h"
 
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
@@ -127,10 +129,30 @@ namespace VirtualDesktopsUnitTest
 			OutputDebugString(message.str().c_str());
 		}
 
+		const wchar_t* keyRoot = L"VirtualDesktopManagerUnitTests";
+
+		void LoadPreviousVirtualDesktopMappings(std::map<std::wstring, std::wstring>& viewToVirtualDesktop)
+		{
+
+			auto settingsKey = dumbnose::registry::key::hkcu().open_all_access(RegistryHelpers::REG_SETTINGS);
+			auto key = settingsKey.open_all_access(keyRoot);
+			
+			viewToVirtualDesktop = key.enum_values_as_strings();
+		}
+
+		void SaveVirtualDesktopMappings(std::map<std::wstring, std::wstring>& viewToVirtualDesktop)
+		{
+			auto settingsKey = dumbnose::registry::key::hkcu().open_all_access(RegistryHelpers::REG_SETTINGS);
+			auto key = settingsKey.open_all_access(keyRoot);
+
+			key.save_enum_values_as_strings(viewToVirtualDesktop);
+		}
+
 		TEST_METHOD(TestViewVirtualDesktopManagement)
 		{
 			std::list<std::wstring> knownViews;
 			std::map<std::wstring, std::wstring> viewToVirtualDesktop;
+			LoadPreviousVirtualDesktopMappings(viewToVirtualDesktop);
 
 			VirtualDesktopManagerInternal vdmi;
 
@@ -189,7 +211,9 @@ namespace VirtualDesktopsUnitTest
 
 			});
 
-			Sleep(100000);
+			Sleep(10000);
+
+			SaveVirtualDesktopMappings(viewToVirtualDesktop);
 		}
 
 

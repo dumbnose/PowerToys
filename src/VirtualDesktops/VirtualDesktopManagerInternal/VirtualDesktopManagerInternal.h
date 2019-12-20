@@ -86,7 +86,7 @@ public:
 	bool UnpinApplication(ApplicationId& appId);
 	bool UnpinWindow(TopLevelWindow& window);
 	bool IsApplicationPinned(const ApplicationId& appId);
-	bool IsWindowPinned(const TopLevelWindow& window);
+	bool IsWindowPinned(TopLevelWindow& window);
 
 protected:
 	void InitializeWindowManagerComObjects();
