@@ -103,6 +103,45 @@ DECLARE_INTERFACE_IID_(IApplicationView, IInspectable, "372E1D3B-38D3-42E4-A15B-
 
 const __declspec(selectany) IID& IID_IApplicationView = __uuidof(IApplicationView);
 
+
+// Extension of application view to support the HostId for multi-instance.  This also applies to centennial apps.
+[
+	object,
+	uuid(7F25223A - 79AD - 4E72 - A39A - 6A194DD604C1)
+]
+interface IApplicationView2 : IInspectable
+{
+	HRESULT GetHostId([out] HOSTID* pHostId);
+	HRESULT IsEqualByHostId([in] HOSTID hostId, [out] BOOL* pfEqual);
+}
+// struct IApplicationView2 : public IUnknown
+DECLARE_INTERFACE_IID_(IApplicationView2, IUnknown, "7F25223A-79AD-4E72-A39A-6A194DD604C1")
+{
+	/*** IUnknown methods ***/
+	STDMETHOD(QueryInterface)(THIS_ REFIID riid, LPVOID FAR * ppvObject) PURE;
+	STDMETHOD_(ULONG, AddRef)(THIS) PURE;
+	STDMETHOD_(ULONG, Release)(THIS) PURE;
+
+	/*** IApplicationView2 methods ***/
+	STDMETHOD(GetHostId)(THIS_ ULONG64*) PURE;
+	STDMETHOD(IsEqualByHostId)(THIS_ ULONG64*) PURE;
+};
+
+// struct IWin32ApplicationView : public IUnknown
+DECLARE_INTERFACE_IID_(IWin32ApplicationView, IUnknown, "F3527610-C76D-4316-AC8E-28651ACF3DF3")
+{
+	/*** IUnknown methods ***/
+	STDMETHOD(QueryInterface)(THIS_ REFIID riid, LPVOID FAR * ppvObject) PURE;
+	STDMETHOD_(ULONG, AddRef)(THIS) PURE;
+	STDMETHOD_(ULONG, Release)(THIS) PURE;
+
+	/*** IWin32ApplicationView methods ***/
+	STDMETHOD(GetWindow)(THIS_ HWND*) PURE;
+	STDMETHOD(GetCloakableWindows)(THIS_ UINT*, HWND**) PURE;
+};
+
+const __declspec(selectany) IID& IID_IWin32ApplicationView = __uuidof(IWin32ApplicationView);
+
 DECLARE_INTERFACE_IID_(IVirtualDesktopPinnedApps, IUnknown, "4ce81583-1e4c-4632-a621-07a53543148f")
 {
 	/*** IUnknown methods ***/

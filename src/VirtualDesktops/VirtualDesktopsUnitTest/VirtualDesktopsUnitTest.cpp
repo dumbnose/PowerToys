@@ -159,6 +159,11 @@ namespace VirtualDesktopsUnitTest
 
 				auto desktop = vdmi.GetById(args.Window.GetVirtualDesktopId());
 
+				winrt::com_ptr<IWin32ApplicationView> win32AppView = args.Window.View().try_as<IWin32ApplicationView>();
+				if (win32AppView == nullptr) {
+					OutputDebugString(L"Could not get win32 app view");
+				}
+
 				std::wstring aumid = args.Window.GetAppUserModelId();
 				if (aumid.length() == 0) return;
 
