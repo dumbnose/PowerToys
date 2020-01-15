@@ -23,5 +23,7 @@
 #include <vector>
 #include <algorithm>
 
+#include <dumbnose/singleton.hpp>
+
 #include "..\VirtualDesktopManagerInternal\VirtualDesktopManagerCom.h"
 #include "..\VirtualDesktopManagerInternal\VirtualDesktopManagerInternal.h"
