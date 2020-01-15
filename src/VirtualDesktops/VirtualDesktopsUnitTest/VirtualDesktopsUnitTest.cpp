@@ -133,92 +133,102 @@ namespace VirtualDesktopsUnitTest
 
 		void LoadPreviousVirtualDesktopMappings(std::map<std::wstring, std::wstring>& viewToVirtualDesktop)
 		{
-			auto settingsKey = dumbnose::registry::key::hkcu().open_all_access(RegistryHelpers::REG_SETTINGS);
-			auto key = settingsKey.open_all_access(keyRoot);
+			auto settingsKey = dumbnose::registry::key::hkcu().create(RegistryHelpers::REG_SETTINGS);
+			auto key = settingsKey.create(keyRoot);
 			
 			viewToVirtualDesktop = key.enum_values_as_strings();
 		}
 
 		void SaveVirtualDesktopMappings(std::map<std::wstring, std::wstring>& viewToVirtualDesktop)
 		{
-			auto settingsKey = dumbnose::registry::key::hkcu().open_all_access(RegistryHelpers::REG_SETTINGS);
-			auto key = settingsKey.open_all_access(keyRoot);
+			auto settingsKey = dumbnose::registry::key::hkcu().create(RegistryHelpers::REG_SETTINGS);
+			auto key = settingsKey.create(keyRoot);
 
 			key.save_enum_values_as_strings(viewToVirtualDesktop);
 		}
 
 		TEST_METHOD(TestViewVirtualDesktopManagement)
 		{
-			std::list<std::wstring> knownViews;
-			std::map<std::wstring, std::wstring> viewToVirtualDesktop;
-			LoadPreviousVirtualDesktopMappings(viewToVirtualDesktop);
+			try {
 
-			VirtualDesktopManagerInternal vdmi;
+				std::list<std::wstring> knownViews;
+				std::map<std::wstring, std::wstring> viewToVirtualDesktop;
+				LoadPreviousVirtualDesktopMappings(viewToVirtualDesktop);
 
-			auto windowChangedDesktopCookie = vdmi.WindowChangedDesktops.register_listener([&](VirtualDesktopManagerInternal& src, WindowChangedDesktopEventArgs& args) {
+				VirtualDesktopManagerInternal vdmi;
 
-				auto desktop = vdmi.GetById(args.Window.GetVirtualDesktopId());
+				auto windowChangedDesktopCookie = vdmi.WindowChangedDesktops.register_listener([&](VirtualDesktopManagerInternal& src, WindowChangedDesktopEventArgs& args) {
 
-				winrt::com_ptr<IWin32ApplicationView> win32AppView = args.Window.View().try_as<IWin32ApplicationView>();
-				if (win32AppView == nullptr) {
-					OutputDebugString(L"Could not get win32 app view");
-				}
+					auto desktop = vdmi.GetById(args.Window.GetVirtualDesktopId());
 
-				std::wstring aumid = args.Window.GetAppUserModelId();
-				if (aumid.length() == 0) return;
+					winrt::com_ptr<IWin32ApplicationView> win32AppView = args.Window.View().try_as<IWin32ApplicationView>();
+					if (win32AppView == nullptr) {
+						OutputDebugString(L"Could not get win32 app view");
+					}
 
-				// View is closing, remove from knownViews
-				if (desktop == nullptr) {
-					knownViews.remove(aumid);
-					return;
-				}
+					std::wstring aumid = args.Window.GetAppUserModelId();
+					if (aumid.length() == 0) return;
 
-				std::wstringstream message;
-				message << L"AppUserModelId:    " << aumid << std::endl
+					// View is closing, remove from knownViews
+					if (desktop == nullptr) {
+						knownViews.remove(aumid);
+						return;
+					}
+
+					OutputDebugString(aumid.c_str());
+					std::wstringstream message;
+					message << L"AppUserModelId:    " << aumid << std::endl
 						<< L"VirtualDesktopId:  " << desktop->Id << std::endl;
 
-				// If we have not seen this view before during this run, it is new
-				if (std::find(knownViews.begin(), knownViews.end(),aumid) == knownViews.end()) {
+					// If we have not seen this view before during this run, it is new
+					if (std::find(knownViews.begin(), knownViews.end(), aumid) == knownViews.end()) {
 
-					message << L"New window found" << std::endl;
-					knownViews.push_back(aumid);
+						message << L"New window found" << std::endl;
+						knownViews.push_back(aumid);
 
-					// Check to see where it last was and move it to there, if applicable
-					auto previousDesktopIter = viewToVirtualDesktop.find(aumid);
-					if (previousDesktopIter != viewToVirtualDesktop.end()) {
+						// Check to see where it last was and move it to there, if applicable
+						auto previousDesktopIter = viewToVirtualDesktop.find(aumid);
+						if (previousDesktopIter != viewToVirtualDesktop.end()) {
 
-						// Check to see if it is already on the correct desktop and move it if it isn't
-						if (desktop->Id.compare(previousDesktopIter->second) != 0) {
-							auto previousDesktop = vdmi.GetById(previousDesktopIter->second);
+							// Check to see if it is already on the correct desktop and move it if it isn't
+							if (desktop->Id.compare(previousDesktopIter->second) != 0) {
+								auto previousDesktop = vdmi.GetById(previousDesktopIter->second);
 
-							bool moved = vdmi.TryMoveWindowToDesktop(args.Window, *previousDesktop);
-							message << "Moved to previous window: " << moved << std::endl;
-						} else {
-							message << "Already on correct window" << std::endl;
+								bool moved = vdmi.TryMoveWindowToDesktop(args.Window, *previousDesktop);
+								message << "Moved to previous window: " << moved << std::endl;
+							}
+							else {
+								message << "Already on correct window" << std::endl;
+							}
+
 						}
+						else {
 
-					} else {
+							// Remember this view's desktop for later
+							viewToVirtualDesktop[aumid] = desktop->Id;
 
-						// Remember this view's desktop for later
-						viewToVirtualDesktop[aumid] = desktop->Id;
-
+						}
 					}
-				} else {
+					else {
 
-					// We have seen this window before, so it is moving between windows
-					message << L"Window changed desktop" << std::endl;
+						// We have seen this window before, so it is moving between windows
+						message << L"Window changed desktop" << std::endl;
 
-					// Remember this value for later
-					viewToVirtualDesktop[aumid] = desktop->Id;
-				}
+						// Remember this value for later
+						viewToVirtualDesktop[aumid] = desktop->Id;
+					}
 
-				OutputDebugString(message.str().c_str());
+					OutputDebugString(message.str().c_str());
 
-			});
+				});
 
-			Sleep(10000);
+				Sleep(100000);
 
-			SaveVirtualDesktopMappings(viewToVirtualDesktop);
+				SaveVirtualDesktopMappings(viewToVirtualDesktop);
+			}
+			catch (std::exception& ex) {
+				OutputDebugStringA(ex.what());
+			}
 		}
 
 
