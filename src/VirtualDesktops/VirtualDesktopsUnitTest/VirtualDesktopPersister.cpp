@@ -113,8 +113,6 @@ void VirtualDesktopPersister::LoadPreviousVirtualDesktopMappings()
 
 void VirtualDesktopPersister::SaveVirtualDesktopMappings()
 {
-	auto start = std::chrono::system_clock::now();
-
 	auto settingsKey = dumbnose::registry::key::hkcu().create(RegistryHelpers::REG_SETTINGS);
 	auto key = settingsKey.create(keyRoot);
 

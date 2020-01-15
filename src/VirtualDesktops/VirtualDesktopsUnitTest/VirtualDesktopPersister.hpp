@@ -28,14 +28,6 @@ protected:
 
 	const wchar_t* keyRoot = L"VirtualDesktopManagerUnitTests";
 
-	struct ViewToVirtualDesktopMapping
-	{
-		std::wstring Aumid;
-		std::wstring Title;
-		std::wstring VirtualDesktopId;
-		std::chrono::system_clock::time_point LastSeen;
-	};
-
 private:
 	std::list<std::wstring> knownViews_;
 	std::list<std::wstring> exemptViews_ = {L"", L"Microsoft.Windows.Shell.RunDialog"};

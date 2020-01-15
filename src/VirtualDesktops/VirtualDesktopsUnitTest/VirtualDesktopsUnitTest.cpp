@@ -5,6 +5,7 @@
 #include <map>
 #include <sstream>
 #include "VirtualDesktopPersister.hpp"
+#include "ViewToVirtualDesktopMapper.hpp"
 
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
@@ -144,6 +145,16 @@ namespace VirtualDesktopsUnitTest
 			}
 		}
 
+		TEST_METHOD(TestVirtualDesktopMapper)
+		{
+			{
+				ViewToVirtualDesktopMapper mapper;
+				mapper.SetVirtualDesktopId(L"aumid1", L"window title 1", L"{275D7711-5032-4C7B-9F76-F4195049AF13}");
+				mapper.SetVirtualDesktopId(L"aumid1", L"window title 2", L"{ASDFDGHJ-5032-4C7B-9F76-F4195049AF13}");
+				mapper.SetVirtualDesktopId(L"aumid2", L"window title 1", L"{275D7711-5032-4C7B-9F76-F4195049AF13}");
+				mapper.SetVirtualDesktopId(L"aumid2", L"window title 2", L"{ASDFDGHJ-5032-4C7B-9F76-F4195049AF13}");
+			}
+		}
 
 	};
 }
