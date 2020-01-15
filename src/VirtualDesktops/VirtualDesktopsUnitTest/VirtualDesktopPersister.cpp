@@ -37,13 +37,8 @@ VirtualDesktopPersister::WindowChangedDesktops(VirtualDesktopManagerInternal& sr
 
 	auto desktop = vdmi_->GetById(args.Window.GetVirtualDesktopId());
 
-	winrt::com_ptr<IWin32ApplicationView> win32AppView = args.Window.View().try_as<IWin32ApplicationView>();
-	if (win32AppView == nullptr) {
-		OutputDebugString(L"Could not get win32 app view");
-	}
-
 	std::wstring aumid = args.Window.GetAppUserModelId();
-	if ((aumid.length() == 0) || (IsViewExempt(aumid))) return;
+	if (IsViewExempt(aumid)) return; // Don't process exempt views
 
 	// View is closing, remove from knownViews
 	if (desktop == nullptr) {
@@ -51,9 +46,23 @@ VirtualDesktopPersister::WindowChangedDesktops(VirtualDesktopManagerInternal& sr
 		return;
 	}
 
+	// Get the HWND for Win32 apps to handle multi-window apps better
+	HWND hwnd = 0;
+	winrt::com_ptr<IWin32ApplicationView> win32AppView = args.Window.View().try_as<IWin32ApplicationView>();
+	if (win32AppView != nullptr) win32AppView->GetWindow(&hwnd);
+
+	std::wstring windowTitle;
+	if (hwnd != 0) {
+		wchar_t windowTitleBuffer[512];
+		int len = GetWindowText(hwnd, windowTitleBuffer, ARRAYSIZE(windowTitleBuffer));
+		if (len > 0) windowTitle = windowTitleBuffer;
+	}
+
 	std::wstringstream message;
-	message << L"AppUserModelId:    " << aumid << std::endl
-		<< L"VirtualDesktopId:  " << desktop->Id << std::endl;
+	message << L"AppUserModelId:    "	<< aumid		<< std::endl
+			<< L"VirtualDesktopId:  "	<< desktop->Id	<< std::endl
+			<< L"HWND:              "	<< hwnd			<< std::endl
+			<< L"Window Title:      "	<< windowTitle	<< std::endl;
 
 	// If we have not seen this view before during this run, it is new
 	if (!IsViewKnown(aumid)) {
@@ -104,6 +113,8 @@ void VirtualDesktopPersister::LoadPreviousVirtualDesktopMappings()
 
 void VirtualDesktopPersister::SaveVirtualDesktopMappings()
 {
+	auto start = std::chrono::system_clock::now();
+
 	auto settingsKey = dumbnose::registry::key::hkcu().create(RegistryHelpers::REG_SETTINGS);
 	auto key = settingsKey.create(keyRoot);
 
