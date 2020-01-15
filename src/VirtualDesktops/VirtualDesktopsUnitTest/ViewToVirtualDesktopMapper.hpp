@@ -1,5 +1,7 @@
 #pragma once
 
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Data.Json.h>
 
 
@@ -12,13 +14,13 @@ public:
 	std::optional<std::wstring_view> GetVirtualDesktopId(std::wstring_view aumid, std::wstring_view window_title);
 	void SetVirtualDesktopId(std::wstring_view aumid, std::wstring_view window_title, std::wstring_view virtualDesktopId);
 
+	// State persistence (explicit so host can control)
+	void LoadMappings();
+	void CheckpointMappings();
+
 protected:
 	winrt::Windows::Data::Json::JsonObject LookupVirtualDesktopObject(std::wstring_view aumid, std::wstring_view window_title);
 	winrt::Windows::Data::Json::JsonObject CreateVirtualDesktopObject(std::wstring_view aumid, std::wstring_view window_title);
-
-	// State persistence
-	void LoadPreviousVirtualDesktopMappings();
-	void SaveVirtualDesktopMappings();
 
 	// Registry names
 	const wchar_t* keyRoot_ = L"VirtualDesktopManagerUnitTests";

@@ -1,10 +1,12 @@
 #include "pch.h"
 #include "ViewToVirtualDesktopMapper.hpp"
+#include <iostream>
+#include <ctime>
+#include <iomanip>
 #include "../../modules/fancyzones/lib/RegistryHelpers.h"
 #include <dumbnose/registry/key.hpp>
 
 
-using namespace winrt;
 using namespace winrt::Windows::Data::Json;
 
 
@@ -40,16 +42,12 @@ using namespace winrt::Windows::Data::Json;
 
 ViewToVirtualDesktopMapper::ViewToVirtualDesktopMapper()
 {
-	winrt::init_apartment();
 	//auto start = std::chrono::system_clock::now();
-
-
 }
 
 
 ViewToVirtualDesktopMapper::~ViewToVirtualDesktopMapper()
 {
-	winrt::uninit_apartment();
 }
 
 
@@ -65,14 +63,28 @@ ViewToVirtualDesktopMapper::GetVirtualDesktopId(std::wstring_view aumid, std::ws
 }
 
 
+std::wstring CurrentTimeAsString()
+{
+	std::time_t t = std::time(nullptr);
+	std::tm tm;
+	auto result = gmtime_s(&tm, &t);
+	if (result != 0) throw windows_exception(__FUNCTION__ ": gmtime_s() failed", result);
+	std::wstringstream time;
+	time << std::put_time(&tm, L"%c %Z");
+
+	return time.str();
+}
+
+
 void
 ViewToVirtualDesktopMapper::SetVirtualDesktopId(std::wstring_view aumid, std::wstring_view window_title, std::wstring_view virtualDesktopId)
 {
 	// Get Virtual Desktop node
 	auto virtualDesktopObject = CreateVirtualDesktopObject(aumid, window_title);
 
-	// SEt Virtual Desktop Id
+	// Set Virtual Desktop Id
 	virtualDesktopObject.SetNamedValue(virtualDesktopId_, JsonValue::CreateStringValue(virtualDesktopId));
+	virtualDesktopObject.SetNamedValue(lastSeen_, JsonValue::CreateStringValue(CurrentTimeAsString()));
 }
 
 
@@ -80,10 +92,11 @@ JsonObject
 ViewToVirtualDesktopMapper::LookupVirtualDesktopObject(std::wstring_view aumid, std::wstring_view window_title)
 {
 	// Get Aumid node
+	if (!mappings_.HasKey(aumid)) return nullptr;
 	auto aumidObject = mappings_.GetNamedObject(aumid);
-	if (aumidObject == nullptr) return nullptr;
 
 	// Get Window Title node
+	if (!aumidObject.HasKey(window_title)) return nullptr;
 	return aumidObject.GetNamedObject(window_title);
 }
 
@@ -92,44 +105,48 @@ JsonObject
 ViewToVirtualDesktopMapper::CreateVirtualDesktopObject(std::wstring_view aumid, std::wstring_view window_title)
 {
 	// Get/Create Aumid node
-	auto aumidObject = mappings_.GetNamedObject(aumid);
-	if (aumidObject == nullptr) {
-		JsonObject newAumidObject;
-		mappings_.SetNamedValue(aumid, newAumidObject);
-		aumidObject = newAumidObject;
+	if (!mappings_.HasKey(aumid)) {
+		mappings_.SetNamedValue(aumid, JsonObject());
 	}
+	auto aumidObject = mappings_.GetNamedObject(aumid);
 
 	// Get/Create Title node
-	auto titleObject = mappings_.GetNamedObject(window_title);
-	if (titleObject == nullptr) {
-		JsonObject newTitleObject;
-		mappings_.SetNamedValue(window_title, newTitleObject);
-		titleObject = newTitleObject;
+	if (!aumidObject.HasKey(window_title)) {
+		aumidObject.SetNamedValue(window_title, JsonObject());
 	}
+	auto titleObject = aumidObject.GetNamedObject(window_title);
 
 	return titleObject;
 }
 
 
 void
-ViewToVirtualDesktopMapper::LoadPreviousVirtualDesktopMappings()
+ViewToVirtualDesktopMapper::LoadMappings()
 {
-	auto settingsKey = dumbnose::registry::key::hkcu().create(RegistryHelpers::REG_SETTINGS);
-	auto key = settingsKey.create(keyRoot_);
-	auto state = key.get_value_as_string(stateName_);
+	try {
+		auto settingsKey = dumbnose::registry::key::hkcu().create(RegistryHelpers::REG_SETTINGS);
+		auto key = settingsKey.create(keyRoot_);
+		auto state = key.get_value_as_string(stateName_);
+		if (!state) return; // No state to parse
 
-	mappings_ = JsonObject::Parse(state);
+		mappings_ = JsonObject::Parse(*state);
+
+	} catch (std::exception& ex) { // If the value is corrupt for some reason, ignore and start fresh
+		OutputDebugStringA(ex.what());
+	}
 }
 
 
 void 
-ViewToVirtualDesktopMapper::SaveVirtualDesktopMappings()
+ViewToVirtualDesktopMapper::CheckpointMappings()
 {
-	auto state = mappings_.Stringify();
+	try {
+		auto state = mappings_.Stringify();
 
-	auto settingsKey = dumbnose::registry::key::hkcu().create(RegistryHelpers::REG_SETTINGS);
-	auto key = settingsKey.create(keyRoot_);
-	key.set_value_as_string(stateName_, state);
-
-	//key.save_enum_values_as_strings(viewToVirtualDesktop_);
+		auto settingsKey = dumbnose::registry::key::hkcu().create(RegistryHelpers::REG_SETTINGS);
+		auto key = settingsKey.create(keyRoot_);
+		key.set_value_as_string(stateName_, state);
+	} catch (std::exception& ex) { // If it can't save, do not crash the process, as other things run in it
+		OutputDebugStringA(ex.what());
+	}
 }

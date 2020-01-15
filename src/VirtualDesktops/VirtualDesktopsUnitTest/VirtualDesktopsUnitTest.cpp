@@ -147,13 +147,27 @@ namespace VirtualDesktopsUnitTest
 
 		TEST_METHOD(TestVirtualDesktopMapper)
 		{
-			{
-				ViewToVirtualDesktopMapper mapper;
-				mapper.SetVirtualDesktopId(L"aumid1", L"window title 1", L"{275D7711-5032-4C7B-9F76-F4195049AF13}");
-				mapper.SetVirtualDesktopId(L"aumid1", L"window title 2", L"{ASDFDGHJ-5032-4C7B-9F76-F4195049AF13}");
-				mapper.SetVirtualDesktopId(L"aumid2", L"window title 1", L"{275D7711-5032-4C7B-9F76-F4195049AF13}");
-				mapper.SetVirtualDesktopId(L"aumid2", L"window title 2", L"{ASDFDGHJ-5032-4C7B-9F76-F4195049AF13}");
-			}
+			ViewToVirtualDesktopMapper mapper;
+
+			mapper.LoadMappings();
+
+			mapper.SetVirtualDesktopId(L"aumid1", L"window title 1", L"{275D7711-5032-4C7B-9F76-F4195049AF13}");
+			mapper.SetVirtualDesktopId(L"aumid1", L"window title 2", L"{ASDFDGHJ-5032-4C7B-9F76-F4195049AF13}");
+			mapper.SetVirtualDesktopId(L"aumid2", L"window title 1", L"{275D7711-5032-4C7B-9F76-F4195049AF13}");
+			mapper.SetVirtualDesktopId(L"aumid2", L"window title 2", L"{ASDFDGHJ-5032-4C7B-9F76-F4195049AF13}");
+
+			auto vdId = mapper.GetVirtualDesktopId(L"aumid1", L"window title 2");
+			OutputDebugString((*vdId).data());
+
+			mapper.CheckpointMappings();
+
+			ViewToVirtualDesktopMapper mapper2;
+			mapper2.LoadMappings();
+
+			auto vdId2 = mapper2.GetVirtualDesktopId(L"aumid1", L"window title 2");
+			OutputDebugString((*vdId2).data());
+
+			Assert::AreEqual((*vdId).data(), (*vdId2).data());
 		}
 
 	};
