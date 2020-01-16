@@ -1,13 +1,14 @@
 #include "pch.h"
 #include "ViewToVirtualDesktopMapper.hpp"
 #include <iostream>
-#include <ctime>
 #include <iomanip>
 #include "../../modules/fancyzones/lib/RegistryHelpers.h"
 #include <dumbnose/registry/key.hpp>
 
 
 using namespace winrt::Windows::Data::Json;
+using namespace winrt::Windows::Foundation;
+using namespace winrt::Windows::Foundation::Collections;
 
 
 /*------------------------------------------------------------------------------------------------------
@@ -40,9 +41,9 @@ using namespace winrt::Windows::Data::Json;
 ------------------------------------------------------------------------------------------------------*/
 
 
-ViewToVirtualDesktopMapper::ViewToVirtualDesktopMapper()
+ViewToVirtualDesktopMapper::ViewToVirtualDesktopMapper() :
+								lastCheckpoint_(std::time(nullptr))
 {
-	//auto start = std::chrono::system_clock::now();
 }
 
 
@@ -59,10 +60,11 @@ ViewToVirtualDesktopMapper::GetVirtualDesktopId(std::wstring_view aumid, std::ws
 	if(titleObject == nullptr) return {};
 
 	// Get Virtual Desktop Id
-	return titleObject.GetNamedString(virtualDesktopId_);
+	return titleObject.GetNamedString(VirtualDesktopIdValueName_);
 }
 
 
+// Localized helper
 std::wstring CurrentTimeAsString()
 {
 	std::time_t t = std::time(nullptr);
@@ -70,9 +72,20 @@ std::wstring CurrentTimeAsString()
 	auto result = gmtime_s(&tm, &t);
 	if (result != 0) throw windows_exception(__FUNCTION__ ": gmtime_s() failed", result);
 	std::wstringstream time;
-	time << std::put_time(&tm, L"%c %Z");
+	time << std::put_time(&tm, L"%D");
 
 	return time.str();
+}
+
+
+std::time_t ParseTime(std::wstring_view timeStr)
+{
+	std::tm tm{};
+	std::wistringstream ss(timeStr.data());
+	ss >> std::get_time(&tm, L"%D");
+	if (ss.fail()) throw windows_exception(__FUNCTION__ ": std::get_time() failed.");
+	
+	return std::mktime(&tm);
 }
 
 
@@ -83,8 +96,8 @@ ViewToVirtualDesktopMapper::SetVirtualDesktopId(std::wstring_view aumid, std::ws
 	auto virtualDesktopObject = CreateVirtualDesktopObject(aumid, window_title);
 
 	// Set Virtual Desktop Id
-	virtualDesktopObject.SetNamedValue(virtualDesktopId_, JsonValue::CreateStringValue(virtualDesktopId));
-	virtualDesktopObject.SetNamedValue(lastSeen_, JsonValue::CreateStringValue(CurrentTimeAsString()));
+	virtualDesktopObject.SetNamedValue(VirtualDesktopIdValueName_, JsonValue::CreateStringValue(virtualDesktopId));
+	virtualDesktopObject.SetNamedValue(LastSeenValueName_, JsonValue::CreateStringValue(CurrentTimeAsString()));
 }
 
 
@@ -120,16 +133,36 @@ ViewToVirtualDesktopMapper::CreateVirtualDesktopObject(std::wstring_view aumid, 
 }
 
 
+void ViewToVirtualDesktopMapper::DiscardOldMappings()
+{
+	for (auto& aumidNode : mappings_) {
+		auto aumidObject = aumidNode.Value().GetObjectW();
+		for(auto& titleMapping : aumidObject) {
+			auto mappingObject = titleMapping.Value().GetObjectW();
+			std::wstring_view timeStr = mappingObject.GetNamedString(LastSeenValueName_);
+
+			auto time = ParseTime(timeStr);
+		}
+	}
+}
+
+
+// @todo:   Discard mappings for windows that haven't been seen in more than a month, so that the data doesn't 
+//			grow forever.
 void
 ViewToVirtualDesktopMapper::LoadMappings()
 {
 	try {
 		auto settingsKey = dumbnose::registry::key::hkcu().create(RegistryHelpers::REG_SETTINGS);
-		auto key = settingsKey.create(keyRoot_);
-		auto state = key.get_value_as_string(stateName_);
+		auto key = settingsKey.create(RegistryRootKeyName_);
+		auto state = key.get_value_as_string(StateRootKeyName_);
 		if (!state) return; // No state to parse
 
 		mappings_ = JsonObject::Parse(*state);
+
+		lastCheckpoint_ = std::time(nullptr);
+
+		DiscardOldMappings();
 
 	} catch (std::exception& ex) { // If the value is corrupt for some reason, ignore and start fresh
 		OutputDebugStringA(ex.what());
@@ -137,6 +170,8 @@ ViewToVirtualDesktopMapper::LoadMappings()
 }
 
 
+// @todo:   Checkpoint every couple of hours so that a crash doesn't lose all data.  Maybe just check when updating
+//			a mapping, rather than schedule some background job.
 void 
 ViewToVirtualDesktopMapper::CheckpointMappings()
 {
@@ -144,9 +179,10 @@ ViewToVirtualDesktopMapper::CheckpointMappings()
 		auto state = mappings_.Stringify();
 
 		auto settingsKey = dumbnose::registry::key::hkcu().create(RegistryHelpers::REG_SETTINGS);
-		auto key = settingsKey.create(keyRoot_);
-		key.set_value_as_string(stateName_, state);
+		auto key = settingsKey.create(RegistryRootKeyName_);
+		key.set_value_as_string(StateRootKeyName_, state);
 	} catch (std::exception& ex) { // If it can't save, do not crash the process, as other things run in it
 		OutputDebugStringA(ex.what());
 	}
 }
+
