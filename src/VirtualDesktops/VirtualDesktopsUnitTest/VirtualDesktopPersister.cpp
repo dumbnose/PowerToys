@@ -7,7 +7,7 @@
 // @todo:  Go through all existing views and put them on their previous virtual desktops
 bool VirtualDesktopPersister::Initialize()
 {
-	LoadPreviousVirtualDesktopMappings();
+	viewsToViewsDesktops_.LoadMappings();
 
 	// Catch all exceptions, since the object can go away if the shell crashes
 	try {
@@ -27,7 +27,7 @@ bool VirtualDesktopPersister::Initialize()
 
 void VirtualDesktopPersister::Uninitialize()
 {
-	SaveVirtualDesktopMappings();
+	viewsToViewsDesktops_.CheckpointMappings();
 	vdmi_ = nullptr;
 }
 
@@ -71,7 +71,7 @@ VirtualDesktopPersister::WindowChangedDesktops(VirtualDesktopManagerInternal& sr
 		knownViews_.push_back(aumid);
 
 		// Check to see where it last was and move it to there, if applicable
-		auto previousDesktop = LookupPreviousVirtualDesktopForView(aumid);
+		auto previousDesktop = LookupPreviousVirtualDesktopForView(aumid, L"");
 		if (previousDesktop) {
 
 			// Check to see if it is already on the correct desktop and move it if it isn't
@@ -86,7 +86,7 @@ VirtualDesktopPersister::WindowChangedDesktops(VirtualDesktopManagerInternal& sr
 		}
 		else {
 			// Remember this view's desktop for later
-			viewToVirtualDesktop_[aumid] = desktop->Id;
+			viewsToViewsDesktops_.SetVirtualDesktopId(aumid, L"", desktop->Id);
 		}
 	}
 	else {
@@ -95,28 +95,10 @@ VirtualDesktopPersister::WindowChangedDesktops(VirtualDesktopManagerInternal& sr
 		message << L"Window changed desktop" << std::endl;
 
 		// Remember this value for later
-		viewToVirtualDesktop_[aumid] = desktop->Id;
+		viewsToViewsDesktops_.SetVirtualDesktopId(aumid, L"", desktop->Id);
 	}
 
 	OutputDebugString(message.str().c_str());
-}
-
-
-void VirtualDesktopPersister::LoadPreviousVirtualDesktopMappings()
-{
-	auto settingsKey = dumbnose::registry::key::hkcu().create(RegistryHelpers::REG_SETTINGS);
-	auto key = settingsKey.create(keyRoot);
-
-	viewToVirtualDesktop_ = key.enum_values_as_strings();
-}
-
-
-void VirtualDesktopPersister::SaveVirtualDesktopMappings()
-{
-	auto settingsKey = dumbnose::registry::key::hkcu().create(RegistryHelpers::REG_SETTINGS);
-	auto key = settingsKey.create(keyRoot);
-
-	key.save_enum_values_as_strings(viewToVirtualDesktop_);
 }
 
 
@@ -133,9 +115,10 @@ bool VirtualDesktopPersister::IsViewKnown(std::wstring& aumid)
 }
 
 
-std::shared_ptr<VirtualDesktop> VirtualDesktopPersister::LookupPreviousVirtualDesktopForView(std::wstring& aumid)
+std::shared_ptr<VirtualDesktop> VirtualDesktopPersister::LookupPreviousVirtualDesktopForView(std::wstring_view aumid, std::wstring_view window_title)
 {
-	auto mapping = viewToVirtualDesktop_.find(aumid);
-	if (mapping == viewToVirtualDesktop_.end()) return nullptr;
-	return vdmi_->GetById(mapping->second);
+	auto vdId = viewsToViewsDesktops_.GetVirtualDesktopId(aumid, L"");
+	if (!vdId) return nullptr;
+
+	return vdmi_->GetById(vdId->data());
 }

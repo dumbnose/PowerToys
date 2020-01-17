@@ -136,7 +136,7 @@ namespace VirtualDesktopsUnitTest
 
 				VirtualDesktopPersister::instance().Initialize();
 
-				Sleep(20000);
+				Sleep(100000);
 
 				VirtualDesktopPersister::instance().Uninitialize();
 			}
@@ -153,6 +153,7 @@ namespace VirtualDesktopsUnitTest
 
 			mapper.SetVirtualDesktopId(L"aumid1", L"window title 1", L"{275D7711-5032-4C7B-9F76-F4195049AF13}");
 			mapper.SetVirtualDesktopId(L"aumid1", L"window title 2", L"{ASDFDGHJ-5032-4C7B-9F76-F4195049AF13}");
+			mapper.SetVirtualDesktopId(L"aumid1", L"",				 L"{ASDFDGHJ-5032-4C7B-9F76-F4195049AF13}");
 			mapper.SetVirtualDesktopId(L"aumid2", L"window title 1", L"{275D7711-5032-4C7B-9F76-F4195049AF13}");
 			mapper.SetVirtualDesktopId(L"aumid2", L"window title 2", L"{ASDFDGHJ-5032-4C7B-9F76-F4195049AF13}");
 

@@ -73,7 +73,7 @@ public:
 	bool CanRemoveDesktop(const VirtualDesktop& desktop);
 	bool TryRemoveDesktop(VirtualDesktop& desktop, VirtualDesktop& newTargetDesktop);
 	std::shared_ptr<VirtualDesktop> GetById(GUID& virtualDesktopId);
-	std::shared_ptr<VirtualDesktop> GetById(std::wstring& virtualDesktopId);
+	std::shared_ptr<VirtualDesktop> GetById(std::wstring_view virtualDesktopId);
 
 	bool TryMoveWindowToDesktop(TopLevelWindow& window, VirtualDesktop& desktop);
 	void MoveApplicationToDesktop(ApplicationId& appId, VirtualDesktop& desktop);

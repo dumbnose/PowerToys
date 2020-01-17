@@ -151,10 +151,10 @@ std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::GetById(GUID& vir
 	return std::make_shared<VirtualDesktop>(comDesktop.get());
 }
 
-std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::GetById(std::wstring& virtualDesktopId)
+std::shared_ptr<VirtualDesktop> VirtualDesktopManagerInternal::GetById(std::wstring_view virtualDesktopId)
 {
 	GUID vdId = { 0 };
-	HRESULT hr = CLSIDFromString(virtualDesktopId.c_str(), &vdId);
+	HRESULT hr = CLSIDFromString(virtualDesktopId.data(), &vdId);
 	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": CLSIDFromString() failed", hr);
 
 	return GetById(vdId);
