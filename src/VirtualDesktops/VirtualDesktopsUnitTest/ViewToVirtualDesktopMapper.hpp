@@ -12,18 +12,21 @@ public:
 	ViewToVirtualDesktopMapper();
 	~ViewToVirtualDesktopMapper();
 
-	std::optional<std::wstring_view> GetVirtualDesktopId(std::wstring_view aumid, std::wstring_view window_title);
-	void SetVirtualDesktopId(std::wstring_view aumid, std::wstring_view window_title, std::wstring_view virtualDesktopId);
+	std::optional<std::wstring_view> GetVirtualDesktopId(std::wstring_view aumid, std::wstring_view windowTitle);
+	void SetVirtualDesktopId(std::wstring_view aumid, std::wstring_view windowTitle, std::wstring_view virtualDesktopId);
 
 	// State persistence (explicit so host can control timing)
 	void LoadMappings();
 	void CheckpointMappings();
 
 protected:
-	winrt::Windows::Data::Json::JsonObject LookupVirtualDesktopObject(std::wstring_view aumid, std::wstring_view window_title);
-	winrt::Windows::Data::Json::JsonObject CreateVirtualDesktopObject(std::wstring_view aumid, std::wstring_view window_title);
+	winrt::Windows::Data::Json::JsonObject LookupVirtualDesktopObject(std::wstring_view aumid, std::wstring_view windowTitle);
+	winrt::Windows::Data::Json::JsonObject CreateVirtualDesktopObject(std::wstring_view aumid, std::wstring_view windowTitle);
 
+	// Retirement
+	const double MonthInSeconds_ = 31 /*days*/ * 24 /*hours*/ * 60 /*minutes*/ * 60 /*seconds*/;
 	void DiscardOldMappings();
+	void RemoveOldMapping(std::wstring_view aumid, std::wstring_view windowTitle);
 
 	// Registry names
 	const wchar_t* RegistryRootKeyName_ = L"VirtualDesktopManagerUnitTests";

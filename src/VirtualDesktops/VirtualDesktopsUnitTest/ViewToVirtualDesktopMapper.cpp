@@ -53,10 +53,10 @@ ViewToVirtualDesktopMapper::~ViewToVirtualDesktopMapper()
 
 
 std::optional<std::wstring_view> 
-ViewToVirtualDesktopMapper::GetVirtualDesktopId(std::wstring_view aumid, std::wstring_view window_title)
+ViewToVirtualDesktopMapper::GetVirtualDesktopId(std::wstring_view aumid, std::wstring_view windowTitle)
 {
 	// Get Virtual Desktop node
-	auto titleObject = LookupVirtualDesktopObject(aumid, window_title);
+	auto titleObject = LookupVirtualDesktopObject(aumid, windowTitle);
 	if(titleObject == nullptr) return {};
 
 	// Get Virtual Desktop Id
@@ -90,10 +90,10 @@ std::time_t ParseTime(std::wstring_view timeStr)
 
 
 void
-ViewToVirtualDesktopMapper::SetVirtualDesktopId(std::wstring_view aumid, std::wstring_view window_title, std::wstring_view virtualDesktopId)
+ViewToVirtualDesktopMapper::SetVirtualDesktopId(std::wstring_view aumid, std::wstring_view windowTitle, std::wstring_view virtualDesktopId)
 {
 	// Get Virtual Desktop node
-	auto virtualDesktopObject = CreateVirtualDesktopObject(aumid, window_title);
+	auto virtualDesktopObject = CreateVirtualDesktopObject(aumid, windowTitle);
 
 	// Set Virtual Desktop Id
 	virtualDesktopObject.SetNamedValue(VirtualDesktopIdValueName_, JsonValue::CreateStringValue(virtualDesktopId));
@@ -102,20 +102,20 @@ ViewToVirtualDesktopMapper::SetVirtualDesktopId(std::wstring_view aumid, std::ws
 
 
 JsonObject
-ViewToVirtualDesktopMapper::LookupVirtualDesktopObject(std::wstring_view aumid, std::wstring_view window_title)
+ViewToVirtualDesktopMapper::LookupVirtualDesktopObject(std::wstring_view aumid, std::wstring_view windowTitle)
 {
 	// Get Aumid node
 	if (!mappings_.HasKey(aumid)) return nullptr;
 	auto aumidObject = mappings_.GetNamedObject(aumid);
 
 	// Get Window Title node
-	if (!aumidObject.HasKey(window_title)) return nullptr;
-	return aumidObject.GetNamedObject(window_title);
+	if (!aumidObject.HasKey(windowTitle)) return nullptr;
+	return aumidObject.GetNamedObject(windowTitle);
 }
 
 
 JsonObject
-ViewToVirtualDesktopMapper::CreateVirtualDesktopObject(std::wstring_view aumid, std::wstring_view window_title)
+ViewToVirtualDesktopMapper::CreateVirtualDesktopObject(std::wstring_view aumid, std::wstring_view windowTitle)
 {
 	// Get/Create Aumid node
 	if (!mappings_.HasKey(aumid)) {
@@ -124,10 +124,10 @@ ViewToVirtualDesktopMapper::CreateVirtualDesktopObject(std::wstring_view aumid, 
 	auto aumidObject = mappings_.GetNamedObject(aumid);
 
 	// Get/Create Title node
-	if (!aumidObject.HasKey(window_title)) {
-		aumidObject.SetNamedValue(window_title, JsonObject());
+	if (!aumidObject.HasKey(windowTitle)) {
+		aumidObject.SetNamedValue(windowTitle, JsonObject());
 	}
-	auto titleObject = aumidObject.GetNamedObject(window_title);
+	auto titleObject = aumidObject.GetNamedObject(windowTitle);
 
 	return titleObject;
 }
@@ -135,15 +135,34 @@ ViewToVirtualDesktopMapper::CreateVirtualDesktopObject(std::wstring_view aumid, 
 
 void ViewToVirtualDesktopMapper::DiscardOldMappings()
 {
-	for (auto& aumidNode : mappings_) {
-		auto aumidObject = aumidNode.Value().GetObjectW();
-		for(auto& titleMapping : aumidObject) {
-			auto mappingObject = titleMapping.Value().GetObjectW();
-			std::wstring_view timeStr = mappingObject.GetNamedString(LastSeenValueName_);
+	JsonObject clone = JsonObject::Parse(mappings_.Stringify()); // Need a copy so we can modify the original
 
-			auto time = ParseTime(timeStr);
+	auto now = std::time(nullptr);
+	for (auto& aumidNode : clone) {
+		auto aumidObject = aumidNode.Value().GetObjectW();
+		for(auto& titleNode : aumidObject) {
+			auto titleObject = titleNode.Value().GetObjectW();
+			std::wstring_view timeStr = titleObject.GetNamedString(LastSeenValueName_);
+
+			auto lastSeenTime = ParseTime(timeStr);
+			auto diffInSeconds = std::difftime(now, lastSeenTime);
+			if (diffInSeconds > MonthInSeconds_) RemoveOldMapping(aumidNode.Key(), titleNode.Key());
 		}
 	}
+}
+
+
+void 
+ViewToVirtualDesktopMapper::RemoveOldMapping(std::wstring_view aumid, std::wstring_view windowTitle)
+{
+	auto aumidObject = mappings_.GetNamedObject(aumid);
+
+	// Remove the title mapping 
+	aumidObject.Remove(windowTitle);
+	if (aumidObject.Size() > 0) return;
+
+	// Remove aumid mapping if it is empty
+	mappings_.Remove(aumid);
 }
 
 
