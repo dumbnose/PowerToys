@@ -54,6 +54,9 @@ void VirtualDesktopManagerInternal::UninitializeEventHandlers()
 	if (notificationRegistrationCookie_ == 0) return;
 
 	desktopNotificationService_->Unregister(notificationRegistrationCookie_);
+	notificationRegistrationCookie_ = 0;
+
+	Sleep(100);  // After unregistering, events seem to keep coming for a short while, let the queue drain.
 }
 
 
