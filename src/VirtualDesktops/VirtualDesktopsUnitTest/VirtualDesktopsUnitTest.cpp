@@ -136,7 +136,7 @@ namespace VirtualDesktopsUnitTest
 
 				VirtualDesktopPersister::instance().Initialize();
 
-				Sleep(100000);
+				Sleep(10000);
 
 				VirtualDesktopPersister::instance().Uninitialize();
 			}
@@ -144,6 +144,7 @@ namespace VirtualDesktopsUnitTest
 				OutputDebugStringA(ex.what());
 			}
 		}
+
 
 		TEST_METHOD(TestVirtualDesktopMapper)
 		{

@@ -38,18 +38,18 @@ VirtualDesktopPersister::WindowChangedDesktops(VirtualDesktopManagerInternal& sr
 	auto desktop = vdmi_->GetById(args.Window.GetVirtualDesktopId());
 
 	std::wstring aumid = args.Window.GetAppUserModelId();
-	if (IsViewExempt(aumid)) return; // Don't process exempt views
-
-	// View is closing, remove from knownViews
-	if (desktop == nullptr) {
-		knownViews_.remove(aumid);
-		return;
-	}
+	if (trackedViews_.IsViewExempt(aumid)) return; // Don't process exempt views
 
 	// Get the HWND for Win32 apps to handle multi-window apps better
 	HWND hwnd = 0;
 	winrt::com_ptr<IWin32ApplicationView> win32AppView = args.Window.View().try_as<IWin32ApplicationView>();
 	if (win32AppView != nullptr) win32AppView->GetWindow(&hwnd);
+
+	// View is closing, remove from knownViews
+	if (desktop == nullptr) {
+		trackedViews_.RemoveView(aumid, hwnd);
+		return;
+	}
 
 	std::wstring windowTitle;
 	if (hwnd != 0) {
@@ -65,10 +65,10 @@ VirtualDesktopPersister::WindowChangedDesktops(VirtualDesktopManagerInternal& sr
 			<< L"Window Title:      "	<< windowTitle	<< std::endl;
 
 	// If we have not seen this view before during this run, it is new
-	if (!IsViewKnown(aumid)) {
+	if (!trackedViews_.IsViewKnown(aumid, hwnd)) {
 
 		message << L"New window found" << std::endl;
-		knownViews_.push_back(aumid);
+		trackedViews_.TrackView(aumid, hwnd);
 
 		// Check to see where it last was and move it to there, if applicable
 		auto previousDesktop = LookupPreviousVirtualDesktopForView(aumid, L"");
@@ -99,19 +99,6 @@ VirtualDesktopPersister::WindowChangedDesktops(VirtualDesktopManagerInternal& sr
 	}
 
 	OutputDebugString(message.str().c_str());
-}
-
-
-// Exempt views are typically system views, e.g. RunDialog, that shouldn't be tracked
-bool VirtualDesktopPersister::IsViewExempt(std::wstring& aumid)
-{
-	return std::find(exemptViews_.begin(), exemptViews_.end(), aumid) != exemptViews_.end();
-}
-
-
-bool VirtualDesktopPersister::IsViewKnown(std::wstring& aumid)
-{
-	return std::find(knownViews_.begin(), knownViews_.end(), aumid) != knownViews_.end();
 }
 
 

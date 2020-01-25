@@ -174,12 +174,14 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="ViewToVirtualDesktopMapper.cpp" />
+    <ClCompile Include="ViewTracker.cpp" />
     <ClCompile Include="VirtualDesktopPersister.cpp" />
     <ClCompile Include="VirtualDesktopsUnitTest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="ViewToVirtualDesktopMapper.hpp" />
+    <ClInclude Include="ViewTracker.hpp" />
     <ClInclude Include="VirtualDesktopPersister.hpp" />
   </ItemGroup>
   <ItemGroup>
