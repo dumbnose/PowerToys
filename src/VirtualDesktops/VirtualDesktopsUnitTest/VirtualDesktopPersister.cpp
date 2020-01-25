@@ -39,7 +39,10 @@ void VirtualDesktopPersister::Uninitialize()
 void
 VirtualDesktopPersister::WindowChangedDesktops(VirtualDesktopManagerInternal& src, WindowChangedDesktopEventArgs& args) 
 {
-	MoveWindowToPreferredDesktop(args.Window);
+	auto newDesktop = MoveWindowToPreferredDesktop(args.Window);
+
+	// If the window was moved to a new desktop, switch to that desktop
+	if(newDesktop) vdmi_->TrySwitchToDesktop(*newDesktop);
 }
 
 
@@ -51,12 +54,12 @@ std::shared_ptr<VirtualDesktop> VirtualDesktopPersister::LookupPreviousVirtualDe
 	return vdmi_->GetById(vdId->data());
 }
 
-void VirtualDesktopPersister::MoveWindowToPreferredDesktop(TopLevelWindow& window)
+std::shared_ptr<VirtualDesktop> VirtualDesktopPersister::MoveWindowToPreferredDesktop(TopLevelWindow& window)
 {
 	auto desktop = vdmi_->GetById(window.GetVirtualDesktopId());
 
 	std::wstring aumid = window.GetAppUserModelId();
-	if (trackedViews_.IsViewExempt(aumid)) return; // Don't process exempt views
+	if (trackedViews_.IsViewExempt(aumid)) return nullptr; // Don't process exempt views
 
 	// Get the HWND for Win32 apps to handle multi-window apps better
 	HWND hwnd = 0;
@@ -66,7 +69,7 @@ void VirtualDesktopPersister::MoveWindowToPreferredDesktop(TopLevelWindow& windo
 	// View is closing, remove from knownViews
 	if (desktop == nullptr) {
 		trackedViews_.RemoveView(aumid, hwnd);
-		return;
+		return nullptr;
 	}
 
 	std::wstring windowTitle;
@@ -97,6 +100,7 @@ void VirtualDesktopPersister::MoveWindowToPreferredDesktop(TopLevelWindow& windo
 
 				bool moved = vdmi_->TryMoveWindowToDesktop(window, *previousDesktop);
 				message << "Moved to previous window: " << moved << std::endl;
+				return previousDesktop;
 			}
 			else {
 				message << "Already on correct window" << std::endl;
@@ -117,6 +121,8 @@ void VirtualDesktopPersister::MoveWindowToPreferredDesktop(TopLevelWindow& windo
 	}
 
 	OutputDebugString(message.str().c_str());
+
+	return nullptr;
 }
 
 void VirtualDesktopPersister::MoveAllExistingWindowsToPreferredDesktop()

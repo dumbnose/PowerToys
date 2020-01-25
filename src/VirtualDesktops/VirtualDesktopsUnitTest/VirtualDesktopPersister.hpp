@@ -20,7 +20,7 @@ protected:
 
 	// View/Window management
 	std::shared_ptr<VirtualDesktop> LookupPreviousVirtualDesktopForView(std::wstring_view aumid, std::wstring_view window_title);
-	void MoveWindowToPreferredDesktop(TopLevelWindow& window);
+	std::shared_ptr<VirtualDesktop> MoveWindowToPreferredDesktop(TopLevelWindow& window);
 	void MoveAllExistingWindowsToPreferredDesktop();
 
 	const wchar_t* keyRoot = L"VirtualDesktopManagerUnitTests";
