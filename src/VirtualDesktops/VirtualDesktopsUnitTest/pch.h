@@ -27,3 +27,4 @@
 
 #include "..\VirtualDesktopManagerInternal\VirtualDesktopManagerCom.h"
 #include "..\VirtualDesktopManagerInternal\VirtualDesktopManagerInternal.h"
+#include "..\VirtualDesktopManagerInternal\ViewManager.hpp"

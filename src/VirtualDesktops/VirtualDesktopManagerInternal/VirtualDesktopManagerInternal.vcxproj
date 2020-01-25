@@ -158,6 +158,7 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="TopLevelWindow.hpp" />
+    <ClInclude Include="ViewManager.hpp" />
     <ClInclude Include="VirtualDesktop.hpp" />
     <ClInclude Include="VirtualDesktopManagerCom.h" />
     <ClInclude Include="VirtualDesktopManagerInternal.h" />
@@ -170,6 +171,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="TopLevelWindow.cpp" />
+    <ClCompile Include="ViewManager.cpp" />
     <ClCompile Include="VirtualDesktop.cpp" />
     <ClCompile Include="VirtualDesktopManagerInternal.cpp" />
   </ItemGroup>

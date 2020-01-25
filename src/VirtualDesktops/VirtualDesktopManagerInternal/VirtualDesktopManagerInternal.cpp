@@ -31,9 +31,6 @@ void VirtualDesktopManagerInternal::InitializeWindowManagerComObjects()
 	hr = immersiveShellServiceProvider_->QueryService(CLSID_VirtualDesktopManagerInternal, __uuidof(desktopManagerInternal_), desktopManagerInternal_.put_void());
 	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": QueryService(CLSID_VirtualDesktopManagerInternal) failed", hr);
 
-	hr = immersiveShellServiceProvider_->QueryService(__uuidof(viewCollection_), viewCollection_.put());
-	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": QueryService(IApplicationViewCollection) failed", hr);
-
 	hr = immersiveShellServiceProvider_->QueryService(CLSID_VirtualDesktopPinnedApps, __uuidof(pinnedApps_), pinnedApps_.put_void());
 	if (FAILED(hr)) throw windows_exception(__FUNCTION__ ": QueryService(CLSID_VirtualDesktopPinnedApps) failed", hr);
 }

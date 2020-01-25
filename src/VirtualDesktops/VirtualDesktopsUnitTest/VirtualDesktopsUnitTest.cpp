@@ -10,6 +10,7 @@
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
+
 namespace VirtualDesktopsUnitTest
 {
 	TEST_CLASS(VirtualDesktopsUnitTest)
@@ -172,5 +173,14 @@ namespace VirtualDesktopsUnitTest
 			Assert::AreEqual((*vdId).data(), (*vdId2).data());
 		}
 
+
+		TEST_METHOD(TestViewManager)
+		{
+			ViewManager viewManager;
+			auto tlws = viewManager.GetTopLevelWindows();
+			for(auto& tlw : tlws) {
+				OutputDebugString(tlw.GetAppUserModelId().c_str());
+			}
+		}
 	};
 }

@@ -122,7 +122,6 @@ private:
 	winrt::com_ptr<IServiceProvider> immersiveShellServiceProvider_;
 	winrt::com_ptr<IVirtualDesktopManagerInternal> desktopManagerInternal_;
 	winrt::com_ptr<IVirtualDesktopManager> desktopManager_;
-	winrt::com_ptr<IApplicationViewCollection> viewCollection_;
 	winrt::com_ptr<IVirtualDesktopPinnedApps> pinnedApps_;
 	winrt::com_ptr<IVirtualDesktopNotificationService> desktopNotificationService_;
 
