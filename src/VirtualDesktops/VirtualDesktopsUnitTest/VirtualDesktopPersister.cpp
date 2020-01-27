@@ -46,15 +46,18 @@ VirtualDesktopPersister::WindowChangedDesktops(VirtualDesktopManagerInternal& sr
 }
 
 
-std::shared_ptr<VirtualDesktop> VirtualDesktopPersister::LookupPreviousVirtualDesktopForView(std::wstring_view aumid, std::wstring_view window_title)
+std::shared_ptr<VirtualDesktop> 
+VirtualDesktopPersister::LookupPreviousVirtualDesktopForView(std::wstring_view aumid, std::wstring_view windowTitle)
 {
-	auto vdId = viewsToViewsDesktops_.GetVirtualDesktopId(aumid, L"");
+	auto vdId = viewsToViewsDesktops_.GetVirtualDesktopId(aumid, windowTitle);
 	if (!vdId) return nullptr;
 
 	return vdmi_->GetById(vdId->data());
 }
 
-std::shared_ptr<VirtualDesktop> VirtualDesktopPersister::MoveWindowToPreferredDesktop(TopLevelWindow& window)
+
+std::shared_ptr<VirtualDesktop> 
+VirtualDesktopPersister::MoveWindowToPreferredDesktop(TopLevelWindow& window)
 {
 	auto desktop = vdmi_->GetById(window.GetVirtualDesktopId());
 
@@ -92,7 +95,7 @@ std::shared_ptr<VirtualDesktop> VirtualDesktopPersister::MoveWindowToPreferredDe
 		trackedViews_.TrackView(aumid, hwnd);
 
 		// Check to see where it last was and move it to there, if applicable
-		auto previousDesktop = LookupPreviousVirtualDesktopForView(aumid, L"");
+		auto previousDesktop = LookupPreviousVirtualDesktopForView(aumid, windowTitle);
 		if (previousDesktop) {
 
 			// Check to see if it is already on the correct desktop and move it if it isn't
@@ -101,23 +104,20 @@ std::shared_ptr<VirtualDesktop> VirtualDesktopPersister::MoveWindowToPreferredDe
 				bool moved = vdmi_->TryMoveWindowToDesktop(window, *previousDesktop);
 				message << "Moved to previous window: " << moved << std::endl;
 				return previousDesktop;
-			}
-			else {
+			} else {
 				message << "Already on correct window" << std::endl;
 			}
-		}
-		else {
+		} else {
 			// Remember this view's desktop for later
-			viewsToViewsDesktops_.SetVirtualDesktopId(aumid, L"", desktop->Id);
+			viewsToViewsDesktops_.SetVirtualDesktopId(aumid, windowTitle, desktop->Id);
 		}
-	}
-	else {
+	} else {
 
 		// We have seen this window before, so it is moving between windows
 		message << L"Window changed desktop" << std::endl;
 
 		// Remember this value for later
-		viewsToViewsDesktops_.SetVirtualDesktopId(aumid, L"", desktop->Id);
+		viewsToViewsDesktops_.SetVirtualDesktopId(aumid, windowTitle, desktop->Id);
 	}
 
 	OutputDebugString(message.str().c_str());
@@ -125,11 +125,13 @@ std::shared_ptr<VirtualDesktop> VirtualDesktopPersister::MoveWindowToPreferredDe
 	return nullptr;
 }
 
-void VirtualDesktopPersister::MoveAllExistingWindowsToPreferredDesktop()
+
+void 
+VirtualDesktopPersister::MoveAllExistingWindowsToPreferredDesktop()
 {
 	ViewManager viewManager;
 	auto windows = viewManager.GetTopLevelWindows();
 	for (auto& window : windows) {
-		MoveWindowToPreferredDesktop(window);
+		auto newWindow = MoveWindowToPreferredDesktop(window);
 	}
 }

@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ViewToVirtualDesktopMapper.hpp"
 #include <iostream>
 #include <iomanip>
@@ -15,29 +15,54 @@ using namespace winrt::Windows::Foundation::Collections;
 
 	This is the format of the data:
 	
-		{
-			"aumid1": {
-				"window title 1": {
-					"VirtualDesktopId": "{275D7711-5032-4C7B-9F76-F4195049AF13}",
-					"LastSeen": "timestamp"
-				},
-				"window title 2" : {
-					"VirtualDesktopId": "{275D7711-5032-4C7B-9F76-F4195049AF13}",
-					"LastSeen" : "timestamp"
-				},
-			},
-			"aumid2" : {
-				"window title 1": {
-					"VirtualDesktopId": "{275D7711-5032-4C7B-9F76-F4195049AF13}",
-						"LastSeen" : "timestamp"
-				},
-					"window title 2" : {
-						"VirtualDesktopId": "{275D7711-5032-4C7B-9F76-F4195049AF13}",
-							"LastSeen" : "timestamp"
-					},
-			},
-		}
-
+{
+    "Microsoft.Office.POWERPNT.EXE.15": {
+        "Safer Azure & MTR - Mn.pptx - PowerPoint": {
+            "VirtualDesktopId": "{28D79379-3A79-493E-AE71-EB4CF1729A91}",
+            "LastSeen": "01/27/20"
+        }
+    },
+    "Microsoft.Office.WINWORD.EXE.15": {
+        "Azure Quality Strategy.docx - Word": {
+            "VirtualDesktopId": "{F8C31334-443B-4FCE-AF59-F118550CC082}",
+            "LastSeen": "01/27/20"
+        },
+        "Accelerating OS Updates in Azure Infrastructure fleet.docx  -  Read-Only - Word": {
+            "VirtualDesktopId": "{F8C31334-443B-4FCE-AF59-F118550CC082}",
+            "LastSeen": "01/27/20"
+        }
+    },
+    "MSEdgeBeta": {
+        "Azure Global - JEDI Service Mapping and 14 more pages - Work - Microsoft Edge": {
+            "VirtualDesktopId": "{98F5D965-5D5D-4F14-98F6-EE9AB82DAA98}",
+            "LastSeen": "01/27/20"
+        }
+    },
+    "MSEdgeBeta.UserData.Profile1": {
+        "(2) John Sheehan - Stranger Things or the complete... - Kimberly Kelley Kapustein and 8 more pages - Personal - Microsoft Edge": {
+            "VirtualDesktopId": "{98F5D965-5D5D-4F14-98F6-EE9AB82DAA98}",
+            "LastSeen": "01/27/20"
+        }
+    },
+    "Microsoft.Office.OUTLOOK.EXE.15": {
+        "Inbox - John.Sheehan@microsoft.com - Outlook": {
+            "VirtualDesktopId": "{28D79379-3A79-493E-AE71-EB4CF1729A91}",
+            "LastSeen": "01/27/20"
+        }
+    },
+    "Microsoft.WindowsTerminal_8wekyb3d8bbwe!App": {
+        "cmd": {
+            "VirtualDesktopId": "{EA22D094-B06A-499E-BA3F-BC5FF5E822B1}",
+            "LastSeen": "01/27/20"
+        }
+    },
+    "{F38BF404-1D43-42F2-9305-67DE0B28FC23}\\regedit.exe": {
+        "Registry Editor": {
+            "VirtualDesktopId": "{275D7711-5032-4C7B-9F76-F4195049AF13}",
+            "LastSeen": "01/27/20"
+        }
+    }
+}
 ------------------------------------------------------------------------------------------------------*/
 
 
@@ -57,6 +82,9 @@ ViewToVirtualDesktopMapper::GetVirtualDesktopId(std::wstring_view aumid, std::ws
 {
 	// Get Virtual Desktop node
 	auto titleObject = LookupVirtualDesktopObject(aumid, windowTitle);
+
+	// @todo:  If we don't have a mappping for this windowTitle, it might make sense to default to a Virtual Desktop
+	//         for this aumid with a different windowTitle, so it is at least grouped with similar windows.
 	if(titleObject == nullptr) return {};
 
 	// Get Virtual Desktop Id
@@ -132,6 +160,13 @@ ViewToVirtualDesktopMapper::CreateVirtualDesktopObject(std::wstring_view aumid, 
 	return titleObject;
 }
 
+void ViewToVirtualDesktopMapper::CheckpointIfIntervalElapsed()
+{
+	auto now = std::time(nullptr);
+	auto diffInSeconds = std::difftime(now, lastCheckpoint_);
+
+}
+
 
 void ViewToVirtualDesktopMapper::DiscardOldMappings()
 {
@@ -146,7 +181,7 @@ void ViewToVirtualDesktopMapper::DiscardOldMappings()
 
 			auto lastSeenTime = ParseTime(timeStr);
 			auto diffInSeconds = std::difftime(now, lastSeenTime);
-			if (diffInSeconds > MonthInSeconds_) RemoveOldMapping(aumidNode.Key(), titleNode.Key());
+			if (diffInSeconds > UnusedMappingLifetimeInSeconds_) RemoveOldMapping(aumidNode.Key(), titleNode.Key());
 		}
 	}
 }

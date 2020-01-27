@@ -18,13 +18,16 @@ public:
 	// State persistence (explicit so host can control timing)
 	void LoadMappings();
 	void CheckpointMappings();
+	const double CheckpointIntervalInSeconds_ = 10 /*minutes*/ * 60 /*seconds*/;
 
 protected:
 	winrt::Windows::Data::Json::JsonObject LookupVirtualDesktopObject(std::wstring_view aumid, std::wstring_view windowTitle);
 	winrt::Windows::Data::Json::JsonObject CreateVirtualDesktopObject(std::wstring_view aumid, std::wstring_view windowTitle);
 
+	void CheckpointIfIntervalElapsed();
+
 	// Retirement
-	const double MonthInSeconds_ = 31 /*days*/ * 24 /*hours*/ * 60 /*minutes*/ * 60 /*seconds*/;
+	const double UnusedMappingLifetimeInSeconds_ = 31 /*days*/ * 24 /*hours*/ * 60 /*minutes*/ * 60 /*seconds*/;
 	void DiscardOldMappings();
 	void RemoveOldMapping(std::wstring_view aumid, std::wstring_view windowTitle);
 
