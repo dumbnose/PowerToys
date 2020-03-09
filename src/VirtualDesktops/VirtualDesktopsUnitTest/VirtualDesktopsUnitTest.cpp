@@ -137,7 +137,7 @@ namespace VirtualDesktopsUnitTest
 
 				VirtualDesktopPersister::instance().Initialize();
 
-				Sleep(10000);
+				Sleep(INFINITE);
 
 				VirtualDesktopPersister::instance().Uninitialize();
 			}

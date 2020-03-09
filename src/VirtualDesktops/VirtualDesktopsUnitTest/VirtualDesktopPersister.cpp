@@ -39,6 +39,7 @@ void VirtualDesktopPersister::Uninitialize()
 void
 VirtualDesktopPersister::WindowChangedDesktops(VirtualDesktopManagerInternal& src, WindowChangedDesktopEventArgs& args) 
 {
+	// @todo:  First check whether the app has foreground (or maybe is of type pop-up). Need to figure it out.
 	auto newDesktop = MoveWindowToPreferredDesktop(args.Window);
 
 	// If the window was moved to a new desktop, switch to that desktop
