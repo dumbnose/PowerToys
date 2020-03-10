@@ -2,94 +2,6 @@
 #include "Helpers.h"
 #include <ShlGuid.h>
 
-HRESULT GetIconIndexFromPath(_In_ PCWSTR path, _Out_ int* index)
-{
-    *index = 0;
-
-    HRESULT hr = E_FAIL;
-
-    SHFILEINFO shFileInfo = { 0 };
-
-    if (!PathIsRelative(path))
-    {
-        DWORD attrib = GetFileAttributes(path);
-        HIMAGELIST himl = (HIMAGELIST)SHGetFileInfo(path, attrib, &shFileInfo, sizeof(shFileInfo), (SHGFI_SYSICONINDEX | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES));
-        if (himl)
-        {
-            *index = shFileInfo.iIcon;
-            // We shouldn't free the HIMAGELIST.
-            hr = S_OK;
-        }
-    }
-
-    return hr;
-}
-
-HBITMAP CreateBitmapFromIcon(_In_ HICON hIcon, _In_opt_ UINT width, _In_opt_ UINT height)
-{
-    HBITMAP hBitmapResult = NULL;
-
-    // Create compatible DC
-    HDC hDC = CreateCompatibleDC(NULL);
-    if (hDC != NULL)
-    {
-        // Get bitmap rectangle size
-        RECT rc = { 0 };
-        rc.left = 0;
-        rc.right = (width != 0) ? width : GetSystemMetrics(SM_CXSMICON);
-        rc.top = 0;
-        rc.bottom = (height != 0) ? height : GetSystemMetrics(SM_CYSMICON);
-
-        // Create bitmap compatible with DC
-        BITMAPINFO BitmapInfo;
-        ZeroMemory(&BitmapInfo, sizeof(BITMAPINFO));
-
-        BitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        BitmapInfo.bmiHeader.biWidth = rc.right;
-        BitmapInfo.bmiHeader.biHeight = rc.bottom;
-        BitmapInfo.bmiHeader.biPlanes = 1;
-        BitmapInfo.bmiHeader.biBitCount = 32;
-        BitmapInfo.bmiHeader.biCompression = BI_RGB;
-
-        HDC hDCBitmap = GetDC(NULL);
-
-        HBITMAP hBitmap = CreateDIBSection(hDCBitmap, &BitmapInfo, DIB_RGB_COLORS, NULL, NULL, 0);
-
-        ReleaseDC(NULL, hDCBitmap);
-
-        if (hBitmap != NULL)
-        {
-            // Select bitmap into DC
-            HBITMAP hBitmapOld = (HBITMAP)SelectObject(hDC, hBitmap);
-            if (hBitmapOld != NULL)
-            {
-                // Draw icon into DC
-                if (DrawIconEx(hDC, 0, 0, hIcon, rc.right, rc.bottom, 0, NULL, DI_NORMAL))
-                {
-                    // Restore original bitmap in DC
-                    hBitmapResult = (HBITMAP)SelectObject(hDC, hBitmapOld);
-                    hBitmapOld = NULL;
-                    hBitmap = NULL;
-                }
-
-                if (hBitmapOld != NULL)
-                {
-                    SelectObject(hDC, hBitmapOld);
-                }
-            }
-
-            if (hBitmap != NULL)
-            {
-                DeleteObject(hBitmap);
-            }
-        }
-
-        DeleteDC(hDC);
-    }
-
-    return hBitmapResult;
-}
-
 HRESULT _ParseEnumItems(_In_ IEnumShellItems* pesi, _In_ IPowerRenameManager* psrm, _In_ int depth = 0)
 {
     HRESULT hr = E_INVALIDARG;
@@ -140,11 +52,20 @@ HRESULT _ParseEnumItems(_In_ IEnumShellItems* pesi, _In_ IPowerRenameManager* ps
     return hr;
 }
 
-// Iterate through the data object and add paths to the rotation manager
-HRESULT EnumerateDataObject(_In_ IDataObject* pdo, _In_ IPowerRenameManager* psrm)
+// Iterate through the data source and add paths to the rotation manager
+HRESULT EnumerateDataObject(_In_ IUnknown* dataSource, _In_ IPowerRenameManager* psrm)
 {
     CComPtr<IShellItemArray> spsia;
-    HRESULT hr = SHCreateShellItemArrayFromDataObject(pdo, IID_PPV_ARGS(&spsia));
+    IDataObject* dataObj{};
+    HRESULT hr;
+    if (SUCCEEDED(dataSource->QueryInterface(IID_IDataObject, reinterpret_cast<void**>(&dataObj))))
+    {
+        hr = SHCreateShellItemArrayFromDataObject(dataObj, IID_PPV_ARGS(&spsia));
+    }
+    else
+    {
+        hr = dataSource->QueryInterface(IID_IShellItemArray, reinterpret_cast<void**>(&spsia));
+    }
     if (SUCCEEDED(hr))
     {
         CComPtr<IEnumShellItems> spesi;
@@ -158,38 +79,7 @@ HRESULT EnumerateDataObject(_In_ IDataObject* pdo, _In_ IPowerRenameManager* psr
     return hr;
 }
 
-HWND CreateMsgWindow(_In_ HINSTANCE hInst, _In_ WNDPROC pfnWndProc, _In_ void* p)
-{
-    WNDCLASS wc = { 0 };
-    PWSTR wndClassName = L"MsgWindow";
-
-    wc.lpfnWndProc = DefWindowProc;
-    wc.cbWndExtra = sizeof(void*);
-    wc.hInstance = hInst;
-    wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
-    wc.lpszClassName = wndClassName;
-
-    RegisterClass(&wc);
-
-    HWND hwnd = CreateWindowEx(
-        0, wndClassName, nullptr, 0,
-        0, 0, 0, 0, HWND_MESSAGE,
-        0, hInst, nullptr);
-    if (hwnd)
-    {
-        SetWindowLongPtr(hwnd, 0, (LONG_PTR)p);
-        if (pfnWndProc)
-        {
-            SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)pfnWndProc);
-        }
-    }
-
-    return hwnd;
-}
-
-BOOL GetEnumeratedFileName(__out_ecount(cchMax) PWSTR pszUniqueName, UINT cchMax,
-    __in PCWSTR pszTemplate, __in_opt PCWSTR pszDir, unsigned long ulMinLong,
-    __inout unsigned long* pulNumUsed)
+BOOL GetEnumeratedFileName(__out_ecount(cchMax) PWSTR pszUniqueName, UINT cchMax, __in PCWSTR pszTemplate, __in_opt PCWSTR pszDir, unsigned long ulMinLong, __inout unsigned long* pulNumUsed)
 {
     PWSTR pszName = nullptr;
     HRESULT hr = S_OK;

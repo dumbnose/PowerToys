@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\..\installer\Version.props" />
+  <Target Name="GenerateVersionData" BeforeTargets="PrepareForBuild">
+    <ItemGroup>
+      <HeaderLines Include="#pragma once" />
+      <HeaderLines Include="#define VERSION_MAJOR $(Version.Split('.')[0])" />
+      <HeaderLines Include="#define VERSION_MINOR $(Version.Split('.')[1])" />
+      <HeaderLines Include="#define VERSION_REVISION $(Version.Split('.')[2])" />
+    </ItemGroup>
+    <WriteLinesToFile
+      File="Generated Files\version_gen.h"
+      Lines="@(HeaderLines)"
+      Overwrite="true"
+      Encoding="Unicode"
+      WriteOnlyWhenDifferent="true" />
+  </Target>
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
@@ -62,11 +77,15 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalIncludeDirectories>inc;telemetry;..\..\deps\cpprestsdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/await %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>Shlwapi.lib;</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -82,6 +101,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>inc;telemetry;..\..\deps\cpprestsdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/await %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -89,6 +109,9 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>Shlwapi.lib;</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="animation.h" />
@@ -97,7 +120,13 @@
     <ClInclude Include="d2d_text.h" />
     <ClInclude Include="d2d_window.h" />
     <ClInclude Include="dpi_aware.h" />
-    <ClInclude Include="hwnd_data_cache.h" />
+    <ClInclude Include="com_object_factory.h" />
+    <ClInclude Include="notifications.h" />
+    <ClInclude Include="timeutil.h" />
+    <ClInclude Include="VersionHelper.h" />
+    <ClInclude Include="window_helpers.h" />
+    <ClInclude Include="icon_helpers.h" />
+    <ClInclude Include="json.h" />
     <ClInclude Include="monitors.h" />
     <ClInclude Include="on_thread_executor.h" />
     <ClInclude Include="pch.h" />
@@ -111,6 +140,7 @@
     <ClInclude Include="two_way_pipe_message_ipc.h" />
     <ClInclude Include="version.h" />
     <ClInclude Include="windows_colors.h" />
+    <ClInclude Include="winstore.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="animation.cpp" />
@@ -118,8 +148,9 @@
     <ClCompile Include="d2d_text.cpp" />
     <ClCompile Include="d2d_window.cpp" />
     <ClCompile Include="dpi_aware.cpp" />
-    <ClCompile Include="hwnd_data_cache.cpp" />
+    <ClCompile Include="json.cpp" />
     <ClCompile Include="monitors.cpp" />
+    <ClCompile Include="notifications.cpp" />
     <ClCompile Include="on_thread_executor.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -127,15 +158,14 @@
     </ClCompile>
     <ClCompile Include="settings_helpers.cpp" />
     <ClCompile Include="settings_objects.cpp" />
+    <ClCompile Include="icon_helpers.cpp" />
     <ClCompile Include="start_visible.cpp" />
     <ClCompile Include="tasklist_positions.cpp" />
     <ClCompile Include="common.cpp" />
+    <ClCompile Include="VersionHelper.cpp" />
     <ClCompile Include="windows_colors.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\deps\cpprestsdk\cpprestsdk.vcxproj">
-      <Project>{4e577735-dfab-41af-8a6e-b6e8872a2928}</Project>
-    </ProjectReference>
+    <ClCompile Include="window_helpers.cpp" />
+    <ClCompile Include="winstore.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

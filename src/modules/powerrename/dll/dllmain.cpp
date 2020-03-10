@@ -4,8 +4,11 @@
 #include <settings.h>
 #include <trace.h>
 #include <common/settings_objects.h>
+#include <common/common.h>
+#include "resource.h"
+#include <atomic>
 
-DWORD g_dwModuleRefCount = 0;
+std::atomic<DWORD> g_dwModuleRefCount = 0;
 HINSTANCE g_hInst = 0;
 
 extern "C" IMAGE_DOS_HEADER __ImageBase;
@@ -17,28 +20,29 @@ public:
         m_refCount(1),
         m_clsid(clsid)
     {
-        DllAddRef();
+        ModuleAddRef();
     }
 
     // IUnknown methods
     IFACEMETHODIMP QueryInterface(_In_ REFIID riid, _COM_Outptr_ void** ppv)
     {
-        static const QITAB qit[] =
-        {
+        static const QITAB qit[] = {
             QITABENT(CPowerRenameClassFactory, IClassFactory),
             { 0 }
         };
         return QISearch(this, qit, riid, ppv);
     }
 
-    IFACEMETHODIMP_(ULONG) AddRef()
+    IFACEMETHODIMP_(ULONG)
+    AddRef()
     {
-        return InterlockedIncrement(&m_refCount);
+        return ++m_refCount;
     }
 
-    IFACEMETHODIMP_(ULONG) Release()
+    IFACEMETHODIMP_(ULONG)
+    Release()
     {
-        LONG refCount = InterlockedDecrement(&m_refCount);
+        LONG refCount = --m_refCount;
         if (refCount == 0)
         {
             delete this;
@@ -55,16 +59,13 @@ public:
         {
             hr = CLASS_E_NOAGGREGATION;
         }
+        else if (m_clsid == CLSID_PowerRenameMenu)
+        {
+            hr = CPowerRenameMenu::s_CreateInstance(punkOuter, riid, ppv);
+        }
         else
         {
-            if (m_clsid == CLSID_PowerRenameMenu)
-            {
-                hr = CPowerRenameMenu::s_CreateInstance(punkOuter, riid, ppv);
-            }
-            else
-            {
-                hr = CLASS_E_CLASSNOTAVAILABLE;
-            }
+            hr = CLASS_E_CLASSNOTAVAILABLE;
         }
         return hr;
     }
@@ -73,11 +74,11 @@ public:
     {
         if (bLock)
         {
-            DllAddRef();
+            ModuleAddRef();
         }
         else
         {
-            DllRelease();
+            ModuleRelease();
         }
         return S_OK;
     }
@@ -85,10 +86,10 @@ public:
 private:
     ~CPowerRenameClassFactory()
     {
-        DllRelease();
+        ModuleRelease();
     }
 
-    long m_refCount;
+    std::atomic<long> m_refCount;
     CLSID m_clsid;
 };
 
@@ -119,16 +120,12 @@ STDAPI DllCanUnloadNow(void)
 //
 // DLL export for creating COM objects
 //
-STDAPI DllGetClassObject(_In_ REFCLSID clsid, _In_ REFIID riid, _Outptr_ void **ppv)
+STDAPI DllGetClassObject(_In_ REFCLSID clsid, _In_ REFIID riid, _Outptr_ void** ppv)
 {
     *ppv = NULL;
-    HRESULT hr = E_OUTOFMEMORY;
-    CPowerRenameClassFactory *pClassFactory = new CPowerRenameClassFactory(clsid);
-    if (pClassFactory)
-    {
-        hr = pClassFactory->QueryInterface(riid, ppv);
-        pClassFactory->Release();
-    }
+    CPowerRenameClassFactory* pClassFactory = new CPowerRenameClassFactory(clsid);
+    HRESULT hr = pClassFactory->QueryInterface(riid, ppv);
+    pClassFactory->Release();
     return hr;
 }
 
@@ -142,28 +139,28 @@ STDAPI DllUnregisterServer()
     return S_OK;
 }
 
-void DllAddRef()
+void ModuleAddRef()
 {
     g_dwModuleRefCount++;
 }
 
-void DllRelease()
+void ModuleRelease()
 {
     g_dwModuleRefCount--;
 }
-
 
 class PowerRenameModule : public PowertoyModuleIface
 {
 private:
     // Enabled by default
     bool m_enabled = true;
+    std::wstring app_name;
 
 public:
     // Return the display name of the powertoy, this will be cached
     virtual PCWSTR get_name() override
     {
-        return L"PowerRename";
+        return app_name.c_str();
     }
 
     // Enable the powertoy
@@ -201,44 +198,39 @@ public:
 
         // Create a Settings object.
         PowerToysSettings::Settings settings(hinstance, get_name());
-        settings.set_description(L"A Windows Shell Extension for more advanced bulk renaming using search and replace or regular expressions.");
+        settings.set_description(GET_RESOURCE_STRING(IDS_SETTINGS_DESCRIPTION));
         settings.set_icon_key(L"pt-power-rename");
 
         // Link to the GitHub PowerRename sub-page
-        settings.set_overview_link(L"https://github.com/microsoft/PowerToys/tree/master/src/modules/powerrename");
+        settings.set_overview_link(GET_RESOURCE_STRING(IDS_OVERVIEW_LINK));
 
         settings.add_bool_toogle(
             L"bool_persist_input",
-            L"Restore search, replace and flags values on launch from previous run.",
-            CSettings::GetPersistState()
-        );
+            GET_RESOURCE_STRING(IDS_RESTORE_SEARCH),
+            CSettings::GetPersistState());
 
         settings.add_bool_toogle(
             L"bool_mru_enabled",
-            L"Enable autocomplete and autosuggest of recently used inputs for search and replace values.",
-            CSettings::GetMRUEnabled()
-        );
+            GET_RESOURCE_STRING(IDS_ENABLE_AUTO),
+            CSettings::GetMRUEnabled());
 
         settings.add_int_spinner(
             L"int_max_mru_size",
-            L"Maximum number of items to show in recently used list for autocomplete dropdown.",
+            GET_RESOURCE_STRING(IDS_MAX_ITEMS),
             CSettings::GetMaxMRUSize(),
             0,
             20,
-            1
-        );
+            1);
 
         settings.add_bool_toogle(
-          L"bool_show_icon_on_menu", 
-          L"Show icon on context menu.",
-          CSettings::GetShowIconOnMenu()
-        );
+            L"bool_show_icon_on_menu",
+            GET_RESOURCE_STRING(IDS_ICON_CONTEXT_MENU),
+            CSettings::GetShowIconOnMenu());
 
         settings.add_bool_toogle(
             L"bool_show_extended_menu",
-            L"Only show the PowerRename menu item on the extended context menu (SHIFT + Right-click).",
-            CSettings::GetExtendedContextMenuOnly()
-        );
+            GET_RESOURCE_STRING(IDS_EXTENDED_MENU_INFO),
+            CSettings::GetExtendedContextMenuOnly());
 
         return settings.serialize_to_buffer(buffer, buffer_size);
     }
@@ -247,18 +239,22 @@ public:
     // This is called when the user hits Save on the settings page.
     virtual void set_config(PCWSTR config) override
     {
-        try {
+        try
+        {
             // Parse the input JSON string.
             PowerToysSettings::PowerToyValues values =
                 PowerToysSettings::PowerToyValues::from_json_string(config);
 
-            CSettings::SetPersistState(values.get_bool_value(L"bool_persist_input"));
-            CSettings::SetMRUEnabled(values.get_bool_value(L"bool_mru_enabled"));
-            CSettings::SetMaxMRUSize(values.get_int_value(L"int_max_mru_size"));
-            CSettings::SetShowIconOnMenu(values.get_bool_value(L"bool_show_icon_on_menu"));
-            CSettings::SetExtendedContextMenuOnly(values.get_bool_value(L"bool_show_extended_menu"));
+            CSettings::SetPersistState(values.get_bool_value(L"bool_persist_input").value());
+            CSettings::SetMRUEnabled(values.get_bool_value(L"bool_mru_enabled").value());
+            CSettings::SetMaxMRUSize(values.get_int_value(L"int_max_mru_size").value());
+            CSettings::SetShowIconOnMenu(values.get_bool_value(L"bool_show_icon_on_menu").value());
+            CSettings::SetExtendedContextMenuOnly(values.get_bool_value(L"bool_show_extended_menu").value());
+
+            Trace::SettingsChanged();
         }
-        catch (std::exception) {
+        catch (std::exception)
+        {
             // Improper JSON.
         }
     }
@@ -275,8 +271,8 @@ public:
         return 0;
     }
 
-    virtual void register_system_menu_helper(PowertoySystemMenuIface* helper) override { }
-    virtual void signal_system_menu_action(const wchar_t* name) override { }
+    virtual void register_system_menu_helper(PowertoySystemMenuIface* helper) override {}
+    virtual void signal_system_menu_action(const wchar_t* name) override {}
 
     // Destroy the powertoy and free memory
     virtual void destroy() override
@@ -299,9 +295,11 @@ public:
     PowerRenameModule()
     {
         init_settings();
+        app_name = GET_RESOURCE_STRING(IDS_POWERRENAME);
     }
-};
 
+    ~PowerRenameModule(){};
+};
 
 extern "C" __declspec(dllexport) PowertoyModuleIface* __cdecl powertoy_create()
 {

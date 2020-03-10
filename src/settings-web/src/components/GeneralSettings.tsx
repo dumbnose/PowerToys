@@ -3,16 +3,21 @@ import { Stack, Text, PrimaryButton, Label, Link, loadTheme } from 'office-ui-fa
 import { BoolToggleSettingsControl } from './BoolToggleSettingsControl'
 import { ChoiceGroupSettingsControl } from './ChoiceGroupSettingsControl'
 import { Separator } from 'office-ui-fabric-react/lib/Separator';
+import { CustomActionSettingsControl } from './CustomActionSettingsControl';
 
 export class GeneralSettings extends React.Component <any, any> {
   references: any = {};
   startup_reference: any;
+  elevated_reference: any;
+  restart_reference: any;
   theme_reference: any;
   parent_on_change: Function;
   constructor(props: any) {
     super(props);
     this.references={};
     this.startup_reference=null;
+    this.elevated_reference=null;
+    this.restart_reference=null;
     this.parent_on_change = props.on_change;
     this.state = {
       settings_key: props.settings_key,
@@ -38,6 +43,7 @@ export class GeneralSettings extends React.Component <any, any> {
     let result : any = {};
     result[this.state.settings_key]= {
       startup: this.startup_reference.get_value().value,
+      run_elevated: this.elevated_reference != null && this.elevated_reference.get_value().value,
       theme: this.theme_reference.get_value().value,
       enabled: enabled
     };
@@ -115,13 +121,51 @@ export class GeneralSettings extends React.Component <any, any> {
         }
         <Separator />
         <Text variant='xLarge'>General</Text>
-        <BoolToggleSettingsControl
-          setting={{display_name: 'Start at login', value: this.state.settings.general.startup}}
+        <Stack>
+          {this.state.settings.general.startup_disabled_reason != null && 
+            <span style={{color:"#c50500"}} dangerouslySetInnerHTML={{__html: this.state.settings.general.startup_disabled_reason }} />
+          }
+          <Label>Run at Startup</Label>
+          <BoolToggleSettingsControl
+            disabled={this.state.settings.general.startup_disabled_reason}
+            setting={{value: this.state.settings.general.startup}}
+            on_change={this.parent_on_change}
+            ref={(input) => {this.startup_reference=input;}}
+          />
+        </Stack>
+        
+        {this.state.settings.general.is_elevated && (<Label>Currently running as administrator</Label>)}
+
+        {this.state.settings.general.is_admin &&
+        (<BoolToggleSettingsControl
+          setting={{display_name: 'Always run as administrator', value: this.state.settings.general.run_elevated}}
           on_change={this.parent_on_change}
-          ref={(input) => {this.startup_reference=input;}}
-        />
+          ref={(input) => {this.elevated_reference=input;}}
+        />)
+        }
+        {this.state.settings.general.is_admin && !this.state.settings.general.is_elevated &&
+        (<CustomActionSettingsControl
+          setting={{
+            display_name: '',
+            value: 'Running as user. Do you wish to run as administrator instead?',
+            button_text: 'Restart as administrator'
+          }}
+          action_name={'restart_elevation'}
+          action_callback={(action_name: any, value:any) => {
+            (window as any).output_from_webview(JSON.stringify({
+              action: {
+                general: {
+                  action_name,
+                  value
+                }
+              }
+            }));
+          }}
+          ref={(input) => {this.restart_reference=input;}}
+        />)
+        }
         <ChoiceGroupSettingsControl
-          setting={{display_name: 'Chose Settings color',
+          setting={{display_name: 'Choose Settings color',
                     value: this.state.settings.general.theme,
                     options: [
                       { key: 'system', text: 'System default app mode'},
@@ -191,19 +235,37 @@ export class GeneralSettings extends React.Component <any, any> {
           ref={(input) => {this.theme_reference=input;}}
         />
         <Stack>
-        <Label>Version {this.state.settings.general.powertoys_version}</Label>
-          <PrimaryButton
-            styles={{
+          <Text variant='xLarge'>About PowerToys (Preview)</Text>
+          <Label>Version {this.state.settings.general.powertoys_version}</Label>
+            <PrimaryButton
+              styles={{
+                  root: {
+                    alignSelf: "start"
+                  }
+              }}
+              href='https://github.com/microsoft/PowerToys/releases'
+              target='_blank'
+            >Check for updates</PrimaryButton>
+            <Link
+              href="https://github.com/microsoft/PowerToys/issues/new?assignees=&labels=&template=bug_report.md&title="
+              target='_blank'
+              styles = {{
                 root: {
-                  alignSelf: "start"
+                  paddingTop: '10px'
                 }
-            }}
-            href='https://github.com/microsoft/PowerToys/releases'
-            target='_blank'
-          >Check for updates</PrimaryButton>
+              }}
+            >Report a bug</Link>
+            <Link
+              href="https://github.com/microsoft/PowerToys/issues/new?assignees=&labels=&template=feature_request.md&title="
+              target='_blank'
+            >Request a feature</Link>
+            <Link
+              href="https://github.com/microsoft/PowerToys#privacy-statement"
+              target='_blank'
+            >Privacy statement</Link>
         </Stack>
         {/* An empty span to always give 30px padding in Edge. */}
-        <span/>
+        <span />
       </Stack>
     )
   }

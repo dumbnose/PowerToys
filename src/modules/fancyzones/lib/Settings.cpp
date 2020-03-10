@@ -1,17 +1,21 @@
 #include "pch.h"
 #include <common/settings_objects.h>
+#include "lib/Settings.h"
+#include "lib/FancyZones.h"
+#include "trace.h"
 
 struct FancyZonesSettings : winrt::implements<FancyZonesSettings, IFancyZonesSettings>
 {
 public:
     FancyZonesSettings(HINSTANCE hinstance, PCWSTR name)
         : m_hinstance(hinstance)
-        , m_name(name)
+        , m_moduleName(name)
     {
-        LoadSettings(name, true /*fromFile*/);
+        LoadSettings(name, true);
     }
-
+    
     IFACEMETHODIMP_(void) SetCallback(IFancyZonesCallback* callback) { m_callback = callback; }
+    IFACEMETHODIMP_(void) ResetCallback() { m_callback = nullptr; }
     IFACEMETHODIMP_(bool) GetConfig(_Out_ PWSTR buffer, _Out_ int *buffer_sizeg) noexcept;
     IFACEMETHODIMP_(void) SetConfig(PCWSTR config) noexcept;
     IFACEMETHODIMP_(void) CallCustomAction(PCWSTR action) noexcept;
@@ -23,7 +27,7 @@ private:
 
     IFancyZonesCallback* m_callback{};
     const HINSTANCE m_hinstance;
-    PCWSTR m_name{};
+    PCWSTR m_moduleName{};
 
     Settings m_settings;
 
@@ -46,11 +50,12 @@ private:
     const std::wstring m_zoneHiglightName = L"fancyzones_zoneHighlightColor";
     const std::wstring m_editorHotkeyName = L"fancyzones_editor_hotkey";
     const std::wstring m_excludedAppsName = L"fancyzones_excluded_apps";
+    const std::wstring m_zoneHighlightOpacity = L"fancyzones_highlight_opacity";
 };
 
 IFACEMETHODIMP_(bool) FancyZonesSettings::GetConfig(_Out_ PWSTR buffer, _Out_ int *buffer_size) noexcept
 {
-    PowerToysSettings::Settings settings(m_hinstance, m_name);
+    PowerToysSettings::Settings settings(m_hinstance, m_moduleName);
 
     // Pass a string literal or a resource id to Settings::set_description().
     settings.set_description(IDS_SETTING_DESCRIPTION);
@@ -73,15 +78,16 @@ IFACEMETHODIMP_(bool) FancyZonesSettings::GetConfig(_Out_ PWSTR buffer, _Out_ in
         settings.add_bool_toogle(setting.name, setting.resourceId, *setting.value);
     }
 
+    settings.add_int_spinner(m_zoneHighlightOpacity, IDS_SETTINGS_HIGHLIGHT_OPACITY, m_settings.zoneHighlightOpacity, 0, 100, 1);
     settings.add_color_picker(m_zoneHiglightName, IDS_SETTING_DESCRIPTION_ZONEHIGHLIGHTCOLOR, m_settings.zoneHightlightColor);
     settings.add_multiline_string(m_excludedAppsName, IDS_SETTING_EXCLCUDED_APPS_DESCRIPTION, m_settings.excludedApps);
 
     return settings.serialize_to_buffer(buffer, buffer_size);
 }
 
-IFACEMETHODIMP_(void) FancyZonesSettings::SetConfig(PCWSTR config) noexcept try
+IFACEMETHODIMP_(void) FancyZonesSettings::SetConfig(PCWSTR serializedPowerToysSettingsJson) noexcept try
 {
-    LoadSettings(config, false /*fromFile*/);
+    LoadSettings(serializedPowerToysSettingsJson, false /*fromFile*/);
     SaveSettings();
     if (m_callback)
     {
@@ -107,30 +113,30 @@ CATCH_LOG();
 void FancyZonesSettings::LoadSettings(PCWSTR config, bool fromFile) noexcept try
 {
     PowerToysSettings::PowerToyValues values = fromFile ?
-        PowerToysSettings::PowerToyValues::load_from_settings_file(m_name) :
+        PowerToysSettings::PowerToyValues::load_from_settings_file(m_moduleName) :
         PowerToysSettings::PowerToyValues::from_json_string(config);
 
     for (auto const& setting : m_configBools)
     {
-        if (values.is_bool_value(setting.name))
+        if (const auto val = values.get_bool_value(setting.name))
         {
-            *setting.value = values.get_bool_value(setting.name);
+            *setting.value = *val;
         }
     }
 
-    if (values.is_string_value(m_zoneHiglightName))
+    if (auto val = values.get_string_value(m_zoneHiglightName))
     {
-        m_settings.zoneHightlightColor = values.get_string_value(m_zoneHiglightName);
+        m_settings.zoneHightlightColor = std::move(*val);
     }
 
-    if (values.is_object_value(m_editorHotkeyName))
+    if (const auto val = values.get_json(m_editorHotkeyName))
     {
-        m_settings.editorHotkey = PowerToysSettings::HotkeyObject::from_json(values.get_json(m_editorHotkeyName));
+        m_settings.editorHotkey = PowerToysSettings::HotkeyObject::from_json(*val);
     }
 
-    if (values.is_string_value(m_excludedAppsName))
+    if (auto val = values.get_string_value(m_excludedAppsName))
     {
-        m_settings.excludedApps = values.get_string_value(m_excludedAppsName);
+        m_settings.excludedApps = std::move(*val);
         m_settings.excludedAppsArray.clear();
         auto excludedUppercase = m_settings.excludedApps;
         CharUpperBuffW(excludedUppercase.data(), (DWORD)excludedUppercase.length());
@@ -150,12 +156,17 @@ void FancyZonesSettings::LoadSettings(PCWSTR config, bool fromFile) noexcept try
             }
         }
     }
+
+    if (auto val = values.get_int_value(m_zoneHighlightOpacity))
+    {
+        m_settings.zoneHighlightOpacity = *val;
+    }
 }
 CATCH_LOG();
 
 void FancyZonesSettings::SaveSettings() noexcept try
 {
-    PowerToysSettings::PowerToyValues values(m_name);
+    PowerToysSettings::PowerToyValues values(m_moduleName);
 
     for (auto const& setting : m_configBools)
     {
@@ -163,7 +174,8 @@ void FancyZonesSettings::SaveSettings() noexcept try
     }
 
     values.add_property(m_zoneHiglightName, m_settings.zoneHightlightColor);
-    values.add_property(m_editorHotkeyName, m_settings.editorHotkey);
+    values.add_property(m_zoneHighlightOpacity, m_settings.zoneHighlightOpacity);
+    values.add_property(m_editorHotkeyName, m_settings.editorHotkey.get_json());
     values.add_property(m_excludedAppsName, m_settings.excludedApps);
 
     values.save_to_settings_file();

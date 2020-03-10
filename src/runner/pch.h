@@ -22,5 +22,9 @@
 #include <tuple>
 #include <unordered_set>
 #include <string>
-#include <common/common.h>
 #include <ProjectTelemetry.h>
+
+#include <winrt/Windows.ApplicationModel.h>
+#include <winrt/Windows.Storage.h>
+
+#include <wil/resource.h>

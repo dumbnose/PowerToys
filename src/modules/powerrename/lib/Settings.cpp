@@ -1,7 +1,7 @@
-
 #include "stdafx.h"
 #include <commctrl.h>
 #include "Settings.h"
+#include "PowerRenameInterfaces.h"
 
 const wchar_t c_rootRegPath[] = L"Software\\Microsoft\\PowerRename";
 const wchar_t c_mruSearchRegPath[] = L"SearchMRU";

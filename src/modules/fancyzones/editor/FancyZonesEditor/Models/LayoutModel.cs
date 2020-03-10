@@ -1,37 +1,75 @@
-﻿using System;
-using System.Collections;
+// Copyright (c) Microsoft Corporation
+// The Microsoft Corporation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-
 using System.ComponentModel;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.Win32;
+using System.IO;
+using System.Text.Json;
+using System.Windows;
 
 namespace FancyZonesEditor.Models
 {
+    public enum LayoutType
+    {
+        Blank = -1,
+        Focus,
+        Columns,
+        Rows,
+        Grid,
+        PriorityGrid,
+        Custom,
+    }
+
     // Base LayoutModel
     //  Manages common properties and base persistence
     public abstract class LayoutModel : INotifyPropertyChanged
     {
-        protected LayoutModel() { }
-
-        protected LayoutModel(string name) : this()
+        public static void ShowExceptionMessageBox(string message, Exception ex)
         {
+            string title = "FancyZones Editor Exception Handler";
+            string fullMessage = "Please report the bug to https://github.com/microsoft/PowerToys/issues \n" + message + ": " + ex.Message;
+            MessageBox.Show(fullMessage, title);
+        }
+
+        protected LayoutModel()
+        {
+            _guid = Guid.NewGuid();
+            Type = LayoutType.Custom;
+        }
+
+        protected LayoutModel(string name)
+            : this()
+        {
+            _guid = Guid.NewGuid();
             Name = name;
         }
 
-        protected LayoutModel(string name, ushort id) : this(name)
+        protected LayoutModel(string uuid, string name, LayoutType type)
+            : this()
         {
-            _id = id;
+            _guid = Guid.Parse(uuid);
+            Name = name;
+            Type = type;
         }
 
-        //   Name - the display name for this layout model - is also used as the key in the registry
+        protected LayoutModel(string name, LayoutType type)
+            : this(name)
+        {
+            _guid = Guid.NewGuid();
+            Type = type;
+        }
+
+        // Name - the display name for this layout model - is also used as the key in the registry
         public string Name
         {
-            get { return _name; }
+            get
+            {
+                return _name;
+            }
+
             set
             {
                 if (_name != value)
@@ -41,28 +79,30 @@ namespace FancyZonesEditor.Models
                 }
             }
         }
+
         private string _name;
 
-        // Id - the unique ID for this layout model - is used to connect fancy zones' ZonesSets with the editor's Layouts
-        //    - note: 0 means this is a new layout, which means it will have its ID auto-assigned on persist
-        public ushort Id
+        public LayoutType Type { get; set; }
+
+        public Guid Guid
         {
             get
             {
-                if (_id == 0)
-                {
-                    _id = ++s_maxId;
-                }
-                return _id;
+                return _guid;
             }
         }
-        private ushort _id = 0;
+
+        private Guid _guid;
 
         // IsSelected (not-persisted) - tracks whether or not this LayoutModel is selected in the picker
-        // TODO: once we switch to a picker per monitor, we need to move this state to the view  
+        // TODO: once we switch to a picker per monitor, we need to move this state to the view
         public bool IsSelected
         {
-            get { return _isSelected; }
+            get
+            {
+                return _isSelected;
+            }
+
             set
             {
                 if (_isSelected != value)
@@ -72,6 +112,7 @@ namespace FancyZonesEditor.Models
                 }
             }
         }
+
         private bool _isSelected;
 
         // implementation of INotifyProeprtyChanged
@@ -80,132 +121,193 @@ namespace FancyZonesEditor.Models
         // FirePropertyChanged -- wrapper that calls INPC.PropertyChanged
         protected virtual void FirePropertyChanged(string propertyName)
         {
-            PropertyChangedEventHandler handler = PropertyChanged;
-            if (handler != null) handler(this, new PropertyChangedEventArgs(propertyName));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
         // Removes this Layout from the registry and the loaded CustomModels list
         public void Delete()
         {
-            RegistryKey key = Registry.CurrentUser.OpenSubKey(c_registryPath, true);
-            if (key != null)
-            {
-                key.DeleteValue(Name);
-            }
-
-            int i = s_customModels.IndexOf(this);
+            int i = _customModels.IndexOf(this);
             if (i != -1)
             {
-                s_customModels.RemoveAt(i);
+                _customModels.RemoveAt(i);
+                _deletedCustomModels.Add(Guid.ToString().ToUpper());
             }
         }
 
-        // Loads all the Layouts persisted under the Layouts key in the registry
+        public static void SerializeDeletedCustomZoneSets()
+        {
+            try
+            {
+                FileStream outputStream = File.Open(Settings.CustomZoneSetsTmpFile, FileMode.Create);
+                var writer = new Utf8JsonWriter(outputStream, options: default);
+                writer.WriteStartObject();
+                writer.WriteStartArray("deleted-custom-zone-sets");
+                foreach (string zoneSet in _deletedCustomModels)
+                {
+                    writer.WriteStringValue(zoneSet);
+                }
+
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+                writer.Flush();
+                outputStream.Close();
+            }
+            catch (Exception ex)
+            {
+                ShowExceptionMessageBox("Error serializing deleted layouts", ex);
+            }
+        }
+
+        // Loads all the custom Layouts from tmp file passed by FancuZonesLib
         public static ObservableCollection<LayoutModel> LoadCustomModels()
         {
-            s_customModels = new ObservableCollection<LayoutModel>();
+            _customModels = new ObservableCollection<LayoutModel>();
 
-            RegistryKey key = Registry.CurrentUser.OpenSubKey(c_registryPath);
-            if (key != null)
+            try
             {
-                foreach (string name in key.GetValueNames())
+                FileStream inputStream = File.Open(Settings.CustomZoneSetsTmpFile, FileMode.Open);
+                JsonDocument jsonObject = JsonDocument.Parse(inputStream, options: default);
+                JsonElement.ArrayEnumerator customZoneSetsEnumerator = jsonObject.RootElement.GetProperty("custom-zone-sets").EnumerateArray();
+
+                while (customZoneSetsEnumerator.MoveNext())
                 {
-                    LayoutModel model = null;
-                    byte[] data = (byte[])Registry.GetValue(c_fullRegistryPath, name, null);
-
-                    ushort version = (ushort) (data[0]*256 + data[1]);
-                    byte type = data[2];
-                    ushort id = (ushort) (data[3]*256 + data[4]);
-
-                    switch (type)
+                    var current = customZoneSetsEnumerator.Current;
+                    string name = current.GetProperty("name").GetString();
+                    string type = current.GetProperty("type").GetString();
+                    string uuid = current.GetProperty("uuid").GetString();
+                    var info = current.GetProperty("info");
+                    if (type.Equals("grid"))
                     {
-                        case 0: model = new GridLayoutModel(version, name, id, data); break;
-                        case 1: model = new CanvasLayoutModel(version, name, id, data); break;
-                    }
-
-                    if (model != null)
-                    {
-                        if (s_maxId < id)
+                        int rows = info.GetProperty("rows").GetInt32();
+                        int columns = info.GetProperty("columns").GetInt32();
+                        int[] rowsPercentage = new int[rows];
+                        JsonElement.ArrayEnumerator rowsPercentageEnumerator = info.GetProperty("rows-percentage").EnumerateArray();
+                        int i = 0;
+                        while (rowsPercentageEnumerator.MoveNext())
                         {
-                            s_maxId = id;
+                            rowsPercentage[i++] = rowsPercentageEnumerator.Current.GetInt32();
                         }
-                        s_customModels.Add(model);
+
+                        i = 0;
+                        int[] columnsPercentage = new int[columns];
+                        JsonElement.ArrayEnumerator columnsPercentageEnumerator = info.GetProperty("columns-percentage").EnumerateArray();
+                        while (columnsPercentageEnumerator.MoveNext())
+                        {
+                            columnsPercentage[i++] = columnsPercentageEnumerator.Current.GetInt32();
+                        }
+
+                        i = 0;
+                        JsonElement.ArrayEnumerator cellChildMapRows = info.GetProperty("cell-child-map").EnumerateArray();
+                        int[,] cellChildMap = new int[rows, columns];
+                        while (cellChildMapRows.MoveNext())
+                        {
+                            int j = 0;
+                            JsonElement.ArrayEnumerator cellChildMapRowElems = cellChildMapRows.Current.EnumerateArray();
+                            while (cellChildMapRowElems.MoveNext())
+                            {
+                                cellChildMap[i, j++] = cellChildMapRowElems.Current.GetInt32();
+                            }
+
+                            i++;
+                        }
+
+                        _customModels.Add(new GridLayoutModel(uuid, name, LayoutType.Custom, rows, columns, rowsPercentage, columnsPercentage, cellChildMap));
+                    }
+                    else if (type.Equals("canvas"))
+                    {
+                        int referenceWidth = info.GetProperty("ref-width").GetInt32();
+                        int referenceHeight = info.GetProperty("ref-height").GetInt32();
+                        JsonElement.ArrayEnumerator zonesEnumerator = info.GetProperty("zones").EnumerateArray();
+                        IList<Int32Rect> zones = new List<Int32Rect>();
+                        while (zonesEnumerator.MoveNext())
+                        {
+                            int x = zonesEnumerator.Current.GetProperty("X").GetInt32();
+                            int y = zonesEnumerator.Current.GetProperty("Y").GetInt32();
+                            int width = zonesEnumerator.Current.GetProperty("width").GetInt32();
+                            int height = zonesEnumerator.Current.GetProperty("height").GetInt32();
+                            zones.Add(new Int32Rect(x, y, width, height));
+                        }
+
+                        _customModels.Add(new CanvasLayoutModel(uuid, name, LayoutType.Custom, referenceWidth, referenceHeight, zones));
                     }
                 }
+
+                inputStream.Close();
+            }
+            catch (Exception ex)
+            {
+                ShowExceptionMessageBox("Error loading custom layouts", ex);
+                return new ObservableCollection<LayoutModel>();
             }
 
-            return s_customModels;
+            return _customModels;
         }
-        private static ObservableCollection<LayoutModel> s_customModels = null;
 
-        private static ushort s_maxId = 0;
+        private static ObservableCollection<LayoutModel> _customModels = null;
+        private static List<string> _deletedCustomModels = new List<string>();
 
         // Callbacks that the base LayoutModel makes to derived types
-        protected abstract byte[] GetPersistData();
+        protected abstract void PersistData();
+
         public abstract LayoutModel Clone();
-        
-        // PInvokes to handshake with fancyzones backend
-        internal static class Native
+
+        public void Persist()
         {
-            [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Ansi)]
-            public static extern IntPtr LoadLibrary([MarshalAs(UnmanagedType.LPStr)]string lpFileName);
-
-            [DllImport("kernel32", CharSet = CharSet.Ansi, ExactSpelling = true, SetLastError = true)]
-            public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
-
-            internal delegate int PersistZoneSet(
-                [MarshalAs(UnmanagedType.LPWStr)] string activeKey,
-                [MarshalAs(UnmanagedType.LPWStr)] string resolutionKey,
-                uint monitor,
-                ushort layoutId,
-                int zoneCount,
-                [MarshalAs(UnmanagedType.LPArray)] int[] zoneArray);
+            PersistData();
+            Apply();
         }
 
-        public void Persist(System.Windows.Int32Rect[] zones)
+        public void Apply()
         {
-            // Persist the editor data
-            Registry.SetValue(c_fullRegistryPath, Name, GetPersistData(), Microsoft.Win32.RegistryValueKind.Binary);
-            Apply(zones);
+            try
+            {
+                FileStream outputStream = File.Open(Settings.ActiveZoneSetTmpFile, FileMode.Create);
+                var writer = new Utf8JsonWriter(outputStream, options: default);
+
+                writer.WriteStartObject();
+                writer.WriteString("device-id", Settings.UniqueKey);
+
+                writer.WriteStartObject("active-zoneset");
+                writer.WriteString("uuid", "{" + Guid.ToString().ToUpper() + "}");
+                switch (Type)
+                {
+                    case LayoutType.Focus:
+                        writer.WriteString("type", "focus");
+                        break;
+                    case LayoutType.Rows:
+                        writer.WriteString("type", "rows");
+                        break;
+                    case LayoutType.Columns:
+                        writer.WriteString("type", "columns");
+                        break;
+                    case LayoutType.Grid:
+                        writer.WriteString("type", "grid");
+                        break;
+                    case LayoutType.PriorityGrid:
+                        writer.WriteString("type", "priority-grid");
+                        break;
+                    case LayoutType.Custom:
+                        writer.WriteString("type", "custom");
+                        break;
+                }
+
+                writer.WriteEndObject();
+
+                Settings settings = ((App)Application.Current).ZoneSettings;
+
+                writer.WriteBoolean("editor-show-spacing", settings.ShowSpacing);
+                writer.WriteNumber("editor-spacing", settings.Spacing);
+                writer.WriteNumber("editor-zone-count", settings.ZoneCount);
+
+                writer.WriteEndObject();
+                writer.Flush();
+                outputStream.Close();
+            }
+            catch (Exception ex)
+            {
+                ShowExceptionMessageBox("Error applying layout", ex);
+            }
         }
-
-        public void Apply(System.Windows.Int32Rect[] zones)
-        { 
-            // Persist the zone data back into FZ
-            var module = Native.LoadLibrary("fancyzones.dll");
-            if (module == IntPtr.Zero)
-            {
-                return;
-            }
-
-            var pfn = Native.GetProcAddress(module, "PersistZoneSet");
-            if (pfn == IntPtr.Zero)
-            {
-                return;
-            }
-
-            // Scale all the zones to the DPI and then pack them up to be marshalled.
-            int zoneCount = zones.Length;
-            var zoneArray = new int[zoneCount * 4];
-            for (int i = 0; i < zones.Length; i++)
-            {
-                var left = (int)(zones[i].X * Settings.Dpi);
-                var top = (int)(zones[i].Y * Settings.Dpi);
-                var right = left + (int)(zones[i].Width * Settings.Dpi);
-                var bottom = top + (int)(zones[i].Height * Settings.Dpi);
-
-                var index = i * 4;
-                zoneArray[index] = left;
-                zoneArray[index+1] = top;
-                zoneArray[index+2] = right;
-                zoneArray[index+3] = bottom;
-            }
-
-            var persistZoneSet = Marshal.GetDelegateForFunctionPointer<Native.PersistZoneSet>(pfn);
-            persistZoneSet(Settings.UniqueKey, Settings.WorkAreaKey, Settings.Monitor, _id, zoneCount, zoneArray);
-        }
-
-        private static readonly string c_registryPath = Settings.RegistryPath + "\\Layouts";
-        private static readonly string c_fullRegistryPath = Settings.FullRegistryPath + "\\Layouts";
     }
 }

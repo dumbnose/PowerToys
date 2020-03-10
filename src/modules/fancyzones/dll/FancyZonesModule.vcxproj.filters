@@ -25,7 +25,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+<<<<<<< HEAD
     <None Include="fancyzones.def" />
+=======
+>>>>>>> master
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
