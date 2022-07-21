@@ -5,7 +5,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Linq;
 using Microsoft.PowerToys.Run.Plugin.Registry.Classes;
 using Microsoft.PowerToys.Run.Plugin.Registry.Constants;
@@ -14,8 +13,6 @@ using Microsoft.Win32;
 
 namespace Microsoft.PowerToys.Run.Plugin.Registry.Helper
 {
-#pragma warning disable CA1031 // Do not catch general exception types
-
     /// <summary>
     /// Helper class to easier work with the registry
     /// </summary>
@@ -52,7 +49,7 @@ namespace Microsoft.PowerToys.Run.Plugin.Registry.Helper
                 return (null, string.Empty);
             }
 
-            var baseKey = query.Split('\\').FirstOrDefault();
+            var baseKey = query.Split('\\').FirstOrDefault() ?? string.Empty;
             var subKey = query.Replace(baseKey, string.Empty, StringComparison.InvariantCultureIgnoreCase).TrimStart('\\');
 
             var baseKeyResult = _baseKeys
@@ -101,11 +98,12 @@ namespace Microsoft.PowerToys.Run.Plugin.Registry.Helper
 
             do
             {
-                result = FindSubKey(subKey, subKeysNames.ElementAtOrDefault(index));
+                result = FindSubKey(subKey, subKeysNames.ElementAtOrDefault(index) ?? string.Empty);
 
                 if (result.Count == 0)
                 {
-                    return FindSubKey(subKey, string.Empty);
+                    // If a subKey can't be found, show no results.
+                    break;
                 }
 
                 if (result.Count == 1 && index < subKeysNames.Length)
@@ -144,21 +142,8 @@ namespace Microsoft.PowerToys.Run.Plugin.Registry.Helper
             // it's impossible to directly open a key via command-line option, so we must override the last remember key
             Win32.Registry.SetValue(@"HKEY_Current_User\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit", "LastKey", fullKey);
 
-            var processStartInfo = new ProcessStartInfo
-            {
-                // -m => allow multi-instance (hidden start option)
-                Arguments = "-m",
-
-                FileName = "regedit.exe",
-
-                // Start as administrator
-                Verb = "runas",
-
-                // Start as administrator will not work without this
-                UseShellExecute = true,
-            };
-
-            Process.Start(processStartInfo);
+            // -m => allow multi-instance (hidden start option)
+            Wox.Infrastructure.Helper.OpenInShell("regedit.exe", "-m", null, Wox.Infrastructure.Helper.ShellRunAsType.Administrator);
         }
 
         /// <summary>
@@ -180,15 +165,24 @@ namespace Microsoft.PowerToys.Run.Plugin.Registry.Helper
                         continue;
                     }
 
-                    if (string.Equals(subKey, searchSubKey, StringComparison.InvariantCultureIgnoreCase))
+                    if (string.Equals(subKey, searchSubKey, StringComparison.OrdinalIgnoreCase))
                     {
-                        list.Add(new RegistryEntry(parentKey.OpenSubKey(subKey, RegistryKeyPermissionCheck.ReadSubTree)));
+                        var key = parentKey.OpenSubKey(subKey, RegistryKeyPermissionCheck.ReadSubTree);
+                        if (key != null)
+                        {
+                            list.Add(new RegistryEntry(key));
+                        }
+
                         return list;
                     }
 
                     try
                     {
-                        list.Add(new RegistryEntry(parentKey.OpenSubKey(subKey, RegistryKeyPermissionCheck.ReadSubTree)));
+                        var key = parentKey.OpenSubKey(subKey, RegistryKeyPermissionCheck.ReadSubTree);
+                        if (key != null)
+                        {
+                            list.Add(new RegistryEntry(key));
+                        }
                     }
                     catch (Exception exception)
                     {
@@ -234,6 +228,4 @@ namespace Microsoft.PowerToys.Run.Plugin.Registry.Helper
             return list;
         }
     }
-
-    #pragma warning restore CA1031 // Do not catch general exception types
 }

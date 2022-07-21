@@ -1,13 +1,22 @@
 #include "pch.h"
+
+#include "Generated Files/resource.h"
+#include "PowerRenameConstants.h"
 #include "PowerRenameExt.h"
+
 #include <interface/powertoy_module_interface.h>
 #include <settings.h>
 #include <trace.h>
+#include <VersionHelpers.h>
+
 #include <common/SettingsAPI/settings_objects.h>
+#include <common/logger/logger.h>
+#include <common/utils/logger_helper.h>
+#include <common/utils/package.h>
+#include <common/utils/process_path.h>
 #include <common/utils/resources.h>
-#include "Generated Files/resource.h"
+
 #include <atomic>
-#include <dll/PowerRenameConstants.h>
 
 std::atomic<DWORD> g_dwModuleRefCount = 0;
 HINSTANCE g_hInst = 0;
@@ -159,6 +168,8 @@ private:
     std::wstring app_key;
 
 public:
+
+
     // Return the localized display name of the powertoy
     virtual PCWSTR get_name() override
     {
@@ -174,13 +185,27 @@ public:
     // Enable the powertoy
     virtual void enable()
     {
+        Logger::info(L"PowerRename enabled");
         m_enabled = true;
+
+        if (package::IsWin11OrGreater())
+        {
+            std::wstring path = get_module_folderpath(g_hInst);
+            std::wstring packageUri = path + L"\\PowerRenameContextMenuPackage.msix";
+
+            if (!package::IsPackageRegistered(PowerRenameConstants::ModulePackageDisplayName))
+            {
+                package::RegisterSparsePackage(path, packageUri);
+            }
+        }
+
         save_settings();
     }
 
     // Disable the powertoy
     virtual void disable()
     {
+        Logger::info(L"PowerRename disabled");
         m_enabled = false;
         save_settings();
     }
@@ -261,9 +286,9 @@ public:
 
             Trace::SettingsChanged();
         }
-        catch (std::exception)
+        catch (std::exception e)
         {
-            // Improper JSON.
+            Logger::error("Configuration parsing failed: {}", std::string{ e.what() });
         }
     }
 
@@ -297,6 +322,7 @@ public:
         init_settings();
         app_name = GET_RESOURCE_STRING(IDS_POWERRENAME_APP_NAME);
         app_key = PowerRenameConstants::ModuleKey;
+        LoggerHelpers::init_logger(app_key, L"ModuleInterface", LogSettings::powerRenameLoggerName);
     }
 
     ~PowerRenameModule(){};

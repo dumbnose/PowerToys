@@ -4,11 +4,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.IO.Abstractions;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 using System.Windows;
+using FancyZonesEditor.Logs;
 using FancyZonesEditor.Models;
 
 namespace FancyZonesEditor.Utils
@@ -25,11 +29,14 @@ namespace FancyZonesEditor.Utils
         private const string CustomJsonTag = "custom";
 
         // Non-localizable strings: Files
-        private const string ZonesSettingsFile = "\\Microsoft\\PowerToys\\FancyZones\\zones-settings.json";
+        private const string AppliedLayoutsFile = "\\Microsoft\\PowerToys\\FancyZones\\applied-layouts.json";
+        private const string LayoutHotkeysFile = "\\Microsoft\\PowerToys\\FancyZones\\layout-hotkeys.json";
+        private const string LayoutTemplatesFile = "\\Microsoft\\PowerToys\\FancyZones\\layout-templates.json";
+        private const string CustomLayoutsFile = "\\Microsoft\\PowerToys\\FancyZones\\custom-layouts.json";
         private const string ParamsFile = "\\Microsoft\\PowerToys\\FancyZones\\editor-parameters.json";
 
-        // Non-localizable string: Multi-monitor id
-        private const string MultiMonitorId = "FancyZones#MultiMonitorDevice";
+        // Non-localizable string: default virtual desktop id
+        private const string DefaultVirtualDesktopGuid = "{00000000-0000-0000-0000-000000000000}";
 
         private readonly IFileSystem _fileSystem = new FileSystem();
 
@@ -39,9 +46,15 @@ namespace FancyZonesEditor.Utils
             WriteIndented = true,
         };
 
-        private List<DeviceWrapper> _unusedDevices = new List<DeviceWrapper>();
+        private List<AppliedLayoutWrapper> _unusedLayouts = new List<AppliedLayoutWrapper>();
 
-        public string FancyZonesSettingsFile { get; private set; }
+        public string FancyZonesAppliedLayoutsFile { get; private set; }
+
+        public string FancyZonesLayoutHotkeysFile { get; private set; }
+
+        public string FancyZonesLayoutTemplatesFile { get; private set; }
+
+        public string FancyZonesCustomLayoutsFile { get; private set; }
 
         public string FancyZonesEditorParamsFile { get; private set; }
 
@@ -55,11 +68,22 @@ namespace FancyZonesEditor.Utils
             DPI,
             MonitorLeft,
             MonitorTop,
+            MonitorWidth,
+            MonitorHeight,
         }
 
+        // parsing cmd args
         private struct NativeMonitorData
         {
-            public string MonitorId { get; set; }
+            public string Monitor { get; set; }
+
+            public string MonitorInstanceId { get; set; }
+
+            public string MonitorSerialNumber { get; set; }
+
+            public int MonitorNumber { get; set; }
+
+            public string VirtualDesktop { get; set; }
 
             public int Dpi { get; set; }
 
@@ -67,48 +91,85 @@ namespace FancyZonesEditor.Utils
 
             public int TopCoordinate { get; set; }
 
+            public int WorkAreaWidth { get; set; }
+
+            public int WorkAreaHeight { get; set; }
+
+            public int MonitorWidth { get; set; }
+
+            public int MonitorHeight { get; set; }
+
             public bool IsSelected { get; set; }
 
             public override string ToString()
             {
                 var sb = new StringBuilder();
 
-                sb.Append("ID: ");
-                sb.AppendLine(MonitorId);
+                // using CultureInfo.InvariantCulture since this is internal data
+                sb.Append("Monitor: ");
+                sb.AppendLine(Monitor);
+                sb.Append("Virtual desktop: ");
+                sb.AppendLine(VirtualDesktop);
                 sb.Append("DPI: ");
-                sb.AppendLine(Dpi.ToString());
+                sb.AppendLine(Dpi.ToString(CultureInfo.InvariantCulture));
 
                 sb.Append("X: ");
-                sb.AppendLine(LeftCoordinate.ToString());
+                sb.AppendLine(LeftCoordinate.ToString(CultureInfo.InvariantCulture));
                 sb.Append("Y: ");
-                sb.AppendLine(TopCoordinate.ToString());
+                sb.AppendLine(TopCoordinate.ToString(CultureInfo.InvariantCulture));
+
+                sb.Append("Width: ");
+                sb.AppendLine(MonitorWidth.ToString(CultureInfo.InvariantCulture));
+                sb.Append("Height: ");
+                sb.AppendLine(MonitorHeight.ToString(CultureInfo.InvariantCulture));
 
                 return sb.ToString();
             }
         }
 
-        private struct DeviceWrapper
+        // applied-layouts.json
+        private struct AppliedLayoutWrapper
         {
-            public struct ActiveZoneSetWrapper
+            public struct DeviceIdWrapper
+            {
+                public string Monitor { get; set; }
+
+                public string MonitorInstance { get; set; }
+
+                public int MonitorNumber { get; set; }
+
+                public string SerialNumber { get; set; }
+
+                public string VirtualDesktop { get; set; }
+            }
+
+            public struct LayoutWrapper
             {
                 public string Uuid { get; set; }
 
                 public string Type { get; set; }
+
+                public bool ShowSpacing { get; set; }
+
+                public int Spacing { get; set; }
+
+                public int ZoneCount { get; set; }
+
+                public int SensitivityRadius { get; set; }
             }
 
-            public string DeviceId { get; set; }
+            public DeviceIdWrapper Device { get; set; }
 
-            public ActiveZoneSetWrapper ActiveZoneset { get; set; }
-
-            public bool EditorShowSpacing { get; set; }
-
-            public int EditorSpacing { get; set; }
-
-            public int EditorZoneCount { get; set; }
-
-            public int EditorSensitivityRadius { get; set; }
+            public LayoutWrapper AppliedLayout { get; set; }
         }
 
+        // applied-layouts.json
+        private struct AppliedLayoutsListWrapper
+        {
+            public List<AppliedLayoutWrapper> AppliedLayouts { get; set; }
+        }
+
+        // custom-layouts.json
         private class CanvasInfoWrapper
         {
             public struct CanvasZoneWrapper
@@ -131,6 +192,7 @@ namespace FancyZonesEditor.Utils
             public int SensitivityRadius { get; set; } = LayoutSettings.DefaultSensitivityRadius;
         }
 
+        // custom-layouts.json
         private class GridInfoWrapper
         {
             public int Rows { get; set; }
@@ -150,6 +212,7 @@ namespace FancyZonesEditor.Utils
             public int SensitivityRadius { get; set; } = LayoutSettings.DefaultSensitivityRadius;
         }
 
+        // custom-layouts.json
         private struct CustomLayoutWrapper
         {
             public string Uuid { get; set; }
@@ -161,6 +224,13 @@ namespace FancyZonesEditor.Utils
             public JsonElement Info { get; set; } // CanvasInfoWrapper or GridInfoWrapper
         }
 
+        // custom-layouts.json
+        private struct CustomLayoutListWrapper
+        {
+            public List<CustomLayoutWrapper> CustomLayouts { get; set; }
+        }
+
+        // layout-templates.json
         private struct TemplateLayoutWrapper
         {
             public string Type { get; set; }
@@ -174,13 +244,24 @@ namespace FancyZonesEditor.Utils
             public int SensitivityRadius { get; set; }
         }
 
-        private struct ZoneSettingsWrapper
+        // layout-templates.json
+        private struct TemplateLayoutsListWrapper
         {
-            public List<DeviceWrapper> Devices { get; set; }
+            public List<TemplateLayoutWrapper> LayoutTemplates { get; set; }
+        }
 
-            public List<CustomLayoutWrapper> CustomZoneSets { get; set; }
+        // layout-hotkeys.json
+        private struct LayoutHotkeyWrapper
+        {
+            public int Key { get; set; }
 
-            public List<TemplateLayoutWrapper> Templates { get; set; }
+            public string LayoutId { get; set; }
+        }
+
+        // layout-hotkeys.json
+        private struct LayoutHotkeysWrapper
+        {
+            public List<LayoutHotkeyWrapper> LayoutHotkeys { get; set; }
         }
 
         private struct EditorParams
@@ -211,171 +292,17 @@ namespace FancyZonesEditor.Utils
         public FancyZonesEditorIO()
         {
             var localAppDataDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            FancyZonesSettingsFile = localAppDataDir + ZonesSettingsFile;
+            FancyZonesAppliedLayoutsFile = localAppDataDir + AppliedLayoutsFile;
+            FancyZonesLayoutHotkeysFile = localAppDataDir + LayoutHotkeysFile;
+            FancyZonesLayoutTemplatesFile = localAppDataDir + LayoutTemplatesFile;
+            FancyZonesCustomLayoutsFile = localAppDataDir + CustomLayoutsFile;
             FancyZonesEditorParamsFile = localAppDataDir + ParamsFile;
-        }
-
-        // All strings in this function shouldn't be localized.
-        public static void ParseCommandLineArguments()
-        {
-            string[] args = Environment.GetCommandLineArgs();
-
-            if (args.Length < 2 && !App.DebugMode)
-            {
-                MessageBox.Show(Properties.Resources.Error_Not_Standalone_App, Properties.Resources.Error_Message_Box_Title);
-                ((App)Application.Current).Shutdown();
-            }
-
-            try
-            {
-                /*
-                * Divider: /
-                * Parts:
-                * (1) Process id
-                * (2) Span zones across monitors
-                * (3) Monitor id where the Editor should be opened
-                * (4) Monitors count
-                *
-                * Data for each monitor:
-                * (5) Monitor id
-                * (6) DPI
-                * (7) monitor left
-                * (8) monitor top
-                * ...
-                */
-                var argsParts = args[1].Split('/');
-
-                // Process ID
-                App.PowerToysPID = int.Parse(argsParts[(int)CmdArgs.PowerToysPID]);
-
-                // Span zones across monitors
-                App.Overlay.SpanZonesAcrossMonitors = int.Parse(argsParts[(int)CmdArgs.SpanZones]) == 1;
-
-                // Target monitor id
-                string targetMonitorName = argsParts[(int)CmdArgs.TargetMonitorId];
-
-                if (!App.Overlay.SpanZonesAcrossMonitors)
-                {
-                    // Test launch with custom monitors configuration
-                    bool isCustomMonitorConfigurationMode = targetMonitorName.StartsWith("Monitor#");
-                    if (isCustomMonitorConfigurationMode)
-                    {
-                        App.Overlay.Monitors.Clear();
-                    }
-
-                    // Monitors count
-                    int count = int.Parse(argsParts[(int)CmdArgs.MonitorsCount]);
-                    if (count != App.Overlay.DesktopsCount && !isCustomMonitorConfigurationMode)
-                    {
-                        MessageBox.Show(Properties.Resources.Error_Invalid_Arguments, Properties.Resources.Error_Message_Box_Title);
-                        ((App)Application.Current).Shutdown();
-                    }
-
-                    double primaryMonitorDPI = 96f;
-                    double minimalUsedMonitorDPI = double.MaxValue;
-
-                    // Parse the native monitor data
-                    List<NativeMonitorData> nativeMonitorData = new List<NativeMonitorData>();
-                    const int monitorArgsCount = 4;
-                    for (int i = 0; i < count; i++)
-                    {
-                        var nativeData = default(NativeMonitorData);
-                        nativeData.MonitorId = argsParts[(int)CmdArgs.MonitorId + (i * monitorArgsCount)];
-                        nativeData.Dpi = int.Parse(argsParts[(int)CmdArgs.DPI + (i * monitorArgsCount)]);
-                        nativeData.LeftCoordinate = int.Parse(argsParts[(int)CmdArgs.MonitorLeft + (i * monitorArgsCount)]);
-                        nativeData.TopCoordinate = int.Parse(argsParts[(int)CmdArgs.MonitorTop + (i * monitorArgsCount)]);
-
-                        nativeMonitorData.Add(nativeData);
-
-                        if (nativeData.LeftCoordinate == 0 && nativeData.TopCoordinate == 0)
-                        {
-                            primaryMonitorDPI = nativeData.Dpi;
-                        }
-
-                        if (minimalUsedMonitorDPI > nativeData.Dpi)
-                        {
-                            minimalUsedMonitorDPI = nativeData.Dpi;
-                        }
-                    }
-
-                    var monitors = App.Overlay.Monitors;
-                    double identifyScaleFactor = minimalUsedMonitorDPI / primaryMonitorDPI;
-                    double scaleFactor = 96f / primaryMonitorDPI;
-
-                    // Update monitors data
-                    if (isCustomMonitorConfigurationMode)
-                    {
-                        foreach (NativeMonitorData nativeData in nativeMonitorData)
-                        {
-                            var splittedId = nativeData.MonitorId.Split('_');
-                            int width = int.Parse(splittedId[1]);
-                            int height = int.Parse(splittedId[2]);
-
-                            Rect bounds = new Rect(nativeData.LeftCoordinate, nativeData.TopCoordinate, width, height);
-                            bool isPrimary = nativeData.LeftCoordinate == 0 && nativeData.TopCoordinate == 0;
-
-                            Monitor monitor = new Monitor(bounds, bounds, isPrimary);
-                            monitor.Device.Id = nativeData.MonitorId;
-                            monitor.Device.Dpi = nativeData.Dpi;
-
-                            monitors.Add(monitor);
-                        }
-                    }
-                    else
-                    {
-                        foreach (Monitor monitor in monitors)
-                        {
-                            bool matchFound = false;
-                            monitor.Scale(scaleFactor);
-
-                            double scaledBoundX = (int)(monitor.Device.UnscaledBounds.X * identifyScaleFactor);
-                            double scaledBoundY = (int)(monitor.Device.UnscaledBounds.Y * identifyScaleFactor);
-
-                            foreach (NativeMonitorData nativeData in nativeMonitorData)
-                            {
-                                // Can't do an exact match since the rounding algorithm used by the framework is different from ours
-                                if (scaledBoundX >= (nativeData.LeftCoordinate - 1) && scaledBoundX <= (nativeData.LeftCoordinate + 1) &&
-                                    scaledBoundY >= (nativeData.TopCoordinate - 1) && scaledBoundY <= (nativeData.TopCoordinate + 1))
-                                {
-                                    monitor.Device.Id = nativeData.MonitorId;
-                                    monitor.Device.Dpi = nativeData.Dpi;
-                                    matchFound = true;
-                                    break;
-                                }
-                            }
-
-                            if (matchFound == false)
-                            {
-                                MessageBox.Show(string.Format(Properties.Resources.Error_Monitor_Match_Not_Found, monitor.Device.UnscaledBounds.ToString()));
-                            }
-                        }
-                    }
-
-                    // Set active desktop
-                    for (int i = 0; i < monitors.Count; i++)
-                    {
-                        var monitor = monitors[i];
-                        if (monitor.Device.Id == targetMonitorName)
-                        {
-                            App.Overlay.CurrentDesktop = i;
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    App.Overlay.Monitors[App.Overlay.CurrentDesktop].Device.Id = targetMonitorName;
-                }
-            }
-            catch (Exception)
-            {
-                MessageBox.Show(Properties.Resources.Error_Invalid_Arguments, Properties.Resources.Error_Message_Box_Title);
-                ((App)Application.Current).Shutdown();
-            }
         }
 
         public ParsingResult ParseParams()
         {
+            Logger.LogTrace();
+
             if (_fileSystem.File.Exists(FancyZonesEditorParamsFile))
             {
                 string data = string.Empty;
@@ -393,72 +320,44 @@ namespace FancyZonesEditor.Utils
 
                     if (!App.Overlay.SpanZonesAcrossMonitors)
                     {
-                        // Monitors count
-                        if (editorParams.Monitors.Count != App.Overlay.DesktopsCount)
-                        {
-                            MessageBox.Show(Properties.Resources.Error_Invalid_Arguments, Properties.Resources.Error_Message_Box_Title);
-                            ((App)Application.Current).Shutdown();
-                        }
+                        string targetMonitorId = string.Empty;
+                        string targetMonitorSerialNumber = string.Empty;
+                        string targetVirtualDesktop = string.Empty;
+                        int targetMonitorNumber = 0;
 
-                        string targetMonitorName = string.Empty;
-
-                        double primaryMonitorDPI = 96f;
-                        double minimalUsedMonitorDPI = double.MaxValue;
                         foreach (NativeMonitorData nativeData in editorParams.Monitors)
                         {
-                            if (nativeData.LeftCoordinate == 0 && nativeData.TopCoordinate == 0)
-                            {
-                                primaryMonitorDPI = nativeData.Dpi;
-                            }
-
-                            if (minimalUsedMonitorDPI > nativeData.Dpi)
-                            {
-                                minimalUsedMonitorDPI = nativeData.Dpi;
-                            }
-
+                            Rect workArea = new Rect(nativeData.LeftCoordinate, nativeData.TopCoordinate, nativeData.WorkAreaWidth, nativeData.WorkAreaHeight);
                             if (nativeData.IsSelected)
                             {
-                                targetMonitorName = nativeData.MonitorId;
-                            }
-                        }
-
-                        var monitors = App.Overlay.Monitors;
-                        double identifyScaleFactor = minimalUsedMonitorDPI / primaryMonitorDPI;
-                        double scaleFactor = 96f / primaryMonitorDPI;
-
-                        // Update monitors data
-                        foreach (Monitor monitor in monitors)
-                        {
-                            bool matchFound = false;
-                            monitor.Scale(scaleFactor);
-
-                            double scaledBoundX = (int)(monitor.Device.UnscaledBounds.X * identifyScaleFactor);
-                            double scaledBoundY = (int)(monitor.Device.UnscaledBounds.Y * identifyScaleFactor);
-
-                            foreach (NativeMonitorData nativeData in editorParams.Monitors)
-                            {
-                                // Can't do an exact match since the rounding algorithm used by the framework is different from ours
-                                if (scaledBoundX >= (nativeData.LeftCoordinate - 1) && scaledBoundX <= (nativeData.LeftCoordinate + 1) &&
-                                    scaledBoundY >= (nativeData.TopCoordinate - 1) && scaledBoundY <= (nativeData.TopCoordinate + 1))
-                                {
-                                    monitor.Device.Id = nativeData.MonitorId;
-                                    monitor.Device.Dpi = nativeData.Dpi;
-                                    matchFound = true;
-                                    break;
-                                }
+                                targetMonitorId = nativeData.Monitor;
+                                targetMonitorSerialNumber = nativeData.MonitorSerialNumber;
+                                targetMonitorNumber = nativeData.MonitorNumber;
+                                targetVirtualDesktop = nativeData.VirtualDesktop;
                             }
 
-                            if (matchFound == false)
-                            {
-                                MessageBox.Show(string.Format(Properties.Resources.Error_Monitor_Match_Not_Found, monitor.Device.UnscaledBounds.ToString()));
-                            }
+                            Size monitorSize = new Size(nativeData.MonitorWidth, nativeData.MonitorHeight);
+
+                            var monitor = new Monitor(workArea, monitorSize);
+                            monitor.Device.MonitorName = nativeData.Monitor;
+                            monitor.Device.MonitorInstanceId = nativeData.MonitorInstanceId;
+                            monitor.Device.MonitorSerialNumber = nativeData.MonitorSerialNumber;
+                            monitor.Device.MonitorNumber = nativeData.MonitorNumber;
+                            monitor.Device.VirtualDesktopId = nativeData.VirtualDesktop;
+                            monitor.Device.Dpi = nativeData.Dpi;
+
+                            App.Overlay.AddMonitor(monitor);
                         }
 
                         // Set active desktop
+                        var monitors = App.Overlay.Monitors;
                         for (int i = 0; i < monitors.Count; i++)
                         {
                             var monitor = monitors[i];
-                            if (monitor.Device.Id == targetMonitorName)
+                            if (monitor.Device.MonitorName == targetMonitorId &&
+                                monitor.Device.MonitorSerialNumber == targetMonitorSerialNumber &&
+                                monitor.Device.MonitorNumber == targetMonitorNumber &&
+                                monitor.Device.VirtualDesktopId == targetVirtualDesktop)
                             {
                                 App.Overlay.CurrentDesktop = i;
                                 break;
@@ -467,32 +366,28 @@ namespace FancyZonesEditor.Utils
                     }
                     else
                     {
-                        // Update monitors data
-                        foreach (Monitor monitor in App.Overlay.Monitors)
+                        if (editorParams.Monitors.Count != 1)
                         {
-                            bool matchFound = false;
-                            foreach (NativeMonitorData nativeData in editorParams.Monitors)
-                            {
-                                // Can't do an exact match since the rounding algorithm used by the framework is different from ours
-                                if (monitor.Device.UnscaledBounds.X >= (nativeData.LeftCoordinate - 1) && monitor.Device.UnscaledBounds.X <= (nativeData.LeftCoordinate + 1) &&
-                                    monitor.Device.UnscaledBounds.Y >= (nativeData.TopCoordinate - 1) && monitor.Device.UnscaledBounds.Y <= (nativeData.TopCoordinate + 1))
-                                {
-                                    monitor.Device.Id = nativeData.MonitorId;
-                                    monitor.Device.Dpi = nativeData.Dpi;
-                                    matchFound = true;
-                                    break;
-                                }
-                            }
-
-                            if (matchFound == false)
-                            {
-                                MessageBox.Show(string.Format(Properties.Resources.Error_Monitor_Match_Not_Found, monitor.Device.UnscaledBounds.ToString()));
-                            }
+                            return new ParsingResult(false);
                         }
+
+                        var nativeData = editorParams.Monitors[0];
+                        Rect workArea = new Rect(nativeData.LeftCoordinate, nativeData.TopCoordinate, nativeData.WorkAreaWidth, nativeData.WorkAreaHeight);
+                        Size monitorSize = new Size(nativeData.MonitorWidth, nativeData.MonitorHeight);
+
+                        var monitor = new Monitor(workArea, monitorSize);
+                        monitor.Device.MonitorName = nativeData.Monitor;
+                        monitor.Device.MonitorInstanceId = nativeData.MonitorInstanceId;
+                        monitor.Device.MonitorSerialNumber = nativeData.MonitorSerialNumber;
+                        monitor.Device.MonitorNumber = nativeData.MonitorNumber;
+                        monitor.Device.VirtualDesktopId = nativeData.VirtualDesktop;
+
+                        App.Overlay.AddMonitor(monitor);
                     }
                 }
                 catch (Exception ex)
                 {
+                    Logger.LogError("Editor params parsing error", ex);
                     return new ParsingResult(false, ex.Message, data);
                 }
 
@@ -504,38 +399,39 @@ namespace FancyZonesEditor.Utils
             }
         }
 
-        public ParsingResult ParseZoneSettings()
+        public ParsingResult ParseAppliedLayouts()
         {
-            _unusedDevices.Clear();
+            Logger.LogTrace();
 
-            if (_fileSystem.File.Exists(FancyZonesSettingsFile))
+            _unusedLayouts.Clear();
+
+            if (_fileSystem.File.Exists(FancyZonesAppliedLayoutsFile))
             {
-                ZoneSettingsWrapper zoneSettings;
+                AppliedLayoutsListWrapper appliedLayouts;
                 string settingsString = string.Empty;
 
                 try
                 {
-                    settingsString = ReadFile(FancyZonesSettingsFile);
-                    zoneSettings = JsonSerializer.Deserialize<ZoneSettingsWrapper>(settingsString, _options);
+                    settingsString = ReadFile(FancyZonesAppliedLayoutsFile);
+                    appliedLayouts = JsonSerializer.Deserialize<AppliedLayoutsListWrapper>(settingsString, _options);
                 }
                 catch (Exception ex)
                 {
+                    Logger.LogError("Applied layouts parsing error", ex);
                     return new ParsingResult(false, ex.Message, settingsString);
                 }
 
                 try
                 {
-                    bool devicesParsingResult = SetDevices(zoneSettings.Devices);
-                    bool customZonesParsingResult = SetCustomLayouts(zoneSettings.CustomZoneSets);
-                    bool templatesParsingResult = SetTemplateLayouts(zoneSettings.Templates);
-
-                    if (!devicesParsingResult || !customZonesParsingResult)
+                    bool parsingResult = SetAppliedLayouts(appliedLayouts.AppliedLayouts);
+                    if (!parsingResult)
                     {
-                        return new ParsingResult(false, Properties.Resources.Error_Parsing_Zones_Settings_Malformed_Data, settingsString);
+                        return new ParsingResult(false, FancyZonesEditor.Properties.Resources.Error_Parsing_Applied_Layouts_Message, settingsString);
                     }
                 }
                 catch (Exception ex)
                 {
+                    Logger.LogError("Applied layouts parsing error", ex);
                     return new ParsingResult(false, ex.Message, settingsString);
                 }
             }
@@ -543,14 +439,133 @@ namespace FancyZonesEditor.Utils
             return new ParsingResult(true);
         }
 
-        public void SerializeZoneSettings()
+        public ParsingResult ParseLayoutHotkeys()
         {
-            ZoneSettingsWrapper zoneSettings = new ZoneSettingsWrapper { };
-            zoneSettings.Devices = new List<DeviceWrapper>();
-            zoneSettings.CustomZoneSets = new List<CustomLayoutWrapper>();
-            zoneSettings.Templates = new List<TemplateLayoutWrapper>();
+            Logger.LogTrace();
 
-            // Serialize used devices
+            if (_fileSystem.File.Exists(FancyZonesLayoutHotkeysFile))
+            {
+                LayoutHotkeysWrapper layoutHotkeys;
+                string dataString = string.Empty;
+
+                try
+                {
+                    dataString = ReadFile(FancyZonesLayoutHotkeysFile);
+                    layoutHotkeys = JsonSerializer.Deserialize<LayoutHotkeysWrapper>(dataString, _options);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError("Layout hotkeys parsing error", ex);
+                    return new ParsingResult(false, ex.Message, dataString);
+                }
+
+                try
+                {
+                    bool layoutHotkeysParsingResult = SetLayoutHotkeys(layoutHotkeys);
+
+                    if (!layoutHotkeysParsingResult)
+                    {
+                        return new ParsingResult(false, FancyZonesEditor.Properties.Resources.Error_Parsing_Layout_Hotkeys_Message, dataString);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError("Layout hotkeys parsing error", ex);
+                    return new ParsingResult(false, ex.Message, dataString);
+                }
+            }
+
+            return new ParsingResult(true);
+        }
+
+        public ParsingResult ParseLayoutTemplates()
+        {
+            Logger.LogTrace();
+
+            if (_fileSystem.File.Exists(FancyZonesLayoutTemplatesFile))
+            {
+                TemplateLayoutsListWrapper templates;
+                string dataString = string.Empty;
+
+                try
+                {
+                    dataString = ReadFile(FancyZonesLayoutTemplatesFile);
+                    templates = JsonSerializer.Deserialize<TemplateLayoutsListWrapper>(dataString, _options);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError("Layout templates parsing error", ex);
+                    return new ParsingResult(false, ex.Message, dataString);
+                }
+
+                try
+                {
+                    bool parsingResult = SetTemplateLayouts(templates.LayoutTemplates);
+                    if (parsingResult)
+                    {
+                        return new ParsingResult(true);
+                    }
+
+                    return new ParsingResult(false, FancyZonesEditor.Properties.Resources.Error_Parsing_Layout_Templates_Message, dataString);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError("Layout templates parsing error", ex);
+                    return new ParsingResult(false, ex.Message, dataString);
+                }
+            }
+
+            return new ParsingResult(true);
+        }
+
+        public ParsingResult ParseCustomLayouts()
+        {
+            Logger.LogTrace();
+
+            if (_fileSystem.File.Exists(FancyZonesCustomLayoutsFile))
+            {
+                CustomLayoutListWrapper wrapper;
+                string dataString = string.Empty;
+
+                try
+                {
+                    dataString = ReadFile(FancyZonesCustomLayoutsFile);
+                    wrapper = JsonSerializer.Deserialize<CustomLayoutListWrapper>(dataString, _options);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError("Custom layouts parsing error", ex);
+                    return new ParsingResult(false, ex.Message, dataString);
+                }
+
+                try
+                {
+                    bool parsingResult = SetCustomLayouts(wrapper.CustomLayouts);
+                    if (parsingResult)
+                    {
+                        return new ParsingResult(true);
+                    }
+
+                    return new ParsingResult(false, FancyZonesEditor.Properties.Resources.Error_Parsing_Custom_Layouts_Message, dataString);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError("Custom layouts parsing error", ex);
+                    return new ParsingResult(false, ex.Message, dataString);
+                }
+            }
+
+            return new ParsingResult(true);
+        }
+
+        public void SerializeAppliedLayouts()
+        {
+            Logger.LogTrace();
+
+            AppliedLayoutsListWrapper layouts = new AppliedLayoutsListWrapper { };
+            layouts.AppliedLayouts = new List<AppliedLayoutWrapper>();
+
+            // Serialize used layouts
             foreach (var monitor in App.Overlay.Monitors)
             {
                 LayoutSettings zoneset = monitor.Settings;
@@ -559,28 +574,125 @@ namespace FancyZonesEditor.Utils
                     continue;
                 }
 
-                zoneSettings.Devices.Add(new DeviceWrapper
+                layouts.AppliedLayouts.Add(new AppliedLayoutWrapper
                 {
-                    DeviceId = monitor.Device.Id,
-                    ActiveZoneset = new DeviceWrapper.ActiveZoneSetWrapper
+                    Device = new AppliedLayoutWrapper.DeviceIdWrapper
+                    {
+                        Monitor = monitor.Device.MonitorName,
+                        MonitorInstance = monitor.Device.MonitorInstanceId,
+                        MonitorNumber = monitor.Device.MonitorNumber,
+                        SerialNumber = monitor.Device.MonitorSerialNumber,
+                        VirtualDesktop = monitor.Device.VirtualDesktopId,
+                    },
+
+                    AppliedLayout = new AppliedLayoutWrapper.LayoutWrapper
                     {
                         Uuid = zoneset.ZonesetUuid,
                         Type = LayoutTypeToJsonTag(zoneset.Type),
+                        ShowSpacing = zoneset.ShowSpacing,
+                        Spacing = zoneset.Spacing,
+                        ZoneCount = zoneset.ZoneCount,
+                        SensitivityRadius = zoneset.SensitivityRadius,
                     },
-                    EditorShowSpacing = zoneset.ShowSpacing,
-                    EditorSpacing = zoneset.Spacing,
-                    EditorZoneCount = zoneset.ZoneCount,
-                    EditorSensitivityRadius = zoneset.SensitivityRadius,
                 });
             }
 
-            // Serialize unused devices
-            foreach (var device in _unusedDevices)
+            // Serialize unused layouts
+            foreach (var device in _unusedLayouts)
             {
-                zoneSettings.Devices.Add(device);
+                layouts.AppliedLayouts.Add(device);
             }
 
-            // Serialize custom zonesets
+            try
+            {
+                string jsonString = JsonSerializer.Serialize(layouts, _options);
+                _fileSystem.File.WriteAllText(FancyZonesAppliedLayoutsFile, jsonString);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError("Serialize applied layouts error", ex);
+                App.ShowExceptionMessageBox(Properties.Resources.Error_Applying_Layout, ex);
+            }
+        }
+
+        public void SerializeLayoutHotkeys()
+        {
+            LayoutHotkeysWrapper hotkeys = new LayoutHotkeysWrapper { };
+            hotkeys.LayoutHotkeys = new List<LayoutHotkeyWrapper>();
+
+            foreach (var pair in MainWindowSettingsModel.LayoutHotkeys.SelectedKeys)
+            {
+                if (!string.IsNullOrEmpty(pair.Value))
+                {
+                    try
+                    {
+                        LayoutHotkeyWrapper wrapper = new LayoutHotkeyWrapper
+                        {
+                            Key = int.Parse(pair.Key, CultureInfo.CurrentCulture),
+                            LayoutId = pair.Value,
+                        };
+
+                        hotkeys.LayoutHotkeys.Add(wrapper);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError("Serialize quick layout keys error", ex);
+                    }
+                }
+            }
+
+            try
+            {
+                string jsonString = JsonSerializer.Serialize(hotkeys, _options);
+                _fileSystem.File.WriteAllText(FancyZonesLayoutHotkeysFile, jsonString);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError("Serialize layout hotkeys error", ex);
+                App.ShowExceptionMessageBox(Properties.Resources.Error_Applying_Layout, ex);
+            }
+        }
+
+        public void SerializeLayoutTemplates()
+        {
+            TemplateLayoutsListWrapper templates = new TemplateLayoutsListWrapper { };
+            templates.LayoutTemplates = new List<TemplateLayoutWrapper>();
+
+            foreach (LayoutModel layout in MainWindowSettingsModel.DefaultModels)
+            {
+                TemplateLayoutWrapper wrapper = new TemplateLayoutWrapper
+                {
+                    Type = LayoutTypeToJsonTag(layout.Type),
+                    SensitivityRadius = layout.SensitivityRadius,
+                    ZoneCount = layout.TemplateZoneCount,
+                };
+
+                if (layout is GridLayoutModel grid)
+                {
+                    wrapper.ShowSpacing = grid.ShowSpacing;
+                    wrapper.Spacing = grid.Spacing;
+                }
+
+                templates.LayoutTemplates.Add(wrapper);
+            }
+
+            try
+            {
+                string jsonString = JsonSerializer.Serialize(templates, _options);
+                _fileSystem.File.WriteAllText(FancyZonesLayoutTemplatesFile, jsonString);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError("Serialize layout templates error", ex);
+                App.ShowExceptionMessageBox(Properties.Resources.Error_Applying_Layout, ex);
+            }
+        }
+
+        public void SerializeCustomLayouts()
+        {
+            CustomLayoutListWrapper layouts = new CustomLayoutListWrapper { };
+            layouts.CustomLayouts = new List<CustomLayoutWrapper>();
+
             foreach (LayoutModel layout in MainWindowSettingsModel.CustomModels)
             {
                 JsonElement info;
@@ -663,60 +775,69 @@ namespace FancyZonesEditor.Utils
                     Info = info,
                 };
 
-                zoneSettings.CustomZoneSets.Add(customLayout);
-            }
-
-            // Serialize template layouts
-            foreach (LayoutModel layout in MainWindowSettingsModel.DefaultModels)
-            {
-                TemplateLayoutWrapper wrapper = new TemplateLayoutWrapper
-                {
-                    Type = LayoutTypeToJsonTag(layout.Type),
-                    SensitivityRadius = layout.SensitivityRadius,
-                    ZoneCount = layout.TemplateZoneCount,
-                };
-
-                if (layout is GridLayoutModel grid)
-                {
-                    wrapper.ShowSpacing = grid.ShowSpacing;
-                    wrapper.Spacing = grid.Spacing;
-                }
-
-                zoneSettings.Templates.Add(wrapper);
+                layouts.CustomLayouts.Add(customLayout);
             }
 
             try
             {
-                string jsonString = JsonSerializer.Serialize(zoneSettings, _options);
-                _fileSystem.File.WriteAllText(FancyZonesSettingsFile, jsonString);
+                string jsonString = JsonSerializer.Serialize(layouts, _options);
+                _fileSystem.File.WriteAllText(FancyZonesCustomLayoutsFile, jsonString);
             }
             catch (Exception ex)
             {
+                Logger.LogError("Serialize custom layouts error", ex);
                 App.ShowExceptionMessageBox(Properties.Resources.Error_Applying_Layout, ex);
             }
         }
 
         private string ReadFile(string fileName)
         {
-            Stream inputStream = _fileSystem.File.Open(fileName, FileMode.Open);
-            StreamReader reader = new StreamReader(inputStream);
-            string data = reader.ReadToEnd();
-            inputStream.Close();
-            return data;
+            Logger.LogTrace();
+
+            var attempts = 0;
+            while (attempts < 10)
+            {
+                try
+                {
+                    using (Stream inputStream = _fileSystem.File.Open(fileName, FileMode.Open))
+                    using (StreamReader reader = new StreamReader(inputStream))
+                    {
+                        string data = reader.ReadToEnd();
+                        inputStream.Close();
+                        return data;
+                    }
+                }
+                catch (Exception)
+                {
+                    Logger.LogError("File reading error, retry");
+                    Task.Delay(10).Wait();
+                }
+
+                attempts++;
+            }
+
+            return string.Empty;
         }
 
-        private bool SetDevices(List<DeviceWrapper> devices)
+        private bool SetAppliedLayouts(List<AppliedLayoutWrapper> layouts)
         {
-            if (devices == null)
+            Logger.LogTrace();
+
+            if (layouts == null)
             {
                 return false;
             }
 
             bool result = true;
             var monitors = App.Overlay.Monitors;
-            foreach (var device in devices)
+            foreach (var layout in layouts)
             {
-                if (device.DeviceId == null || device.DeviceId.Length == 0 || device.ActiveZoneset.Uuid == null || device.ActiveZoneset.Uuid.Length == 0)
+                if (layout.Device.Monitor == null ||
+                    layout.Device.Monitor.Length == 0 ||
+                    layout.Device.VirtualDesktop == null ||
+                    layout.Device.VirtualDesktop.Length == 0 ||
+                    layout.AppliedLayout.Uuid == null ||
+                    layout.AppliedLayout.Uuid.Length == 0)
                 {
                     result = false;
                     continue;
@@ -725,16 +846,20 @@ namespace FancyZonesEditor.Utils
                 bool unused = true;
                 foreach (Monitor monitor in monitors)
                 {
-                    if (monitor.Device.Id == device.DeviceId)
+                    if (monitor.Device.MonitorName == layout.Device.Monitor &&
+                        monitor.Device.MonitorSerialNumber == layout.Device.SerialNumber &&
+                        monitor.Device.MonitorNumber == layout.Device.MonitorNumber &&
+                        (monitor.Device.VirtualDesktopId == layout.Device.VirtualDesktop ||
+                        layout.Device.VirtualDesktop == DefaultVirtualDesktopGuid))
                     {
                         var settings = new LayoutSettings
                         {
-                            ZonesetUuid = device.ActiveZoneset.Uuid,
-                            ShowSpacing = device.EditorShowSpacing,
-                            Spacing = device.EditorSpacing,
-                            Type = JsonTagToLayoutType(device.ActiveZoneset.Type),
-                            ZoneCount = device.EditorZoneCount,
-                            SensitivityRadius = device.EditorSensitivityRadius,
+                            ZonesetUuid = layout.AppliedLayout.Uuid,
+                            ShowSpacing = layout.AppliedLayout.ShowSpacing,
+                            Spacing = layout.AppliedLayout.Spacing,
+                            Type = JsonTagToLayoutType(layout.AppliedLayout.Type),
+                            ZoneCount = layout.AppliedLayout.ZoneCount,
+                            SensitivityRadius = layout.AppliedLayout.SensitivityRadius,
                         };
 
                         monitor.Settings = settings;
@@ -745,7 +870,7 @@ namespace FancyZonesEditor.Utils
 
                 if (unused)
                 {
-                    _unusedDevices.Add(device);
+                    _unusedLayouts.Add(layout);
                 }
             }
 
@@ -754,12 +879,14 @@ namespace FancyZonesEditor.Utils
 
         private bool SetCustomLayouts(List<CustomLayoutWrapper> customLayouts)
         {
+            Logger.LogTrace();
+
             if (customLayouts == null)
             {
                 return false;
             }
 
-            MainWindowSettingsModel.CustomModels.Clear();
+            ObservableCollection<LayoutModel> models = new ObservableCollection<LayoutModel>();
             bool result = true;
 
             foreach (var zoneSet in customLayouts)
@@ -770,52 +897,43 @@ namespace FancyZonesEditor.Utils
                     continue;
                 }
 
-                LayoutModel layout;
-                if (zoneSet.Type == CanvasLayoutModel.ModelTypeID)
+                LayoutModel layout = null;
+                try
                 {
-                    var info = JsonSerializer.Deserialize<CanvasInfoWrapper>(zoneSet.Info.GetRawText(), _options);
-
-                    var zones = new List<Int32Rect>();
-                    foreach (var zone in info.Zones)
+                    if (zoneSet.Type == CanvasLayoutModel.ModelTypeID)
                     {
-                        zones.Add(new Int32Rect { X = (int)zone.X, Y = (int)zone.Y, Width = (int)zone.Width, Height = (int)zone.Height });
+                        layout = ParseCanvasInfo(zoneSet);
                     }
-
-                    layout = new CanvasLayoutModel(zoneSet.Uuid, zoneSet.Name, LayoutType.Custom, zones, info.RefWidth, info.RefHeight);
-                    layout.SensitivityRadius = info.SensitivityRadius;
+                    else if (zoneSet.Type == GridLayoutModel.ModelTypeID)
+                    {
+                        layout = ParseGridInfo(zoneSet);
+                    }
                 }
-                else if (zoneSet.Type == GridLayoutModel.ModelTypeID)
+                catch (Exception ex)
                 {
-                    var info = JsonSerializer.Deserialize<GridInfoWrapper>(zoneSet.Info.GetRawText(), _options);
-
-                    var cells = new int[info.Rows, info.Columns];
-                    for (int row = 0; row < info.Rows; row++)
-                    {
-                        for (int column = 0; column < info.Columns; column++)
-                        {
-                            cells[row, column] = info.CellChildMap[row][column];
-                        }
-                    }
-
-                    layout = new GridLayoutModel(zoneSet.Uuid, zoneSet.Name, LayoutType.Custom, info.Rows, info.Columns, info.RowsPercentage, info.ColumnsPercentage, cells);
-                    layout.SensitivityRadius = info.SensitivityRadius;
-                    (layout as GridLayoutModel).ShowSpacing = info.ShowSpacing;
-                    (layout as GridLayoutModel).Spacing = info.Spacing;
+                    result = false;
+                    Logger.LogError("Parse custom layout error", ex);
+                    continue;
                 }
-                else
+
+                if (layout == null)
                 {
                     result = false;
                     continue;
                 }
 
-                MainWindowSettingsModel.CustomModels.Add(layout);
+                models.Add(layout);
             }
+
+            MainWindowSettingsModel.CustomModels = models;
 
             return result;
         }
 
         private bool SetTemplateLayouts(List<TemplateLayoutWrapper> templateLayouts)
         {
+            Logger.LogTrace();
+
             if (templateLayouts == null)
             {
                 return false;
@@ -823,27 +941,107 @@ namespace FancyZonesEditor.Utils
 
             foreach (var wrapper in templateLayouts)
             {
-                var type = JsonTagToLayoutType(wrapper.Type);
+                LayoutType type = JsonTagToLayoutType(wrapper.Type);
+                LayoutModel layout = MainWindowSettingsModel.DefaultModels[(int)type];
 
-                foreach (var layout in MainWindowSettingsModel.DefaultModels)
+                layout.SensitivityRadius = wrapper.SensitivityRadius;
+                layout.TemplateZoneCount = wrapper.ZoneCount;
+
+                if (layout is GridLayoutModel grid)
                 {
-                    if (layout.Type == type)
-                    {
-                        layout.SensitivityRadius = wrapper.SensitivityRadius;
-                        layout.TemplateZoneCount = wrapper.ZoneCount;
-
-                        if (layout is GridLayoutModel grid)
-                        {
-                            grid.ShowSpacing = wrapper.ShowSpacing;
-                            grid.Spacing = wrapper.Spacing;
-                        }
-
-                        layout.InitTemplateZones();
-                    }
+                    grid.ShowSpacing = wrapper.ShowSpacing;
+                    grid.Spacing = wrapper.Spacing;
                 }
+
+                layout.InitTemplateZones();
             }
 
             return true;
+        }
+
+        private bool SetLayoutHotkeys(LayoutHotkeysWrapper layoutHotkeys)
+        {
+            Logger.LogTrace();
+
+            MainWindowSettingsModel.LayoutHotkeys.CleanUp();
+            foreach (var wrapper in layoutHotkeys.LayoutHotkeys)
+            {
+                MainWindowSettingsModel.LayoutHotkeys.SelectKey(wrapper.Key.ToString(CultureInfo.CurrentCulture), wrapper.LayoutId);
+            }
+
+            return true;
+        }
+
+        private CanvasLayoutModel ParseCanvasInfo(CustomLayoutWrapper wrapper)
+        {
+            var info = JsonSerializer.Deserialize<CanvasInfoWrapper>(wrapper.Info.GetRawText(), _options);
+
+            var zones = new List<Int32Rect>();
+            foreach (var zone in info.Zones)
+            {
+                if (zone.Width < 0 || zone.Height < 0)
+                {
+                    // Malformed data
+                    return null;
+                }
+
+                zones.Add(new Int32Rect { X = zone.X, Y = zone.Y, Width = zone.Width, Height = zone.Height });
+            }
+
+            var layout = new CanvasLayoutModel(wrapper.Uuid, wrapper.Name, LayoutType.Custom, zones, Math.Max(info.RefWidth, 0), Math.Max(info.RefHeight, 0));
+            layout.SensitivityRadius = info.SensitivityRadius;
+
+            return layout;
+        }
+
+        private GridLayoutModel ParseGridInfo(CustomLayoutWrapper wrapper)
+        {
+            var info = JsonSerializer.Deserialize<GridInfoWrapper>(wrapper.Info.GetRawText(), _options);
+
+            // Check if rows and columns are valid
+            if (info.Rows <= 0 || info.Columns <= 0)
+            {
+                return null;
+            }
+
+            // Check if percentage is valid. Otherwise, Editor could crash on layout rendering.
+            if (info.RowsPercentage.Exists((x) => (x < 1)) || info.ColumnsPercentage.Exists((x) => (x < 1)))
+            {
+                return null;
+            }
+
+            if (info.CellChildMap.Length != info.Rows)
+            {
+                return null;
+            }
+
+            foreach (var col in info.CellChildMap)
+            {
+                if (col.Length != info.Columns)
+                {
+                    return null;
+                }
+            }
+
+            var cells = new int[info.Rows, info.Columns];
+            for (int row = 0; row < info.Rows; row++)
+            {
+                for (int column = 0; column < info.Columns; column++)
+                {
+                    cells[row, column] = info.CellChildMap[row][column];
+                }
+            }
+
+            var layout = new GridLayoutModel(wrapper.Uuid, wrapper.Name, LayoutType.Custom, info.Rows, info.Columns, info.RowsPercentage, info.ColumnsPercentage, cells);
+            if (!layout.IsModelValid())
+            {
+                return null;
+            }
+
+            layout.SensitivityRadius = info.SensitivityRadius;
+            layout.ShowSpacing = info.ShowSpacing;
+            layout.Spacing = info.Spacing;
+            return layout;
         }
 
         private LayoutType JsonTagToLayoutType(string tag)
@@ -890,49 +1088,6 @@ namespace FancyZonesEditor.Utils
                 default:
                     return string.Empty;
             }
-        }
-
-        private static string ParsingCmdArgsErrorReport(string args, int count, string targetMonitorName, List<NativeMonitorData> monitorData, List<Monitor> monitors)
-        {
-            var sb = new StringBuilder();
-
-            sb.AppendLine();
-            sb.AppendLine("```");
-            sb.AppendLine(" ## Command-line arguments:");
-            sb.AppendLine();
-            sb.AppendLine(args);
-
-            sb.AppendLine();
-            sb.AppendLine("```");
-            sb.AppendLine(" ## Parsed command-line arguments:");
-            sb.AppendLine();
-
-            sb.Append("Span zones across monitors: ");
-            sb.AppendLine(App.Overlay.SpanZonesAcrossMonitors.ToString());
-            sb.Append("Monitors count: ");
-            sb.AppendLine(count.ToString());
-            sb.Append("Target monitor: ");
-            sb.AppendLine(targetMonitorName);
-
-            sb.AppendLine();
-            sb.AppendLine(" # Per monitor data:");
-            sb.AppendLine();
-            foreach (NativeMonitorData data in monitorData)
-            {
-                sb.AppendLine(data.ToString());
-            }
-
-            sb.AppendLine();
-            sb.AppendLine("```");
-            sb.AppendLine(" ## Monitors discovered:");
-            sb.AppendLine();
-
-            foreach (Monitor m in monitors)
-            {
-                sb.AppendLine(m.Device.ToString());
-            }
-
-            return sb.ToString();
         }
     }
 }

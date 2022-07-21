@@ -8,17 +8,19 @@
                     xmlns:props="clr-namespace:FancyZonesEditor.Properties"
                     mc:Ignorable="d"
                     Title=""
-                    Width="320"
+                    Height="196"
+                    MinWidth="360"
                     BorderThickness="0"
                     xmlns:ui="http://schemas.modernwpf.com/2019"
                     ui:WindowHelper.UseModernWindowStyle="True"
-                    ui:TitleBar.IsIconVisible="True"
-                    SizeToContent="Height"
+                    ui:TitleBar.IsIconVisible="False"
+                    SizeToContent="Width"
                     Background="{DynamicResource PrimaryBackgroundBrush}"
                     ResizeMode="NoResize"
                     WindowStartupLocation="CenterOwner"
+                    ContentRendered="EditorWindow_ContentRendered"
                     Closed="OnClosed">
-    <Grid>
+    <Grid Height="160">
         <Grid Height="36"
               Background="{DynamicResource SecondaryBackgroundBrush}"
               Margin="0,-36,0,0"
@@ -31,11 +33,10 @@
                     VerticalAlignment="Center"
                     Margin="0,4,0,0" />
         </Grid>
-        <StackPanel Margin="16"
+        <StackPanel Margin="16" VerticalAlignment="Bottom"
                     FocusManager.FocusedElement="{Binding ElementName=newZoneButton}">
 
-            <Button x:Name="newZoneButton"
-                    AutomationProperties.LabeledBy="{Binding ElementName=newZoneName}"
+            <local:ClickAutomationEventButton x:Name="newZoneButton"
                     HorizontalAlignment="Stretch"
                     Height="64"
                     Width="64"
@@ -43,14 +44,16 @@
                     Margin="0,8,0,0"
                     Style="{StaticResource AccentButtonStyle}"
                     FontFamily="Segoe MDL2 Assets"
-                    Content="&#xE109;"
+                    Content="&#xE710;"
                     FontSize="24"
+                    TabIndex="0"
                     ToolTip="{x:Static props:Resources.Add_zone}"
                     DataContext="{Binding Path=Model, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"
                     IsEnabled="{Binding IsZoneAddingAllowed}"
-                    Click="OnAddZone" />
+                    Click="OnAddZone"
+                    OnClickAutomationValue="{x:Static props:Resources.New_zone_added}" />
 
-            <Grid Margin="0,24,0,0">
+            <Grid Margin="0,24,0,-4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="8" />
@@ -60,9 +63,11 @@
                         Style="{StaticResource DefaultButtonStyle}"
                         HorizontalAlignment="Stretch"
                         Grid.Column="2"
+                        TabIndex="2"
                         Click="OnCancel" />
                 <Button Content="{x:Static props:Resources.Save_Apply}"
                         Style="{StaticResource AccentButtonStyle}"
+                        TabIndex="1"
                         HorizontalAlignment="Stretch"
                         Click="OnSaveApplyTemplate" />
             </Grid>

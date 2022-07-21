@@ -88,7 +88,7 @@ namespace Microsoft.PowerToys.Run.Plugin.Calculator
 
         private static Regex GetSplitRegex(CultureInfo culture)
         {
-            var splitPattern = $"((?:\\d|{Regex.Escape(culture.NumberFormat.NumberDecimalSeparator)}";
+            var splitPattern = $"((?:\\d|[a-fA-F]|{Regex.Escape(culture.NumberFormat.NumberDecimalSeparator)}";
             if (!string.IsNullOrEmpty(culture.NumberFormat.NumberGroupSeparator))
             {
                 splitPattern += $"|{Regex.Escape(culture.NumberFormat.NumberGroupSeparator)}";

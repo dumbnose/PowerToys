@@ -15,6 +15,7 @@ using ColorPicker.Mouse;
 using ColorPicker.Settings;
 using ColorPicker.Telemetry;
 using ColorPicker.ViewModelContracts;
+using interop;
 using Microsoft.PowerToys.Settings.UI.Library.Enumerations;
 using Microsoft.PowerToys.Telemetry;
 
@@ -53,6 +54,8 @@ namespace ColorPicker.ViewModels
             _zoomWindowHelper = zoomWindowHelper;
             _appStateHandler = appStateHandler;
             _userSettings = userSettings;
+            NativeEventWaiter.WaitForEventLoop(Constants.ShowColorPickerSharedEvent(), _appStateHandler.StartUserSession);
+            NativeEventWaiter.WaitForEventLoop(Constants.ColorPickerSendSettingsTelemetryEvent(), _userSettings.SendSettingsTelemetry);
 
             if (mouseInfoProvider != null)
             {
@@ -62,7 +65,15 @@ namespace ColorPicker.ViewModels
             }
 
             _userSettings.ShowColorName.PropertyChanged += (s, e) => { OnPropertyChanged(nameof(ShowColorName)); };
-            keyboardMonitor?.Start();
+
+            // Only start a local keyboard low level hook if running as a standalone.
+            // Otherwise, the global keyboard hook from runner will be used to activate Color Picker through ShowColorPickerSharedEvent
+            // and the Escape key will be registered as a shortcut by appStateHandler when ColorPicker is being used.
+            // This is much lighter than using a local low level keyboard hook.
+            if ((System.Windows.Application.Current as ColorPickerUI.App).IsRunningDetachedFromPowerToys())
+            {
+                keyboardMonitor?.Start();
+            }
         }
 
         /// <summary>
@@ -115,10 +126,7 @@ namespace ColorPicker.ViewModels
         {
             ColorBrush = new SolidColorBrush(Color.FromArgb(color.A, color.R, color.G, color.B));
             ColorText = ColorRepresentationHelper.GetStringRepresentation(color, _userSettings.CopiedColorRepresentation.Value);
-            if (_userSettings.ShowColorName.Value)
-            {
-                ColorName = ColorNameHelper.GetColorName(color);
-            }
+            ColorName = ColorNameHelper.GetColorName(color);
         }
 
         /// <summary>
@@ -130,21 +138,24 @@ namespace ColorPicker.ViewModels
         {
             ClipboardHelper.CopyToClipboard(ColorText);
 
-            _userSettings.ColorHistory.Insert(0, GetColorString());
+            var color = GetColorString();
+
+            var oldIndex = _userSettings.ColorHistory.IndexOf(color);
+            if (oldIndex != -1)
+            {
+                _userSettings.ColorHistory.Move(oldIndex, 0);
+            }
+            else
+            {
+                _userSettings.ColorHistory.Insert(0, color);
+            }
 
             if (_userSettings.ColorHistory.Count > _userSettings.ColorHistoryLimit.Value)
             {
                 _userSettings.ColorHistory.RemoveAt(_userSettings.ColorHistory.Count - 1);
             }
 
-            _appStateHandler.HideColorPicker();
-
-            if (_userSettings.ActivationAction.Value == ColorPickerActivationAction.OpenColorPickerAndThenEditor || _userSettings.ActivationAction.Value == ColorPickerActivationAction.OpenEditor)
-            {
-                _appStateHandler.ShowColorPickerEditor();
-            }
-
-            PowerToysTelemetry.Log.WriteEvent(new ColorPickerShowEvent());
+            _appStateHandler.OnColorPickerMouseDown();
         }
 
         private string GetColorString()
@@ -160,5 +171,10 @@ namespace ColorPicker.ViewModels
         /// <param name="e">The new values for the zoom</param>
         private void MouseInfoProvider_OnMouseWheel(object sender, Tuple<Point, bool> e)
             => _zoomWindowHelper.Zoom(e.Item1, e.Item2);
+
+        public void RegisterWindowHandle(System.Windows.Interop.HwndSource hwndSource)
+        {
+            _appStateHandler.RegisterWindowHandle(hwndSource);
+        }
     }
 }

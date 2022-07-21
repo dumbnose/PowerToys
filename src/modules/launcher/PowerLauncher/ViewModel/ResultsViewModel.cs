@@ -95,8 +95,6 @@ namespace PowerLauncher.ViewModel
             }
         }
 
-        public Thickness Margin { get; set; }
-
         private Visibility _visibility = Visibility.Hidden;
 
         public Visibility Visibility
@@ -255,9 +253,19 @@ namespace PowerLauncher.ViewModel
             Results.AddRange(newResults);
         }
 
-        public void Sort()
+        public void Sort(MainViewModel.QueryTuningOptions options)
         {
-            var sorted = Results.OrderByDescending(x => x.Result.Score).ToList();
+            List<ResultViewModel> sorted = null;
+
+            if (options.SearchQueryTuningEnabled)
+            {
+                sorted = Results.OrderByDescending(x => (x.Result.Metadata.WeightBoost + x.Result.Score + (x.Result.SelectedCount * options.SearchClickedItemWeight))).ToList();
+            }
+            else
+            {
+                sorted = Results.OrderByDescending(x => (x.Result.Metadata.WeightBoost + x.Result.Score + (x.Result.SelectedCount * 5))).ToList();
+            }
+
             Clear();
             Results.AddRange(sorted);
         }

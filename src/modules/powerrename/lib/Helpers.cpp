@@ -7,6 +7,13 @@
 
 namespace fs = std::filesystem;
 
+namespace
+{
+    const int MAX_INPUT_STRING_LEN = 1024;
+
+    const wchar_t c_rootRegPath[] = L"Software\\Microsoft\\PowerRename";
+}
+
 HRESULT GetTrimmedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR source)
 {
     HRESULT hr = E_INVALIDARG;
@@ -35,7 +42,7 @@ HRESULT GetTrimmedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR source)
     return hr;
 }
 
-HRESULT GetTransformedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR source, DWORD flags)
+HRESULT GetTransformedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR source, DWORD flags, bool isFolder)
 {
     std::locale::global(std::locale(""));
     HRESULT hr = E_INVALIDARG;
@@ -43,19 +50,38 @@ HRESULT GetTransformedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR sour
     {
         if (flags & Uppercase)
         {
-            if (flags & NameOnly)
+            if (isFolder)
             {
-                std::wstring stem = fs::path(source).stem().wstring();
-                std::transform(stem.begin(), stem.end(), stem.begin(), ::towupper);
-                hr = StringCchPrintf(result, cchMax, L"%s%s", stem.c_str(), fs::path(source).extension().c_str());
-            }
-            else if (flags & ExtensionOnly)
-            {
-                std::wstring extension = fs::path(source).extension().wstring();
-                if (!extension.empty())
+                hr = StringCchCopy(result, cchMax, source);
+                if (SUCCEEDED(hr))
                 {
-                    std::transform(extension.begin(), extension.end(), extension.begin(), ::towupper);
-                    hr = StringCchPrintf(result, cchMax, L"%s%s", fs::path(source).stem().c_str(), extension.c_str());
+                    std::transform(result, result + wcslen(result), result, ::towupper);
+                }
+            }
+            else
+            {
+                if (flags & NameOnly)
+                {
+                    std::wstring stem = fs::path(source).stem().wstring();
+                    std::transform(stem.begin(), stem.end(), stem.begin(), ::towupper);
+                    hr = StringCchPrintf(result, cchMax, L"%s%s", stem.c_str(), fs::path(source).extension().c_str());
+                }
+                else if (flags & ExtensionOnly)
+                {
+                    std::wstring extension = fs::path(source).extension().wstring();
+                    if (!extension.empty())
+                    {
+                        std::transform(extension.begin(), extension.end(), extension.begin(), ::towupper);
+                        hr = StringCchPrintf(result, cchMax, L"%s%s", fs::path(source).stem().c_str(), extension.c_str());
+                    }
+                    else
+                    {
+                        hr = StringCchCopy(result, cchMax, source);
+                        if (SUCCEEDED(hr))
+                        {
+                            std::transform(result, result + wcslen(result), result, ::towupper);
+                        }
+                    }
                 }
                 else
                 {
@@ -66,30 +92,41 @@ HRESULT GetTransformedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR sour
                     }
                 }
             }
-            else
+        }
+        else if (flags & Lowercase)
+        {
+            if (isFolder)
             {
                 hr = StringCchCopy(result, cchMax, source);
                 if (SUCCEEDED(hr))
                 {
-                    std::transform(result, result + wcslen(result), result, ::towupper);
+                    std::transform(result, result + wcslen(result), result, ::towlower);
                 }
             }
-        }
-        else if (flags & Lowercase)
-        {
-            if (flags & NameOnly)
+            else
             {
-                std::wstring stem = fs::path(source).stem().wstring();
-                std::transform(stem.begin(), stem.end(), stem.begin(), ::towlower);
-                hr = StringCchPrintf(result, cchMax, L"%s%s", stem.c_str(), fs::path(source).extension().c_str());
-            }
-            else if (flags & ExtensionOnly)
-            {
-                std::wstring extension = fs::path(source).extension().wstring();
-                if (!extension.empty())
+                if (flags & NameOnly)
                 {
-                    std::transform(extension.begin(), extension.end(), extension.begin(), ::towlower);
-                    hr = StringCchPrintf(result, cchMax, L"%s%s", fs::path(source).stem().c_str(), extension.c_str());
+                    std::wstring stem = fs::path(source).stem().wstring();
+                    std::transform(stem.begin(), stem.end(), stem.begin(), ::towlower);
+                    hr = StringCchPrintf(result, cchMax, L"%s%s", stem.c_str(), fs::path(source).extension().c_str());
+                }
+                else if (flags & ExtensionOnly)
+                {
+                    std::wstring extension = fs::path(source).extension().wstring();
+                    if (!extension.empty())
+                    {
+                        std::transform(extension.begin(), extension.end(), extension.begin(), ::towlower);
+                        hr = StringCchPrintf(result, cchMax, L"%s%s", fs::path(source).stem().c_str(), extension.c_str());
+                    }
+                    else
+                    {
+                        hr = StringCchCopy(result, cchMax, source);
+                        if (SUCCEEDED(hr))
+                        {
+                            std::transform(result, result + wcslen(result), result, ::towlower);
+                        }
+                    }
                 }
                 else
                 {
@@ -100,22 +137,14 @@ HRESULT GetTransformedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR sour
                     }
                 }
             }
-            else
-            {
-                hr = StringCchCopy(result, cchMax, source);
-                if (SUCCEEDED(hr))
-                {
-                    std::transform(result, result + wcslen(result), result, ::towlower);
-                }
-            }
         }
         else if (flags & Titlecase)
         {
             if (!(flags & ExtensionOnly))
             {
                 std::vector<std::wstring> exceptions = { L"a", L"an", L"to", L"the", L"at", L"by", L"for", L"in", L"of", L"on", L"up", L"and", L"as", L"but", L"or", L"nor" };
-                std::wstring stem = fs::path(source).stem().wstring();
-                std::wstring extension = fs::path(source).extension().wstring();
+                std::wstring stem = isFolder ? source : fs::path(source).stem().wstring();
+                std::wstring extension = isFolder ? L"" : fs::path(source).extension().wstring();
 
                 size_t stemLength = stem.length();
                 bool isFirstWord = true;
@@ -147,6 +176,42 @@ HRESULT GetTransformedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR sour
                         {
                             stem[i] = towlower(stem[i]);
                         }
+                    }
+                    else
+                    {
+                        stem[i] = towlower(stem[i]);
+                    }
+                }
+                hr = StringCchPrintf(result, cchMax, L"%s%s", stem.c_str(), extension.c_str());
+            }
+            else
+            {
+                hr = StringCchCopy(result, cchMax, source);
+            }
+        } 
+        else if (flags & Capitalized)
+        {
+            if (!(flags & ExtensionOnly))
+            {
+                std::wstring stem = isFolder ? source : fs::path(source).stem().wstring();
+                std::wstring extension = isFolder ? L"" : fs::path(source).extension().wstring();
+
+                size_t stemLength = stem.length();
+
+                while (stemLength > 0 && (iswspace(stem[stemLength - 1]) || iswpunct(stem[stemLength - 1])))
+                {
+                    stemLength--;
+                }
+
+                for (size_t i = 0; i < stemLength; i++)
+                {
+                    if (!i || iswspace(stem[i - 1]) || iswpunct(stem[i - 1]))
+                    {
+                        if (iswspace(stem[i]) || iswpunct(stem[i]))
+                        {
+                            continue;
+                        }
+                        stem[i] = towupper(stem[i]);
                     }
                     else
                     {
@@ -275,7 +340,7 @@ HRESULT GetDatedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR source, SY
     return hr;
 }
 
-HRESULT _GetShellItemArrayFromDataOject(_In_ IUnknown* dataSource, _COM_Outptr_ IShellItemArray** items)
+HRESULT GetShellItemArrayFromDataObject(_In_ IUnknown* dataSource, _COM_Outptr_ IShellItemArray** items)
 {
     *items = nullptr;
     CComPtr<IDataObject> dataObj;
@@ -287,73 +352,6 @@ HRESULT _GetShellItemArrayFromDataOject(_In_ IUnknown* dataSource, _COM_Outptr_ 
     else
     {
         hr = dataSource->QueryInterface(IID_PPV_ARGS(items));
-    }
-
-    return hr;
-}
-
-HRESULT _ParseEnumItems(_In_ IEnumShellItems* pesi, _In_ IPowerRenameManager* psrm, _In_ int depth = 0)
-{
-    HRESULT hr = E_INVALIDARG;
-
-    // We shouldn't get this deep since we only enum the contents of
-    // regular folders but adding just in case
-    if ((pesi) && (depth < (MAX_PATH / 2)))
-    {
-        hr = S_OK;
-
-        ULONG celtFetched;
-        CComPtr<IShellItem> spsi;
-        while ((S_OK == pesi->Next(1, &spsi, &celtFetched)) && (SUCCEEDED(hr)))
-        {
-            CComPtr<IPowerRenameItemFactory> spsrif;
-            hr = psrm->GetRenameItemFactory(&spsrif);
-            if (SUCCEEDED(hr))
-            {
-                CComPtr<IPowerRenameItem> spNewItem;
-                hr = spsrif->Create(spsi, &spNewItem);
-                if (SUCCEEDED(hr))
-                {
-                    spNewItem->PutDepth(depth);
-                    hr = psrm->AddItem(spNewItem);
-                }
-
-                if (SUCCEEDED(hr))
-                {
-                    bool isFolder = false;
-                    if (SUCCEEDED(spNewItem->GetIsFolder(&isFolder)) && isFolder)
-                    {
-                        // Bind to the IShellItem for the IEnumShellItems interface
-                        CComPtr<IEnumShellItems> spesiNext;
-                        hr = spsi->BindToHandler(nullptr, BHID_EnumItems, IID_PPV_ARGS(&spesiNext));
-                        if (SUCCEEDED(hr))
-                        {
-                            // Parse the folder contents recursively
-                            hr = _ParseEnumItems(spesiNext, psrm, depth + 1);
-                        }
-                    }
-                }
-            }
-
-            spsi = nullptr;
-        }
-    }
-
-    return hr;
-}
-
-// Iterate through the data source and add paths to the rotation manager
-HRESULT EnumerateDataObject(_In_ IUnknown* dataSource, _In_ IPowerRenameManager* psrm)
-{
-    CComPtr<IShellItemArray> spsia;
-    HRESULT hr = E_FAIL;
-    if (SUCCEEDED(_GetShellItemArrayFromDataOject(dataSource, &spsia)))
-    {
-        CComPtr<IEnumShellItems> spesi;
-        if (SUCCEEDED(spsia->EnumItems(&spesi)))
-        {
-            hr = _ParseEnumItems(spesi, psrm);
-        }
     }
 
     return hr;
@@ -411,7 +409,7 @@ BOOL GetEnumeratedFileName(__out_ecount(cchMax) PWSTR pszUniqueName, UINT cchMax
                 pszEndUniq++;
             }
 
-            if (*pszEndUniq == L')')
+            if (*pszEndUniq == L')' && (*CharNext(pszEndUniq) == L'\0' || CharNext(pszEndUniq) == PathFindExtension(pszTemplate)))
             {
                 break;
             }
@@ -522,13 +520,38 @@ BOOL GetEnumeratedFileName(__out_ecount(cchMax) PWSTR pszUniqueName, UINT cchMax
     return fRet;
 }
 
+// Iterate through the shell items array and checks if at least 1 item has SFGAO_CANRENAME.
+// We do not enumerate child items - only the items the user selected.
+bool ShellItemArrayContainsRenamableItem(_In_ IShellItemArray* shellItemArray)
+{
+    bool hasRenamable = false;
+    IEnumShellItems* spesi;
+    if (SUCCEEDED(shellItemArray->EnumItems(&spesi)))
+    {
+        ULONG celtFetched;
+        IShellItem* spsi;
+        while ((S_OK == spesi->Next(1, &spsi, &celtFetched)))
+        {
+            SFGAOF attrs;
+            if (SUCCEEDED(spsi->GetAttributes(SFGAO_CANRENAME, &attrs)) &&
+                attrs & SFGAO_CANRENAME)
+            {
+                hasRenamable = true;
+                break;
+            }
+        }
+    }
+
+    return hasRenamable;
+}
+
 // Iterate through the data source and checks if at least 1 item has SFGAO_CANRENAME.
 // We do not enumerate child items - only the items the user selected.
 bool DataObjectContainsRenamableItem(_In_ IUnknown* dataSource)
 {
     bool hasRenamable = false;
     CComPtr<IShellItemArray> spsia;
-    if (SUCCEEDED(_GetShellItemArrayFromDataOject(dataSource, &spsia)))
+    if (SUCCEEDED(GetShellItemArrayFromDataObject(dataSource, &spsia)))
     {
         CComPtr<IEnumShellItems> spesi;
         if (SUCCEEDED(spsia->EnumItems(&spesi)))
@@ -548,4 +571,84 @@ bool DataObjectContainsRenamableItem(_In_ IUnknown* dataSource)
         }
     }
     return hasRenamable;
+}
+
+HWND CreateMsgWindow(_In_ HINSTANCE hInst, _In_ WNDPROC pfnWndProc, _In_ void* p)
+{
+    WNDCLASS wc = { 0 };
+    PCWSTR wndClassName = L"MsgWindow";
+
+    wc.lpfnWndProc = DefWindowProc;
+    wc.cbWndExtra = sizeof(void*);
+    wc.hInstance = hInst;
+    wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+    wc.lpszClassName = wndClassName;
+
+    RegisterClass(&wc);
+
+    HWND hwnd = CreateWindowEx(
+        0, wndClassName, nullptr, 0, 0, 0, 0, 0, HWND_MESSAGE, 0, hInst, nullptr);
+    if (hwnd)
+    {
+        SetWindowLongPtr(hwnd, 0, (LONG_PTR)p);
+        if (pfnWndProc)
+        {
+            SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)pfnWndProc);
+        }
+    }
+
+    return hwnd;
+}
+
+std::wstring GetRegString(const std::wstring& valueName, const std::wstring& subPath)
+{
+    wchar_t value[MAX_INPUT_STRING_LEN];
+    value[0] = L'\0';
+    DWORD type = REG_SZ;
+    DWORD size = MAX_INPUT_STRING_LEN * sizeof(wchar_t);
+    std::wstring completePath = std::wstring(c_rootRegPath) + subPath;
+    if (SHGetValue(HKEY_CURRENT_USER, completePath.c_str(), valueName.c_str(), &type, value, &size) == ERROR_SUCCESS)
+    {
+        return std::wstring(value);
+    }
+    return std::wstring{};
+}
+
+unsigned int GetRegNumber(const std::wstring& valueName, unsigned int defaultValue)
+{
+    DWORD type = REG_DWORD;
+    DWORD data = 0;
+    DWORD size = sizeof(DWORD);
+    if (SHGetValue(HKEY_CURRENT_USER, c_rootRegPath, valueName.c_str(), &type, &data, &size) == ERROR_SUCCESS)
+    {
+        return data;
+    }
+    return defaultValue;
+}
+
+void SetRegNumber(const std::wstring& valueName, unsigned int value)
+{
+    SHSetValue(HKEY_CURRENT_USER, c_rootRegPath, valueName.c_str(), REG_DWORD, &value, sizeof(value));
+}
+
+bool GetRegBoolean(const std::wstring& valueName, bool defaultValue)
+{
+    DWORD value = GetRegNumber(valueName.c_str(), defaultValue ? 1 : 0);
+    return (value == 0) ? false : true;
+}
+
+void SetRegBoolean(const std::wstring& valueName, bool value)
+{
+    SetRegNumber(valueName, value ? 1 : 0);
+}
+
+bool LastModifiedTime(const std::wstring& filePath, FILETIME* lpFileTime)
+{
+    WIN32_FILE_ATTRIBUTE_DATA attr{};
+    if (GetFileAttributesExW(filePath.c_str(), GetFileExInfoStandard, &attr))
+    {
+        *lpFileTime = attr.ftLastWriteTime;
+        return true;
+    }
+    return false;
 }

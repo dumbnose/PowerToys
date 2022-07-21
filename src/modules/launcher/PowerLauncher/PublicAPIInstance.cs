@@ -5,12 +5,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Windows;
+using Common.UI;
 using ManagedCommon;
-using Microsoft.PowerToys.Common.UI;
 using Microsoft.Toolkit.Uwp.Notifications;
-using PowerLauncher.Helper;
 using PowerLauncher.Plugin;
 using PowerLauncher.ViewModel;
 using Windows.UI.Notifications;
@@ -34,10 +32,10 @@ namespace Wox
             _mainVM = mainVM ?? throw new ArgumentNullException(nameof(mainVM));
             _themeManager = themeManager ?? throw new ArgumentNullException(nameof(themeManager));
             _themeManager.ThemeChanged += OnThemeChanged;
-            WebRequest.RegisterPrefix("data", new DataWebRequestFactory());
 
-            DesktopNotificationManagerCompat.RegisterActivator<LauncherNotificationActivator>();
-            DesktopNotificationManagerCompat.RegisterAumidAndComServer<LauncherNotificationActivator>("PowerToysRun");
+            ToastNotificationManagerCompat.OnActivated += args =>
+            {
+            };
         }
 
         public void ChangeQuery(string query, bool requery = false)
@@ -96,13 +94,8 @@ namespace Wox
             Application.Current.Dispatcher.Invoke(() =>
             {
                 var toast = new ToastNotification(builder.GetToastContent().GetXml());
-                DesktopNotificationManagerCompat.CreateToastNotifier().Show(toast);
+                ToastNotificationManagerCompat.CreateToastNotifier().Show(toast);
             });
-        }
-
-        public void InstallPlugin(string path)
-        {
-            Application.Current.Dispatcher.Invoke(() => PluginManager.InstallPlugin(path));
         }
 
         public List<PluginPair> GetAllPlugins()

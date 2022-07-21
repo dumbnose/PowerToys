@@ -13,7 +13,7 @@ namespace ColorPicker.Helpers
     internal static class ColorHelper
     {
         /// <summary>
-        /// Convert a given <see cref="Color"/> to a CYMK color (cyan, magenta, yellow, black key)
+        /// Convert a given <see cref="Color"/> to a CMYK color (cyan, magenta, yellow, black key)
         /// </summary>
         /// <param name="color">The <see cref="Color"/> to convert</param>
         /// <returns>The cyan[0..1], magenta[0..1], yellow[0..1] and black key[0..1] of the converted color</returns>
@@ -43,6 +43,14 @@ namespace ColorPicker.Helpers
 
             return (cyan, magenta, yellow, blackKey);
         }
+
+        /// <summary>
+        /// Convert a given <see cref="Color"/> to a float color styling(0.1f, 0.1f, 0.1f)
+        /// </summary>
+        /// <param name="color">The <see cref="Color"/> to convert</param>
+        /// <returns>The int / 255d for each value to get value between 0 and 1</returns>
+        internal static (double red, double green, double blue) ConvertToDouble(Color color)
+            => (color.R / 255d, color.G / 255d, color.B / 255d);
 
         /// <summary>
         /// Convert a given <see cref="Color"/> to a HSB color (hue, saturation, brightness)
@@ -137,6 +145,88 @@ namespace ColorPicker.Helpers
             var max = Math.Max(Math.Max(color.R, color.G), color.B) / 255d;
 
             return (GetNaturalColorFromHue(color.GetHue()), min, 1 - max);
+        }
+
+        /// <summary>
+        /// Convert a given <see cref="Color"/> to a CIE LAB color (LAB)
+        /// </summary>
+        /// <param name="color">The <see cref="Color"/> to convert</param>
+        /// <returns>The lightness [0..100] and two chromaticities [-128..127]</returns>
+        internal static (double lightness, double chromaticityA, double chromaticityB) ConvertToCIELABColor(Color color)
+        {
+            var xyz = ConvertToCIEXYZColor(color);
+            var lab = GetCIELABColorFromCIEXYZ(xyz.x, xyz.y, xyz.z);
+
+            return lab;
+        }
+
+        /// <summary>
+        /// Convert a given <see cref="Color"/> to a CIE XYZ color (XYZ)
+        /// The constants of the formula matches this Wikipedia page, but at a higher precision:
+        /// https://en.wikipedia.org/wiki/SRGB#The_reverse_transformation_(sRGB_to_CIE_XYZ)
+        /// This page provides a method to calculate the constants:
+        /// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+        /// </summary>
+        /// <param name="color">The <see cref="Color"/> to convert</param>
+        /// <returns>The X [0..1], Y [0..1] and Z [0..1]</returns>
+        internal static (double x, double y, double z) ConvertToCIEXYZColor(Color color)
+        {
+            double r = color.R / 255d;
+            double g = color.G / 255d;
+            double b = color.B / 255d;
+
+            // inverse companding, gamma correction must be undone
+            double rLinear = (r > 0.04045) ? Math.Pow((r + 0.055) / 1.055, 2.4) : (r / 12.92);
+            double gLinear = (g > 0.04045) ? Math.Pow((g + 0.055) / 1.055, 2.4) : (g / 12.92);
+            double bLinear = (b > 0.04045) ? Math.Pow((b + 0.055) / 1.055, 2.4) : (b / 12.92);
+
+            return (
+                (rLinear * 0.41239079926595948) + (gLinear * 0.35758433938387796) + (bLinear * 0.18048078840183429),
+                (rLinear * 0.21263900587151036) + (gLinear * 0.71516867876775593) + (bLinear * 0.07219231536073372),
+                (rLinear * 0.01933081871559185) + (gLinear * 0.11919477979462599) + (bLinear * 0.95053215224966058)
+            );
+        }
+
+        /// <summary>
+        /// Convert a CIE XYZ color <see cref="double"/> to a CIE LAB color (LAB) adapted to sRGB D65 white point
+        /// The constants of the formula used come from this wikipedia page:
+        /// https://en.wikipedia.org/wiki/CIELAB_color_space#Converting_between_CIELAB_and_CIEXYZ_coordinates
+        /// </summary>
+        /// <param name="x">The <see cref="x"/> represents a mix of the three CIE RGB curves</param>
+        /// <param name="y">The <see cref="y"/> represents the luminance</param>
+        /// <param name="z">The <see cref="z"/> is quasi-equal to blue (of CIE RGB)</param>
+        /// <returns>The lightness [0..100] and two chromaticities [-128..127]</returns>
+        private static (double lightness, double chromaticityA, double chromaticityB)
+            GetCIELABColorFromCIEXYZ(double x, double y, double z)
+        {
+            // sRGB reference white (x=0.3127, y=0.3290, Y=1.0), actually CIE Standard Illuminant D65 truncated to 4 decimal places,
+            // then converted to XYZ using the formula:
+            //   X = x * (Y / y)
+            //   Y = Y
+            //   Z = (1 - x - y) * (Y / y)
+            double x_n = 0.9504559270516717;
+            double y_n = 1.0;
+            double z_n = 1.0890577507598784;
+
+            // Scale XYZ values relative to reference white
+            x /= x_n;
+            y /= y_n;
+            z /= z_n;
+
+            // XYZ to CIELab transformation
+            double delta = 6d / 29;
+            double m = (1d / 3) * Math.Pow(delta, -2);
+            double t = Math.Pow(delta, 3);
+
+            double fx = (x > t) ? Math.Pow(x, 1.0 / 3.0) : (x * m) + (16.0 / 116.0);
+            double fy = (y > t) ? Math.Pow(y, 1.0 / 3.0) : (y * m) + (16.0 / 116.0);
+            double fz = (z > t) ? Math.Pow(z, 1.0 / 3.0) : (z * m) + (16.0 / 116.0);
+
+            double l = (116 * fy) - 16;
+            double a = 500 * (fx - fy);
+            double b = 200 * (fy - fz);
+
+            return (l, a, b);
         }
 
         /// <summary>

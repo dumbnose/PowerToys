@@ -13,7 +13,7 @@
 #define PRODUCT_VERSION_STRING FILE_VERSION_STRING
 
 #define COMPANY_NAME "Microsoft Corporation"
-#define COPYRIGHT_NOTE "Copyright (C) 2020 Microsoft Corporation"
+#define COPYRIGHT_NOTE "Copyright (C) 2022 Microsoft Corporation"
 #define PRODUCT_NAME "PowerToys"
 
 #include <string>
@@ -32,6 +32,15 @@ inline std::wstring get_product_version()
     static std::wstring version = L"v" + std::to_wstring(VERSION_MAJOR) +
                                   L"." + std::to_wstring(VERSION_MINOR) +
                                   L"." + std::to_wstring(VERSION_REVISION);
+
+    return version;
+}
+
+inline std::wstring get_std_product_version()
+{
+    static std::wstring version = L"v" + std::to_wstring(VERSION_MAJOR) +
+                                  L"." + std::to_wstring(VERSION_MINOR) +
+                                  L"." + std::to_wstring(VERSION_REVISION) + L".0";
 
     return version;
 }

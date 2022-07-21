@@ -4,15 +4,22 @@
 
 using System;
 using System.Collections.Generic;
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 using Wox.Plugin;
 
 namespace PowerLauncher.Storage
 {
     public class UserSelectedRecord
     {
-        [JsonProperty]
-        private readonly Dictionary<string, int> records = new Dictionary<string, int>();
+        public class UserSelectedRecordItem
+        {
+            public int SelectedCount { get; set; }
+
+            public DateTime LastSelected { get; set; }
+        }
+
+        [JsonInclude]
+        public Dictionary<string, UserSelectedRecordItem> Records { get; private set; } = new Dictionary<string, UserSelectedRecordItem>();
 
         public void Add(Result result)
         {
@@ -22,29 +29,30 @@ namespace PowerLauncher.Storage
             }
 
             var key = result.ToString();
-            if (records.TryGetValue(key, out int value))
+            if (Records.TryGetValue(key, out var value))
             {
-                records[key] = value + 1;
+                Records[key].SelectedCount = Records[key].SelectedCount + 1;
+                Records[key].LastSelected = DateTime.UtcNow;
             }
             else
             {
-                records.Add(key, 1);
+                Records.Add(key, new UserSelectedRecordItem { SelectedCount = 1, LastSelected = DateTime.UtcNow });
             }
         }
 
-        public int GetSelectedCount(Result result)
+        public UserSelectedRecordItem GetSelectedData(Result result)
         {
             if (result == null)
             {
                 throw new ArgumentNullException(nameof(result));
             }
 
-            if (result != null && records.TryGetValue(result.ToString(), out int value))
+            if (result != null && Records.TryGetValue(result.ToString(), out var value))
             {
                 return value;
             }
 
-            return 0;
+            return new UserSelectedRecordItem { SelectedCount = 0, LastSelected = DateTime.MinValue };
         }
     }
 }

@@ -6,11 +6,10 @@ using System;
 using System.Collections.Generic;
 using System.IO.Abstractions;
 using System.Linq;
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace Wox.Plugin
 {
-    [JsonObject(MemberSerialization.OptOut)]
     public class PluginMetadata : BaseModel
     {
         private static readonly IFileSystem FileSystem = new FileSystem();
@@ -32,12 +31,11 @@ namespace Wox.Plugin
 
         public string Language { get; set; }
 
-        public string Description { get; set; }
-
         public string Website { get; set; }
 
         public bool Disabled { get; set; }
 
+        [JsonInclude]
         public string ExecuteFilePath { get; private set; }
 
         public string ExecuteFileName { get; set; }
@@ -53,12 +51,12 @@ namespace Wox.Plugin
             {
                 _pluginDirectory = value;
                 ExecuteFilePath = Path.Combine(value, ExecuteFileName);
-                IcoPathDark = Path.Combine(value, IcoPathDark);
-                IcoPathLight = Path.Combine(value, IcoPathLight);
             }
         }
 
         public string ActionKeyword { get; set; }
+
+        public int WeightBoost { get; set; }
 
         public bool IsGlobal { get; set; }
 

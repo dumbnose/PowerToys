@@ -9,7 +9,12 @@ jobs:
   variables:
     BuildConfiguration: ${{ parameters.configuration }}
     BuildPlatform: ${{ parameters.platform }}
-  pool: "windevbuildagents"
+  pool:
+    demands: ImageOverride -equals WinDevVS17-latest
+    ${{ if eq(variables['System.CollectionUri'], 'https://dev.azure.com/ms/') }}:
+      name: WinDevPoolOSS-L
+    ${{ if ne(variables['System.CollectionUri'], 'https://dev.azure.com/ms/') }}:
+      name: WinDevPool-L
   timeoutInMinutes: 120
   strategy:
     maxParallel: 10
@@ -17,3 +22,9 @@ jobs:
   - template: build-powertoys-steps.yml
     parameters:
       additionalBuildArguments: ${{ parameters.additionalBuildArguments }}
+
+  # It appears that the Component Governance build task that gets automatically injected stopped working
+  # when we renamed our main branch.
+  - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
+    displayName: 'Component Detection'
+    condition: and(succeededOrFailed(), not(eq(variables['Build.Reason'], 'PullRequest')))

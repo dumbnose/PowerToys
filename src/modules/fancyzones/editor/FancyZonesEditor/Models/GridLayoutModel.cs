@@ -2,6 +2,7 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using System.Collections.Generic;
 
 namespace FancyZonesEditor.Models
@@ -120,11 +121,6 @@ namespace FancyZonesEditor.Models
 
         private int _spacing = LayoutSettings.DefaultSpacing;
 
-        // FreeZones (not persisted) - used to keep track of child indices that are no longer in use in the CellChildMap,
-        //  making them candidates for re-use when it's needed to add another child
-        //  TODO: do I need FreeZones on the data model?  - I think I do
-        public IList<int> FreeZones { get; } = new List<int>();
-
         public GridLayoutModel()
             : base()
         {
@@ -176,6 +172,53 @@ namespace FancyZonesEditor.Models
             {
                 ColumnPercents.Add(other.ColumnPercents[col]);
             }
+        }
+
+        public bool IsModelValid()
+        {
+            // Check if rows and columns are valid
+            if (Rows <= 0 || Columns <= 0)
+            {
+                return false;
+            }
+
+            // Check if percentage is valid.
+            if (RowPercents.Count != Rows || ColumnPercents.Count != Columns || RowPercents.Exists((x) => (x < 1)) || ColumnPercents.Exists((x) => (x < 1)))
+            {
+                return false;
+            }
+
+            // Check if cells map is valid
+            if (CellChildMap.Length != Rows * Columns)
+            {
+                return false;
+            }
+
+            int zoneCount = 0;
+            for (int row = 0; row < Rows; row++)
+            {
+                for (int col = 0; col < Columns; col++)
+                {
+                    zoneCount = Math.Max(zoneCount, CellChildMap[row, col]);
+                }
+            }
+
+            zoneCount++;
+
+            if (zoneCount > Rows * Columns)
+            {
+                return false;
+            }
+
+            var rowPrefixSum = GridData.PrefixSum(RowPercents);
+            var colPrefixSum = GridData.PrefixSum(ColumnPercents);
+
+            if (rowPrefixSum[Rows] != GridData.Multiplier || colPrefixSum[Columns] != GridData.Multiplier)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         public void UpdatePreview()

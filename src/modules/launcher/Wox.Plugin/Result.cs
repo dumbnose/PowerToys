@@ -20,7 +20,8 @@ namespace Wox.Plugin
         private ToolTipData _toolTipData;
         private string _pluginDirectory;
         private string _icoPath;
-        private IList<int> _titleHighlightData;
+
+        public PluginMetadata Metadata { get; set; }
 
         public string Title
         {
@@ -101,32 +102,26 @@ namespace Wox.Plugin
 
         public int Score { get; set; }
 
+        public int SelectedCount { get; set; }
+
+        public DateTime LastSelected { get; set; } = DateTime.MinValue;
+
         public Result(IList<int> titleHighlightData = null, IList<int> subTitleHighlightData = null)
         {
-            _titleHighlightData = titleHighlightData;
+            TitleHighlightData = titleHighlightData;
             SubTitleHighlightData = subTitleHighlightData;
         }
 
-        /// <summary>
-        /// Gets a list of indexes for the characters to be highlighted in Title
-        /// </summary>
-        public IList<int> GetTitleHighlightData()
-        {
-            return _titleHighlightData;
-        }
+#pragma warning disable CA2227 // Collection properties should be read only
+        public IList<int> TitleHighlightData { get; set; }
+#pragma warning restore CA2227 // Collection properties should be read only
 
         /// <summary>
-        /// Sets a list of indexes for the characters to be highlighted in Title
+        /// Gets or sets a list of indexes for the characters to be highlighted in SubTitle
         /// </summary>
-        public void SetTitleHighlightData(IList<int> value)
-        {
-            _titleHighlightData = value;
-        }
-
-        /// <summary>
-        /// Gets a list of indexes for the characters to be highlighted in SubTitle
-        /// </summary>
-        public IList<int> SubTitleHighlightData { get; private set; }
+#pragma warning disable CA2227 // Collection properties should be read only
+        public IList<int> SubTitleHighlightData { get; set; }
+#pragma warning restore CA2227 // Collection properties should be read only
 
         /// <summary>
         /// Gets or sets only results that originQuery match with current query will be displayed in the panel
@@ -161,7 +156,7 @@ namespace Wox.Plugin
             var equality = string.Equals(r?.Title, Title, StringComparison.Ordinal) &&
                            string.Equals(r?.SubTitle, SubTitle, StringComparison.Ordinal) &&
                            string.Equals(r?.IcoPath, IcoPath, StringComparison.Ordinal) &&
-                           GetTitleHighlightData() == r.GetTitleHighlightData() &&
+                           TitleHighlightData == r.TitleHighlightData &&
                            SubTitleHighlightData == r.SubTitleHighlightData;
 
             return equality;

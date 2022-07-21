@@ -120,6 +120,9 @@
   <data name="wox_plugin_service_continue_pending" xml:space="preserve">
     <value>Continue</value>
   </data>
+  <data name="wox_plugin_service_name" xml:space="preserve">
+    <value>Name</value>
+  </data>
   <data name="wox_plugin_service_open_services" xml:space="preserve">
     <value>Open services (Ctrl+O)</value>
   </data>
@@ -130,7 +133,7 @@
     <value>Pausing</value>
   </data>
   <data name="wox_plugin_service_plugin_description" xml:space="preserve">
-    <value>Manages Windows services</value>
+    <value>Manages Windows services.</value>
   </data>
   <data name="wox_plugin_service_plugin_name" xml:space="preserve">
     <value>Service</value>
@@ -164,6 +167,9 @@
   </data>
   <data name="wox_plugin_service_start_mode_automatic" xml:space="preserve">
     <value>Automatic</value>
+  </data>
+  <data name="wox_plugin_service_start_mode_automaticDelayed" xml:space="preserve">
+    <value>Automatic (Delayed Start)</value>
   </data>
   <data name="wox_plugin_service_start_mode_boot" xml:space="preserve">
     <value>Boot</value>

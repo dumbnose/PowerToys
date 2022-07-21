@@ -14,9 +14,11 @@ public:
     IFACEMETHODIMP_(ULONG) Release();
 
     // IPowerRenameItem
+    IFACEMETHODIMP PutPath(_In_opt_ PCWSTR newPath);
     IFACEMETHODIMP GetPath(_Outptr_ PWSTR* path);
     IFACEMETHODIMP GetTime(_Outptr_ SYSTEMTIME* time);
     IFACEMETHODIMP GetShellItem(_Outptr_ IShellItem** ppsi);
+    IFACEMETHODIMP PutOriginalName(_In_opt_ PCWSTR originalName);
     IFACEMETHODIMP GetOriginalName(_Outptr_ PWSTR* originalName);
     IFACEMETHODIMP PutNewName(_In_opt_ PCWSTR newName);
     IFACEMETHODIMP GetNewName(_Outptr_ PWSTR* newName);
@@ -25,7 +27,6 @@ public:
     IFACEMETHODIMP GetSelected(_Out_ bool* selected);
     IFACEMETHODIMP PutSelected(_In_ bool selected);
     IFACEMETHODIMP GetId(_Out_ int* id);
-    IFACEMETHODIMP GetIconIndex(_Out_ int* iconIndex);
     IFACEMETHODIMP GetDepth(_Out_ UINT* depth);
     IFACEMETHODIMP PutDepth(_In_ int depth);
     IFACEMETHODIMP Reset();

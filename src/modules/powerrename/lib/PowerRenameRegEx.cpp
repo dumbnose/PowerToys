@@ -85,9 +85,9 @@ IFACEMETHODIMP CPowerRenameRegEx::GetSearchTerm(_Outptr_ PWSTR* searchTerm)
     return hr;
 }
 
-IFACEMETHODIMP CPowerRenameRegEx::PutSearchTerm(_In_ PCWSTR searchTerm)
+IFACEMETHODIMP CPowerRenameRegEx::PutSearchTerm(_In_ PCWSTR searchTerm, bool forceRenaming)
 {
-    bool changed = false;
+    bool changed = false || forceRenaming;
     HRESULT hr = S_OK;
     if (searchTerm)
     {
@@ -96,7 +96,14 @@ IFACEMETHODIMP CPowerRenameRegEx::PutSearchTerm(_In_ PCWSTR searchTerm)
         {
             changed = true;
             CoTaskMemFree(m_searchTerm);
-            hr = SHStrDup(searchTerm, &m_searchTerm);
+            if (lstrcmp(searchTerm, L"") == 0)
+            {
+                m_searchTerm = NULL;
+            }
+            else
+            {
+                hr = SHStrDup(searchTerm, &m_searchTerm);
+            }
         }
     }
 
@@ -120,9 +127,9 @@ IFACEMETHODIMP CPowerRenameRegEx::GetReplaceTerm(_Outptr_ PWSTR* replaceTerm)
     return hr;
 }
 
-IFACEMETHODIMP CPowerRenameRegEx::PutReplaceTerm(_In_ PCWSTR replaceTerm)
+IFACEMETHODIMP CPowerRenameRegEx::PutReplaceTerm(_In_ PCWSTR replaceTerm, bool forceRenaming)
 {
-    bool changed = false;
+    bool changed = false || forceRenaming;
     HRESULT hr = S_OK;
     if (replaceTerm)
     {
@@ -263,7 +270,7 @@ HRESULT CPowerRenameRegEx::Replace(_In_ PCWSTR source, _Outptr_ PWSTR* result)
             if (_useBoostLib)
             {
                 boost::wregex pattern(m_searchTerm, (!(m_flags & CaseSensitive)) ? boost::regex::icase | boost::regex::ECMAScript : boost::regex::ECMAScript);
-                if (m_flags & MatchAllOccurences)
+                if (m_flags & MatchAllOccurrences)
                 {
                     res = boost::regex_replace(wstring(source), pattern, replaceTerm);
                 }
@@ -275,7 +282,7 @@ HRESULT CPowerRenameRegEx::Replace(_In_ PCWSTR source, _Outptr_ PWSTR* result)
             else
             {
                 std::wregex pattern(m_searchTerm, (!(m_flags & CaseSensitive)) ? regex_constants::icase | regex_constants::ECMAScript : regex_constants::ECMAScript);
-                if (m_flags & MatchAllOccurences)
+                if (m_flags & MatchAllOccurrences)
                 {
                     res = regex_replace(wstring(source), pattern, replaceTerm);
                 }
@@ -298,7 +305,7 @@ HRESULT CPowerRenameRegEx::Replace(_In_ PCWSTR source, _Outptr_ PWSTR* result)
                     pos += replaceTerm.length();
                 }
 
-                if (!(m_flags & MatchAllOccurences))
+                if (!(m_flags & MatchAllOccurrences))
                 {
                     break;
                 }

@@ -3,62 +3,71 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Linq;
-using System.Text;
-using Mono.Collections.Generic;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
-using NUnit.Framework;
 using Wox.Infrastructure;
 using Wox.Plugin;
 
 namespace Microsoft.PowerToys.Run.Plugin.System.UnitTests
 {
+    [TestClass]
     public class ImageTests
     {
-        [SetUp]
+        [TestInitialize]
         public void Setup()
         {
             StringMatcher.Instance = new StringMatcher();
         }
 
-        [TestCase("shutdown", "Images\\shutdown.dark.png")]
-        [TestCase("restart", "Images\\restart.dark.png")]
-        [TestCase("sign out", "Images\\logoff.dark.png")]
-        [TestCase("lock", "Images\\lock.dark.png")]
-        [TestCase("sleep", "Images\\sleep.dark.png")]
-        [TestCase("hibernate", "Images\\sleep.dark.png")]
-        [TestCase("empty recycle", "Images\\recyclebin.dark.png")]
-        public void IconThemeDarkTest(string typedString, string expectedResult)
+        [DataTestMethod]
+        [DataRow("shutdown", "Images\\shutdown.dark.png")]
+        [DataRow("restart", "Images\\restart.dark.png")]
+        [DataRow("sign out", "Images\\logoff.dark.png")]
+        [DataRow("lock", "Images\\lock.dark.png")]
+        [DataRow("sleep", "Images\\sleep.dark.png")]
+        [DataRow("hibernate", "Images\\sleep.dark.png")]
+        [DataRow("empty recycle", "Images\\recyclebin.dark.png")]
+        [DataRow("uefi firmware settings", "Images\\firmwareSettings.dark.png")]
+        [DataRow("ip v4 addr", "Images\\networkAdapter.dark.png", true)]
+        [DataRow("ip v6 addr", "Images\\networkAdapter.dark.png", true)]
+        [DataRow("mac addr", "Images\\networkAdapter.dark.png", true)]
+        public void IconThemeDarkTest(string typedString, string expectedResult, bool isDelayed = default)
         {
             // Setup
             Mock<Main> main = new Mock<Main>();
             main.Object.IconTheme = "dark";
-            string[] terms = { typedString };
-            Query expectedQuery = new Query(typedString, typedString, new ReadOnlyCollection<string>(terms), string.Empty);
+            main.Object.IsBootedInUefiMode = true; // Set to true that we can test, regardless of the environment we run on.
+            Query expectedQuery = new Query(typedString);
 
             // Act
-            var result = main.Object.Query(expectedQuery).FirstOrDefault().IcoPath;
+            var result = !isDelayed ? main.Object.Query(expectedQuery).FirstOrDefault().IcoPath : main.Object.Query(expectedQuery, true).FirstOrDefault().IcoPath;
 
             // Assert
             Assert.AreEqual(expectedResult, result);
         }
 
-        [TestCase("shutdown", "Images\\shutdown.light.png")]
-        [TestCase("restart", "Images\\restart.light.png")]
-        [TestCase("sign out", "Images\\logoff.light.png")]
-        [TestCase("lock", "Images\\lock.light.png")]
-        [TestCase("sleep", "Images\\sleep.light.png")]
-        [TestCase("hibernate", "Images\\sleep.light.png")]
-        [TestCase("empty recycle", "Images\\recyclebin.light.png")]
-        public void IconThemeLightTest(string typedString, string expectedResult)
+        [DataTestMethod]
+        [DataRow("shutdown", "Images\\shutdown.light.png")]
+        [DataRow("restart", "Images\\restart.light.png")]
+        [DataRow("sign out", "Images\\logoff.light.png")]
+        [DataRow("lock", "Images\\lock.light.png")]
+        [DataRow("sleep", "Images\\sleep.light.png")]
+        [DataRow("hibernate", "Images\\sleep.light.png")]
+        [DataRow("empty recycle", "Images\\recyclebin.light.png")]
+        [DataRow("uefi firmware settings", "Images\\firmwareSettings.light.png")]
+        [DataRow("ipv4 addr", "Images\\networkAdapter.light.png", true)]
+        [DataRow("ipv6 addr", "Images\\networkAdapter.light.png", true)]
+        [DataRow("mac addr", "Images\\networkAdapter.light.png", true)]
+        public void IconThemeLightTest(string typedString, string expectedResult, bool isDelayed = default)
         {
             // Setup
             Mock<Main> main = new Mock<Main>();
             main.Object.IconTheme = "light";
-            string[] terms = { typedString };
-            Query expectedQuery = new Query(typedString, typedString, new ReadOnlyCollection<string>(terms), string.Empty);
+            main.Object.IsBootedInUefiMode = true; // Set to true that we can test, regardless of the environment we run on.
+            Query expectedQuery = new Query(typedString);
 
             // Act
-            var result = main.Object.Query(expectedQuery).FirstOrDefault().IcoPath;
+            var result = !isDelayed ? main.Object.Query(expectedQuery).FirstOrDefault().IcoPath : main.Object.Query(expectedQuery, true).FirstOrDefault().IcoPath;
 
             // Assert
             Assert.AreEqual(expectedResult, result);

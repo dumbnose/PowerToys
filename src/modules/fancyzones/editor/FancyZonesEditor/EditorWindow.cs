@@ -4,6 +4,7 @@
 
 using System;
 using System.Windows;
+using FancyZonesEditor.Logs;
 using FancyZonesEditor.Models;
 
 namespace FancyZonesEditor
@@ -12,6 +13,7 @@ namespace FancyZonesEditor
     {
         protected void OnSaveApplyTemplate(object sender, RoutedEventArgs e)
         {
+            Logger.LogTrace();
             var mainEditor = App.Overlay;
             if (mainEditor.CurrentDataContext is LayoutModel model)
             {
@@ -29,7 +31,9 @@ namespace FancyZonesEditor
                 App.Overlay.SetLayoutSettings(App.Overlay.Monitors[App.Overlay.CurrentDesktop], model);
             }
 
-            App.FancyZonesEditorIO.SerializeZoneSettings();
+            App.FancyZonesEditorIO.SerializeLayoutTemplates();
+            App.FancyZonesEditorIO.SerializeCustomLayouts();
+            App.FancyZonesEditorIO.SerializeAppliedLayouts();
 
             Close();
         }

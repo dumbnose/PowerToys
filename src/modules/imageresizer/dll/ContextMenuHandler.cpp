@@ -2,13 +2,15 @@
 
 #include "pch.h"
 #include "ContextMenuHandler.h"
-#include "HDropIterator.h"
-#include "Settings.h"
+
+#include <Settings.h>
+#include <trace.h>
+
 #include <common/themes/icon_helpers.h>
 #include <common/utils/process_path.h>
 #include <common/utils/resources.h>
-
-#include "trace.h"
+#include <common/utils/HDropIterator.h>
+#include <common/utils/package.h>
 
 extern HINSTANCE g_hInst_imageResizer;
 
@@ -62,13 +64,11 @@ HRESULT CContextMenuHandler::Initialize(_In_opt_ PCIDLIST_ABSOLUTE pidlFolder, _
 HRESULT CContextMenuHandler::QueryContextMenu(_In_ HMENU hmenu, UINT indexMenu, UINT idCmdFirst, UINT idCmdLast, UINT uFlags)
 {
     if (uFlags & CMF_DEFAULTONLY)
-    {
         return S_OK;
-    }
+
     if (!CSettingsInstance().GetEnabled())
-    {
         return E_FAIL;
-    }
+
     // NB: We just check the first item. We could iterate through more if the first one doesn't meet the criteria
     HDropIterator i(m_pdtobj);
     i.First();
@@ -212,7 +212,7 @@ HRESULT CContextMenuHandler::ResizePictures(CMINVOKECOMMANDINFO* pici, IShellIte
 {
     // Set the application path based on the location of the dll
     std::wstring path = get_module_folderpath(g_hInst_imageResizer);
-    path = path + L"\\ImageResizer.exe";
+    path = path + L"\\PowerToys.ImageResizer.exe";
     LPTSTR lpApplicationName = (LPTSTR)path.c_str();
     // Create an anonymous pipe to stream filenames
     SECURITY_ATTRIBUTES sa;
@@ -336,7 +336,7 @@ HRESULT __stdcall CContextMenuHandler::GetTitle(IShellItemArray* /*psiItemArray*
 
 HRESULT __stdcall CContextMenuHandler::GetIcon(IShellItemArray* /*psiItemArray*/, LPWSTR* ppszIcon)
 {
-    // Since ImageResizer is registered as a COM SurrogateServer the current module filename would be dllhost.exe. To get the icon we need the path of ImageResizerExt.dll, which can be obtained by passing the HINSTANCE of the dll
+    // Since ImageResizer is registered as a COM SurrogateServer the current module filename would be dllhost.exe. To get the icon we need the path of PowerToys.ImageResizerExt.dll, which can be obtained by passing the HINSTANCE of the dll
     std::wstring iconResourcePath = get_module_filename(g_hInst_imageResizer);
     iconResourcePath += L",-";
     iconResourcePath += std::to_wstring(IDI_RESIZE_PICTURES);

@@ -48,6 +48,12 @@ public:
         std::strong_ordering operator<=>(const Hotkey&) const = default;
     };
 
+    struct HotkeyEx
+    {
+        WORD modifiersMask = 0;
+        WORD vkCode = 0;
+    };
+
     /* Returns the localized name of the PowerToy*/
     virtual const wchar_t* get_name() = 0;
     /* Returns non localized name of the PowerToy, this will be cached by the runner. */
@@ -78,10 +84,43 @@ public:
      */
     virtual size_t get_hotkeys(Hotkey* buffer, size_t buffer_size) { return 0; }
 
+    virtual std::optional<HotkeyEx> GetHotkeyEx()
+    {
+        return std::nullopt;
+    }
+
+    virtual void OnHotkeyEx()
+    {
+    }
+
     /* Called when one of the registered hotkeys is pressed. Should return true
      * if the key press is to be swallowed.
      */
     virtual bool on_hotkey(size_t hotkeyId) { return false; }
+
+    /* These are for enabling the legacy behavior of showing the shortcut guide after pressing the win key.
+     * keep_track_of_pressed_win_key returns true if the module wants to keep track of the win key being pressed.
+     * milliseconds_win_key_must_be_pressed returns the number of milliseconds the win key should be pressed before triggering the module.
+     * Don't use these for new modules.
+     */
+    virtual bool keep_track_of_pressed_win_key() { return false; }
+    virtual UINT milliseconds_win_key_must_be_pressed() { return 0; }
+
+    virtual void send_settings_telemetry()
+    {
+    }
+
+    virtual bool is_enabled_by_default() const { return true; }
+
+protected:
+    HANDLE CreateDefaultEvent(const wchar_t* eventName)
+    {
+        SECURITY_ATTRIBUTES sa;
+        sa.nLength = sizeof(sa);
+        sa.bInheritHandle = false;
+        sa.lpSecurityDescriptor = NULL;
+        return CreateEventW(&sa, FALSE, FALSE, eventName);
+    }
 };
 
 /*

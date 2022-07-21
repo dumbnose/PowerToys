@@ -11,6 +11,8 @@
              Focusable="False">
 
     <Border x:Name="WindowBorder"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
             BorderBrush="{DynamicResource WindowBorderBrush}"
             Margin="12"
             BorderThickness="1"
@@ -52,7 +54,7 @@
                 </Border.Style>
                 <Button Height="40"
                         Width="40"
-                        Content="&#xE10A;"
+                        Content="&#xE8BB;"
                         FontFamily="Segoe MDL2 Assets"
                         Background="Transparent"/>
             </Border>

@@ -4,14 +4,20 @@
 
 using System;
 using System.ComponentModel;
+using System.Linq;
+using System.Reactive.Linq;
+using System.Runtime.InteropServices;
 using System.Timers;
 using System.Windows;
-using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
+using interop;
 using Microsoft.PowerLauncher.Telemetry;
 using Microsoft.PowerToys.Telemetry;
 using PowerLauncher.Helper;
+using PowerLauncher.Plugin;
+using PowerLauncher.Telemetry.Events;
 using PowerLauncher.ViewModel;
 using Wox.Infrastructure.UserSettings;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
@@ -26,8 +32,11 @@ namespace PowerLauncher
         private readonly MainViewModel _viewModel;
         private bool _isTextSetProgrammatically;
         private bool _deletePressed;
+        private HwndSource _hwndSource;
         private Timer _firstDeleteTimer = new Timer();
         private bool _coldStateHotkeyPressed;
+        private bool _disposedValue;
+        private IDisposable _reactiveSubscription;
 
         public MainWindow(PowerToysRunSettings settings, MainViewModel mainVM)
             : this()
@@ -40,6 +49,36 @@ namespace PowerLauncher
 
             _firstDeleteTimer.Elapsed += CheckForFirstDelete;
             _firstDeleteTimer.Interval = 1000;
+            NativeEventWaiter.WaitForEventLoop(Constants.RunSendSettingsTelemetryEvent(), SendSettingsTelemetry);
+        }
+
+        private void SendSettingsTelemetry()
+        {
+            try
+            {
+                Log.Info("Send Run settings telemetry", this.GetType());
+                var plugins = PluginManager.AllPlugins.ToDictionary(x => x.Metadata.Name + " " + x.Metadata.ID, x => new PluginModel()
+                {
+                    ID = x.Metadata.ID,
+                    Name = x.Metadata.Name,
+                    Disabled = x.Metadata.Disabled,
+                    ActionKeyword = x.Metadata.ActionKeyword,
+                    IsGlobal = x.Metadata.IsGlobal,
+                });
+
+                var telemetryEvent = new RunPluginsSettingsEvent(plugins);
+                PowerToysTelemetry.Log.WriteEvent(telemetryEvent);
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("Unhandled exception when trying to send PowerToys Run settings telemetry.", ex, GetType());
+            }
+        }
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            WindowsInteropHelper.SetToolWindowStyle(this);
         }
 
         private void CheckForFirstDelete(object sender, ElapsedEventArgs e)
@@ -75,6 +114,44 @@ namespace PowerLauncher
             Activate();
         }
 
+        private const string EnvironmentChangeType = "Environment";
+
+#pragma warning disable CA1801 // Review unused parameters
+        public IntPtr ProcessWindowMessages(IntPtr hwnd, int msg, IntPtr wparam, IntPtr lparam, ref bool handled)
+#pragma warning restore CA1801 // Review unused parameters
+        {
+            switch ((WM)msg)
+            {
+                case WM.SETTINGCHANGE:
+                    string changeType = Marshal.PtrToStringUni(lparam);
+                    if (changeType == EnvironmentChangeType)
+                    {
+                        Log.Info("Reload environment: Updating environment variables for PT Run's process", typeof(EnvironmentHelper));
+                        EnvironmentHelper.UpdateEnvironment();
+                        handled = true;
+                    }
+
+                    break;
+                case WM.HOTKEY:
+                    handled = _viewModel.ProcessHotKeyMessages(wparam, lparam);
+                    break;
+            }
+
+            return IntPtr.Zero;
+        }
+
+        private void OnSourceInitialized(object sender, EventArgs e)
+        {
+            // Initialize protected environment variables before register the WindowMessage
+            EnvironmentHelper.GetProtectedEnvironmentVariables();
+
+            _hwndSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+            _hwndSource.AddHook(ProcessWindowMessages);
+
+            // Call RegisterHotKey only after a window handle can be used, so that a global hotkey can be registered.
+            _viewModel.RegisterHotkey(_hwndSource.Handle);
+        }
+
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             WindowsInteropHelper.DisableControlBox(this);
@@ -82,7 +159,18 @@ namespace PowerLauncher
 
             SearchBox.QueryTextBox.DataContext = _viewModel;
             SearchBox.QueryTextBox.PreviewKeyDown += Launcher_KeyDown;
-            SearchBox.QueryTextBox.TextChanged += QueryTextBox_TextChanged;
+            SetupSearchTextBoxReactiveness(_viewModel.GetSearchQueryResultsWithDelaySetting(), _viewModel.GetSearchInputDelaySetting());
+            _viewModel.RegisterSettingsChangeListener(
+                (s, prop_e) =>
+                {
+                    if (prop_e.PropertyName == nameof(PowerToysRunSettings.SearchQueryResultsWithDelay) || prop_e.PropertyName == nameof(PowerToysRunSettings.SearchInputDelay))
+                    {
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            SetupSearchTextBoxReactiveness(_viewModel.GetSearchQueryResultsWithDelaySetting(), _viewModel.GetSearchInputDelaySetting());
+                        });
+                    }
+                });
 
             // Set initial language flow direction
             SearchBox_UpdateFlowDirection();
@@ -97,8 +185,36 @@ namespace PowerLauncher
             ListBox.SuggestionsList.SelectionChanged += SuggestionsList_SelectionChanged;
             ListBox.SuggestionsList.PreviewMouseLeftButtonUp += SuggestionsList_PreviewMouseLeftButtonUp;
             _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+            _viewModel.MainWindowVisibility = Visibility.Collapsed;
+            _viewModel.LoadedAtLeastOnce = true;
 
             BringProcessToForeground();
+        }
+
+        private void SetupSearchTextBoxReactiveness(bool showResultsWithDelay, int searchInputDelayMs)
+        {
+            if (_reactiveSubscription != null)
+            {
+                _reactiveSubscription.Dispose();
+                _reactiveSubscription = null;
+            }
+
+            SearchBox.QueryTextBox.TextChanged -= QueryTextBox_TextChanged;
+
+            if (showResultsWithDelay)
+            {
+                _reactiveSubscription = Observable.FromEventPattern<TextChangedEventHandler, TextChangedEventArgs>(
+                    add => SearchBox.QueryTextBox.TextChanged += add,
+                    remove => SearchBox.QueryTextBox.TextChanged -= remove)
+                        .Do(@event => ClearAutoCompleteText((TextBox)@event.Sender))
+                        .Throttle(TimeSpan.FromMilliseconds(searchInputDelayMs))
+                        .Do(@event => Dispatcher.InvokeAsync(() => PerformSearchQuery((TextBox)@event.Sender)))
+                        .Subscribe();
+            }
+            else
+            {
+                SearchBox.QueryTextBox.TextChanged += QueryTextBox_TextChanged;
+            }
         }
 
         private void SuggestionsList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -125,6 +241,10 @@ namespace PowerLauncher
                     // Called when window is made visible by hotkey. Not called when the window is deactivated by clicking away
                     UpdatePosition();
                     BringProcessToForeground();
+
+                    // HACK: Setting focus here again fixes some focus issues, like on first run or after showing a message box.
+                    SearchBox.QueryTextBox.Focus();
+                    Keyboard.Focus(SearchBox.QueryTextBox);
 
                     if (!_viewModel.LastQuerySelected)
                     {
@@ -161,20 +281,12 @@ namespace PowerLauncher
             _settings.WindowLeft = Left;
         }
 
-        private void OnActivated(object sender, EventArgs e)
-        {
-            if (_settings.ClearInputOnLaunch)
-            {
-                _viewModel.ClearQueryCommand.Execute(null);
-            }
-        }
-
         private void OnDeactivated(object sender, EventArgs e)
         {
             if (_settings.HideWhenDeactivated)
             {
                 // (this.FindResource("OutroStoryboard") as Storyboard).Begin();
-                Hide();
+                _viewModel.Hide();
             }
         }
 
@@ -207,7 +319,7 @@ namespace PowerLauncher
         /// <returns>X co-ordinate of main window top left corner</returns>
         private double WindowLeft()
         {
-            var screen = Screen.FromPoint(System.Windows.Forms.Cursor.Position);
+            var screen = GetScreen();
             var dip1 = WindowsInteropHelper.TransformPixelsToDIP(this, screen.WorkingArea.X, 0);
             var dip2 = WindowsInteropHelper.TransformPixelsToDIP(this, screen.WorkingArea.Width, 0);
             var left = ((dip2.X - ActualWidth) / 2) + dip1.X;
@@ -216,11 +328,28 @@ namespace PowerLauncher
 
         private double WindowTop()
         {
-            var screen = Screen.FromPoint(System.Windows.Forms.Cursor.Position);
+            var screen = GetScreen();
             var dip1 = WindowsInteropHelper.TransformPixelsToDIP(this, 0, screen.WorkingArea.Y);
             var dip2 = WindowsInteropHelper.TransformPixelsToDIP(this, 0, screen.WorkingArea.Height);
             var top = ((dip2.Y - SearchBox.ActualHeight) / 4) + dip1.Y;
             return top;
+        }
+
+        private Screen GetScreen()
+        {
+            ManagedCommon.StartupPosition position = _settings.StartupPosition;
+            switch (position)
+            {
+                case ManagedCommon.StartupPosition.PrimaryMonitor:
+                    return Screen.PrimaryScreen;
+                case ManagedCommon.StartupPosition.Focus:
+                    IntPtr foregroundWindowHandle = NativeMethods.GetForegroundWindow();
+                    Screen activeScreen = Screen.FromHandle(foregroundWindowHandle);
+                    return activeScreen;
+                case ManagedCommon.StartupPosition.Cursor:
+                default:
+                    return Screen.FromPoint(System.Windows.Forms.Cursor.Position);
+            }
         }
 
         private void Launcher_KeyDown(object sender, KeyEventArgs e)
@@ -321,7 +450,7 @@ namespace PowerLauncher
 
             // To populate the AutoCompleteTextBox as soon as the selection is changed or set.
             // Setting it here instead of when the text is changed as there is a delay in executing the query and populating the result
-            if (_viewModel.Results != null)
+            if (_viewModel.Results != null && !string.IsNullOrEmpty(SearchBox.QueryTextBox.Text))
             {
                 SearchBox.AutoCompleteTextBlock.Text = MainViewModel.GetAutoCompleteText(
                     _viewModel.Results.SelectedIndex,
@@ -330,11 +459,15 @@ namespace PowerLauncher
             }
         }
 
-        private bool disposedValue;
-
         private void QueryTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             var textBox = (TextBox)sender;
+            ClearAutoCompleteText(textBox);
+            PerformSearchQuery(textBox);
+        }
+
+        private void ClearAutoCompleteText(TextBox textBox)
+        {
             var text = textBox.Text;
             var autoCompleteText = SearchBox.AutoCompleteTextBlock.Text;
 
@@ -342,6 +475,11 @@ namespace PowerLauncher
             {
                 SearchBox.AutoCompleteTextBlock.Text = string.Empty;
             }
+        }
+
+        private void PerformSearchQuery(TextBox textBox)
+        {
+            var text = textBox.Text;
 
             if (_isTextSetProgrammatically)
             {
@@ -422,7 +560,7 @@ namespace PowerLauncher
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposedValue)
+            if (!_disposedValue)
             {
                 if (disposing)
                 {
@@ -430,12 +568,14 @@ namespace PowerLauncher
                     {
                         _firstDeleteTimer.Dispose();
                     }
+
+                    _hwndSource?.Dispose();
                 }
 
                 // TODO: free unmanaged resources (unmanaged objects) and override finalizer
                 // TODO: set large fields to null
                 _firstDeleteTimer = null;
-                disposedValue = true;
+                _disposedValue = true;
             }
         }
 
@@ -450,6 +590,12 @@ namespace PowerLauncher
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
+        }
+
+        private void OnClosed(object sender, EventArgs e)
+        {
+            _hwndSource.RemoveHook(ProcessWindowMessages);
+            _hwndSource = null;
         }
     }
 }

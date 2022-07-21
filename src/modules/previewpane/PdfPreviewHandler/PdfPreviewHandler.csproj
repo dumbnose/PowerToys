@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyTitle>PowerToys.PdfPreviewHandler</AssemblyTitle>
+    <AssemblyDescription>PowerToys PdfPreviewHandler</AssemblyDescription>
+    <Description>PowerToys PdfPreviewHandler</Description>
+    <DocumentationFile>$(SolutionDir)$(Platform)\$(Configuration)\modules\FileExplorerPreview\PdfPreviewPaneDocumentation.xml</DocumentationFile>
+    <OutputPath>$(SolutionDir)$(Platform)\$(Configuration)\modules\FileExplorerPreview\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <GenerateSatelliteAssembliesForCore>true</GenerateSatelliteAssembliesForCore>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ProjectGuid>{69E1EE8D-143A-4060-9129-4658ACF14AAF}</ProjectGuid>
+    <RootNamespace>Microsoft.PowerToys.PreviewHandler.Pdf</RootNamespace>
+    <TargetFramework>net6.0-windows10.0.19041.0</TargetFramework>
+    <EnableComHosting>true</EnableComHosting>
+    <IntermediateOutputPath>$(SolutionDir)$(Platform)\$(Configuration)\obj\$(AssemblyName)\</IntermediateOutputPath>
+    <AssemblyName>PowerToys.PdfPreviewHandler</AssemblyName>
+  </PropertyGroup>
+
+  <Import Project="..\..\..\Version.props" />
+
+  <ItemGroup>
+    <Compile Update="PdfPreviewHandlerControl.cs" />
+    <Compile Update="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Abstractions" Version="12.2.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\common\ManagedTelemetry\Telemetry\ManagedTelemetry.csproj" />
+    <ProjectReference Include="..\common\PreviewHandlerCommon.csproj" />
+  </ItemGroup>
+</Project>

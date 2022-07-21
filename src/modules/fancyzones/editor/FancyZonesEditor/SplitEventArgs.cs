@@ -13,19 +13,18 @@ namespace FancyZonesEditor
         {
         }
 
-        public SplitEventArgs(Orientation orientation, double offset, double thickness)
+        public SplitEventArgs(Orientation orientation, int offset)
         {
             Orientation = orientation;
             Offset = offset;
-            Space = thickness;
         }
 
         public Orientation Orientation { get; }
 
-        public double Offset { get; }
-
-        public double Space { get; }
+        public int Offset { get; }
     }
 
+#pragma warning disable CA1711 // Identifiers should not have incorrect suffix (Causes warning in another class if fixed)
     public delegate void SplitEventHandler(object sender, SplitEventArgs args);
+#pragma warning restore CA1711 // Identifiers should not have incorrect suffix
 }

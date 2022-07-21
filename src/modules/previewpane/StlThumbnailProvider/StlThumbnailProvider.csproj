@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ProjectGuid>{F7C8C0F1-5431-4347-89D0-8E5354F93CF2}</ProjectGuid>
+    <RootNamespace>Microsoft.PowerToys.ThumbnailHandler.Stl</RootNamespace>
+    <AssemblyName>PowerToys.StlThumbnailProvider</AssemblyName>
+    <AssemblyTitle>PowerToys.StlThumbnailProvider</AssemblyTitle>
+    <AssemblyDescription>PowerToys StlPreviewHandler</AssemblyDescription>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <EnableComHosting>true</EnableComHosting>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Description>PowerToys StlPreviewHandler</Description>
+    <OutputPath>$(SolutionDir)$(Platform)\$(Configuration)\modules\FileExplorerPreview\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <UseWPF>true</UseWPF>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <Import Project="..\..\..\Version.props" />
+
+  <ItemGroup>
+    <PackageReference Include="HelixToolkit" Version="2.20.2" />
+    <PackageReference Include="HelixToolkit.Core.Wpf" Version="2.20.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\common\ManagedTelemetry\Telemetry\ManagedTelemetry.csproj" />
+    <ProjectReference Include="..\Common\PreviewHandlerCommon.csproj" />
+  </ItemGroup>
+</Project>

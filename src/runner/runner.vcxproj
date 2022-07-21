@@ -1,9 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\..\packages\Microsoft.Windows.CppWinRT.2.0.200729.8\build\native\Microsoft.Windows.CppWinRT.props" Condition="Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.200729.8\build\native\Microsoft.Windows.CppWinRT.props')" />
+  <Import Project="..\..\packages\Microsoft.Windows.CppWinRT.2.0.220418.1\build\native\Microsoft.Windows.CppWinRT.props" Condition="Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.220418.1\build\native\Microsoft.Windows.CppWinRT.props')" />
   <Target Name="GenerateResourceFiles" BeforeTargets="PrepareForBuild">
     <Exec Command="powershell -NonInteractive -executionpolicy Unrestricted $(SolutionDir)tools\build\convert-resx-to-rc.ps1 $(MSBuildThisFileDirectory) resource.base.h resource.h runner.base.rc runner.rc" />
   </Target>
+  <PropertyGroup>
+    <NoWarn>81010002</NoWarn>
+  </PropertyGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{9412D5C6-2CF2-4FC2-A601-B55508EA9B27}</ProjectGuid>
@@ -15,16 +18,14 @@
   <ImportGroup Label="Shared" />
   <PropertyGroup Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+  <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -38,7 +39,7 @@
     <Link>
       <UACExecutionLevel>AsInvoker</UACExecutionLevel>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalDependencies>Shcore.lib;Msi.lib;WindowsApp.lib;taskschd.lib;Rstrtmgr.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Shcore.lib;gdiplus.lib;Msi.lib;WindowsApp.lib;taskschd.lib;Rstrtmgr.lib;Shlwapi.lib;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <EnableDpiAwareness>false</EnableDpiAwareness>
@@ -46,8 +47,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\common\interop\two_way_pipe_message_ipc.cpp" />
-    <ClCompile Include="action_runner_utils.cpp" />
     <ClCompile Include="auto_start_helper.cpp" />
+    <ClCompile Include="centralized_hotkeys.cpp" />
     <ClCompile Include="general_settings.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(CIBuild)'!='true'">Create</PrecompiledHeader>
@@ -56,21 +57,22 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="restart_elevated.cpp" />
     <ClCompile Include="centralized_kb_hook.cpp" />
+    <ClCompile Include="settings_telemetry.cpp" />
     <ClCompile Include="settings_window.cpp" />
     <ClCompile Include="trace.cpp" />
     <ClCompile Include="tray_icon.cpp" />
     <ClCompile Include="unhandled_exception_handler.cpp" />
-    <ClCompile Include="update_utils.cpp" />
-    <ClCompile Include="update_state.cpp" />
+    <ClCompile Include="UpdateUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="action_runner_utils.h" />
+    <ClInclude Include="ActionRunnerUtils.h" />
     <ClInclude Include="auto_start_helper.h" />
+    <ClInclude Include="centralized_hotkeys.h" />
     <ClInclude Include="general_settings.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="centralized_kb_hook.h" />
-    <ClInclude Include="update_utils.h" />
-    <ClInclude Include="update_state.h" />
+    <ClInclude Include="settings_telemetry.h" />
+    <ClInclude Include="UpdateUtils.h" />
     <ClInclude Include="powertoy_module.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="restart_elevated.h" />
@@ -84,71 +86,6 @@
     <ResourceCompile Include="Generated Files/runner.rc" />
   </ItemGroup>
   <ItemGroup>
-    <CopyFileToFolders Include="svgs\0.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="svgs\1.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="svgs\2.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="svgs\3.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="svgs\4.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="svgs\5.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="svgs\6.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="svgs\7.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="svgs\8.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="svgs\9.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="svgs\no_active_window.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="svgs\overlay.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="svgs\overlay_portrait.svg">
-      <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-      <DestinationFolders>$(OutDir)\svgs</DestinationFolders>
-    </CopyFileToFolders>
     <CopyFileToFolders Include="svgs\icon.ico">
       <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
@@ -174,9 +111,6 @@
     <ProjectReference Include="..\common\updating\updating.vcxproj">
       <Project>{17da04df-e393-4397-9cf0-84dabe11032e}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\common\WinStore\Winstore.vcxproj">
-      <Project>{c502a854-53ac-4ebb-8dc0-e4af2191e4f6}</Project>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -187,15 +121,15 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="..\..\deps\spdlog.props" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="..\..\packages\Microsoft.Windows.ImplementationLibrary.1.0.200902.2\build\native\Microsoft.Windows.ImplementationLibrary.targets" Condition="Exists('..\..\packages\Microsoft.Windows.ImplementationLibrary.1.0.200902.2\build\native\Microsoft.Windows.ImplementationLibrary.targets')" />
-    <Import Project="..\..\packages\Microsoft.Windows.CppWinRT.2.0.200729.8\build\native\Microsoft.Windows.CppWinRT.targets" Condition="Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.200729.8\build\native\Microsoft.Windows.CppWinRT.targets')" />
+    <Import Project="..\..\packages\Microsoft.Windows.CppWinRT.2.0.220418.1\build\native\Microsoft.Windows.CppWinRT.targets" Condition="Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.220418.1\build\native\Microsoft.Windows.CppWinRT.targets')" />
+    <Import Project="..\..\packages\Microsoft.Windows.ImplementationLibrary.1.0.220201.1\build\native\Microsoft.Windows.ImplementationLibrary.targets" Condition="Exists('..\..\packages\Microsoft.Windows.ImplementationLibrary.1.0.220201.1\build\native\Microsoft.Windows.ImplementationLibrary.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\..\packages\Microsoft.Windows.ImplementationLibrary.1.0.200902.2\build\native\Microsoft.Windows.ImplementationLibrary.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Microsoft.Windows.ImplementationLibrary.1.0.200902.2\build\native\Microsoft.Windows.ImplementationLibrary.targets'))" />
-    <Error Condition="!Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.200729.8\build\native\Microsoft.Windows.CppWinRT.props')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Microsoft.Windows.CppWinRT.2.0.200729.8\build\native\Microsoft.Windows.CppWinRT.props'))" />
-    <Error Condition="!Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.200729.8\build\native\Microsoft.Windows.CppWinRT.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Microsoft.Windows.CppWinRT.2.0.200729.8\build\native\Microsoft.Windows.CppWinRT.targets'))" />
+    <Error Condition="!Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.220418.1\build\native\Microsoft.Windows.CppWinRT.props')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Microsoft.Windows.CppWinRT.2.0.220418.1\build\native\Microsoft.Windows.CppWinRT.props'))" />
+    <Error Condition="!Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.220418.1\build\native\Microsoft.Windows.CppWinRT.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Microsoft.Windows.CppWinRT.2.0.220418.1\build\native\Microsoft.Windows.CppWinRT.targets'))" />
+    <Error Condition="!Exists('..\..\packages\Microsoft.Windows.ImplementationLibrary.1.0.220201.1\build\native\Microsoft.Windows.ImplementationLibrary.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Microsoft.Windows.ImplementationLibrary.1.0.220201.1\build\native\Microsoft.Windows.ImplementationLibrary.targets'))" />
   </Target>
 </Project>

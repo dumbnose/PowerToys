@@ -4,6 +4,7 @@
 
 using System.Windows;
 using System.Windows.Input;
+using FancyZonesEditor.Logs;
 using FancyZonesEditor.Models;
 
 namespace FancyZonesEditor
@@ -18,6 +19,7 @@ namespace FancyZonesEditor
             InitializeComponent();
 
             KeyUp += CanvasEditorWindow_KeyUp;
+            KeyDown += CanvasEditorWindow_KeyDown;
 
             _model = App.Overlay.CurrentDataContext as CanvasLayoutModel;
             _stashedModel = (CanvasLayoutModel)_model.Clone();
@@ -33,11 +35,13 @@ namespace FancyZonesEditor
 
         private void OnAddZone(object sender, RoutedEventArgs e)
         {
+            Logger.LogInfo("Add zone");
             _model.AddZone();
         }
 
         protected new void OnCancel(object sender, RoutedEventArgs e)
         {
+            Logger.LogInfo("Cancel changes");
             base.OnCancel(sender, e);
             _stashedModel.RestoreTo(_model);
         }
@@ -48,6 +52,21 @@ namespace FancyZonesEditor
             {
                 OnCancel(sender, null);
             }
+        }
+
+        private void CanvasEditorWindow_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Tab && (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)))
+            {
+                e.Handled = true;
+                App.Overlay.FocusEditor();
+            }
+        }
+
+        // This is required to fix a WPF rendering bug when using custom chrome
+        private void EditorWindow_ContentRendered(object sender, System.EventArgs e)
+        {
+            InvalidateVisual();
         }
     }
 }

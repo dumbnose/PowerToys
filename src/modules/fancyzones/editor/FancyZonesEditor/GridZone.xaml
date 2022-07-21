@@ -6,13 +6,18 @@
     xmlns:local="clr-namespace:FancyZonesEditor"
     xmlns:props="clr-namespace:FancyZonesEditor.Properties"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="http://schemas.modernwpf.com/2019"
     d:DesignHeight="450"
     d:DesignWidth="800"
     Background="{DynamicResource GridZoneBackgroundBrush}"
     BorderBrush="{DynamicResource SystemControlBackgroundAccentBrush}"
     BorderThickness="1"
     Opacity="1"
+    Focusable="True"
+    IsTabStop="True"    
+    ui:ControlHelper.CornerRadius="4"
     mc:Ignorable="d">
+    
     <Grid x:Name="Frame">
         <Canvas x:Name="Body" />
         <DockPanel HorizontalAlignment="Center"
@@ -33,7 +38,7 @@
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center">
                      <Run x:Name="WidthLabel" />
-                     <Run Text="&#xE106;"
+                     <Run Text="&#xe894;"
                           FontSize="10"
                           FontFamily="Segoe MDL2 Assets" />
                     <Run x:Name="HeightLabel" />

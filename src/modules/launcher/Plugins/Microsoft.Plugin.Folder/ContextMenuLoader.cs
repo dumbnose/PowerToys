@@ -4,7 +4,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO.Abstractions;
 using System.Reflection;
 using System.Windows;
@@ -25,7 +24,6 @@ namespace Microsoft.Plugin.Folder
             _context = context;
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "We want to keep the process alive, and instead log the exception")]
         public List<ContextMenuResult> LoadContextMenus(Result selectedResult)
         {
             var contextMenus = new List<ContextMenuResult>();
@@ -99,7 +97,6 @@ namespace Microsoft.Plugin.Folder
             return contextMenus;
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "We want to keep the process alive, and instead log the exception")]
         private ContextMenuResult CreateOpenContainingFolderResult(SearchResult record)
         {
             return new ContextMenuResult
@@ -112,16 +109,10 @@ namespace Microsoft.Plugin.Folder
                 AcceleratorModifiers = ModifierKeys.Control | ModifierKeys.Shift,
                 Action = _ =>
                 {
-                    try
-                    {
-                        Process.Start("explorer.exe", $" /select,\"{record.FullPath}\"");
-                    }
-                    catch (Exception e)
+                    if (!Helper.OpenInShell("explorer.exe", $"/select,\"{record.FullPath}\""))
                     {
                         var message = $"{Properties.Resources.Microsoft_plugin_folder_file_open_failed} {record.FullPath}";
-                        Log.Exception(message, e, GetType());
                         _context.API.ShowMsg(message);
-
                         return false;
                     }
 

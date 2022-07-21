@@ -6,6 +6,8 @@ using System;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
+using System.Windows;
+using System.Windows.Interop;
 
 namespace ColorPicker
 {
@@ -13,6 +15,9 @@ namespace ColorPicker
     // will have to rename
     public static class NativeMethods
     {
+        private const int GWL_EX_STYLE = -20;
+        private const int WS_EX_TOOLWINDOW = 0x00000080;
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1310:Field names should not contain underscore", Justification = "Interop")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "Interop")]
         public const int WH_KEYBOARD_LL = 13;
@@ -40,6 +45,26 @@ namespace ColorPicker
         [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1310:Field names should not contain underscore", Justification = "Interop")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "Interop")]
         public const int VK_RWIN = 0x5C;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1310:Field names should not contain underscore", Justification = "Interop")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "Interop")]
+        public const int VK_ESCAPE = 0x1B;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1310:Field names should not contain underscore", Justification = "Interop")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "Interop")]
+        public const int WM_HOTKEY = 0x0312;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1310:Field names should not contain underscore", Justification = "Interop")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "Interop")]
+        public const int WM_KEYDOWN = 0x0100;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1310:Field names should not contain underscore", Justification = "Interop")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "Interop")]
+        public const int WM_KEYUP = 0x0101;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1310:Field names should not contain underscore", Justification = "Interop")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "Interop")]
+        public const uint MOD_NOREPEAT = 0x4000;
 
         public delegate bool MonitorEnumProc(
             IntPtr monitor, IntPtr hdc, IntPtr lprcMonitor, IntPtr lParam);
@@ -82,6 +107,15 @@ namespace ColorPicker
 
         [DllImport("user32.dll", EntryPoint = "SystemParametersInfo")]
         internal static extern bool SystemParametersInfo(int uiAction, int uiParam, IntPtr pvParam, int fWinIni);
+
+        [DllImport("user32.dll")]
+        internal static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+        [DllImport("user32.dll")]
+        internal static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        internal static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1307:Accessible fields should begin with upper-case letter", Justification = "Interop object")]
         [StructLayout(LayoutKind.Sequential)]
@@ -153,7 +187,7 @@ namespace ColorPicker
             public int Flags;
 
             /// <summary>
-            /// The time stamp stamp for this message, equivalent to what GetMessageTime would return for this message.
+            /// The time stamp for this message, equivalent to what GetMessageTime would return for this message.
             /// </summary>
             public int TimeStamp;
 
@@ -168,5 +202,17 @@ namespace ColorPicker
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         internal static extern int GetWindowText(int hwnd, StringBuilder text, int count);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        internal static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll")]
+        internal static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        internal static void SetToolWindowStyle(Window win)
+        {
+            var hwnd = new WindowInteropHelper(win).Handle;
+            _ = SetWindowLong(hwnd, GWL_EX_STYLE, GetWindowLong(hwnd, GWL_EX_STYLE) | WS_EX_TOOLWINDOW);
+        }
     }
 }

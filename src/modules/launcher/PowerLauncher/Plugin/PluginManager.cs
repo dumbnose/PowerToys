@@ -5,14 +5,14 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO.Abstractions;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using Wox.Infrastructure;
+using PowerLauncher.Properties;
 using Wox.Infrastructure.Storage;
-using Wox.Infrastructure.UserSettings;
 using Wox.Plugin;
 using Wox.Plugin.Logger;
 
@@ -25,6 +25,7 @@ namespace PowerLauncher.Plugin
     {
         private static readonly IFileSystem FileSystem = new FileSystem();
         private static readonly IDirectory Directory = FileSystem.Directory;
+        private static readonly object AllPluginsLock = new object();
 
         private static IEnumerable<PluginPair> _contextMenuPlugins = new List<PluginPair>();
 
@@ -45,7 +46,34 @@ namespace PowerLauncher.Plugin
             {
                 if (_allPlugins == null)
                 {
-                    _allPlugins = PluginsLoader.Plugins(PluginConfig.Parse(Directories));
+                    lock (AllPluginsLock)
+                    {
+                        if (_allPlugins == null)
+                        {
+                            _allPlugins = PluginConfig.Parse(Directories)
+                                .Where(x => x.Language.ToUpperInvariant() == AllowedLanguage.CSharp)
+                                .GroupBy(x => x.ID) // Deduplicates plugins by ID, choosing for each ID the highest DLL product version. This fixes issues such as https://github.com/microsoft/PowerToys/issues/14701
+                                .Select(g => g.OrderByDescending(x => // , where an upgrade didn't remove older versions of the plugins.
+                                {
+                                    try
+                                    {
+                                        // Return a comparable produce version.
+                                        var fileVersion = FileVersionInfo.GetVersionInfo(x.ExecuteFilePath);
+                                        return ((uint)fileVersion.ProductMajorPart << 48)
+                                        | ((uint)fileVersion.ProductMinorPart << 32)
+                                        | ((uint)fileVersion.ProductBuildPart << 16)
+                                        | ((uint)fileVersion.ProductPrivatePart);
+                                    }
+                                    catch (System.IO.FileNotFoundException)
+                                    {
+                                        // We'll get an error when loading the DLL later on if there's not a decent version of this plugin.
+                                        return 0U;
+                                    }
+                                }).First())
+                                .Select(x => new PluginPair(x))
+                                .ToList();
+                        }
+                    }
                 }
 
                 return _allPlugins;
@@ -62,15 +90,11 @@ namespace PowerLauncher.Plugin
             }
         }
 
-        public static Dictionary<string, PluginPair> NonGlobalPlugins
+        public static IEnumerable<PluginPair> NonGlobalPlugins
         {
             get
             {
-                return AllPlugins
-                    .Where(x => !string.IsNullOrWhiteSpace(x.Metadata.ActionKeyword))
-                    .GroupBy(x => x.Metadata.ActionKeyword)
-                    .Select(x => x.First())
-                    .ToDictionary(x => x.Metadata.ActionKeyword);
+                return AllPlugins.Where(x => !string.IsNullOrWhiteSpace(x.Metadata.ActionKeyword));
             }
         }
 
@@ -110,30 +134,21 @@ namespace PowerLauncher.Plugin
         /// <summary>
         /// Call initialize for all plugins
         /// </summary>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Suppressing this to enable FxCop. We are logging the exception, and going forward general exceptions should not be caught")]
         public static void InitializePlugins(IPublicAPI api)
         {
             API = api ?? throw new ArgumentNullException(nameof(api));
             var failedPlugins = new ConcurrentQueue<PluginPair>();
             Parallel.ForEach(AllPlugins, pair =>
             {
-                try
+                if (pair.Metadata.Disabled)
                 {
-                    var milliseconds = Stopwatch.Debug($"PluginManager.InitializePlugins - Init method time cost for <{pair.Metadata.Name}>", () =>
-                    {
-                        pair.Plugin.Init(new PluginInitContext
-                        {
-                            CurrentPluginMetadata = pair.Metadata,
-                            API = API,
-                        });
-                    });
-                    pair.Metadata.InitTime += milliseconds;
-                    Log.Info($"Total init cost for <{pair.Metadata.Name}> is <{pair.Metadata.InitTime}ms>", MethodBase.GetCurrentMethod().DeclaringType);
+                    return;
                 }
-                catch (Exception e)
+
+                pair.InitializePlugin(API);
+
+                if (!pair.IsPluginInitialized)
                 {
-                    Log.Exception($"Fail to Init plugin: {pair.Metadata.Name}", e, MethodBase.GetCurrentMethod().DeclaringType);
-                    pair.Metadata.Disabled = true;
                     failedPlugins.Enqueue(pair);
                 }
             });
@@ -143,16 +158,11 @@ namespace PowerLauncher.Plugin
             if (failedPlugins.Any())
             {
                 var failed = string.Join(",", failedPlugins.Select(x => x.Metadata.Name));
-                API.ShowMsg($"Fail to Init Plugins", $"Plugins: {failed} - fail to load and would be disabled, please contact plugin creator for help", string.Empty, false);
+                var description = string.Format(CultureInfo.CurrentCulture, Resources.FailedToInitializePluginsDescription, failed);
+                API.ShowMsg(Resources.FailedToInitializePluginsTitle, description, string.Empty, false);
             }
         }
 
-        public static void InstallPlugin(string path)
-        {
-            PluginInstaller.Install(path);
-        }
-
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Suppressing this to enable FxCop. We are logging the exception, and going forward general exceptions should not be caught")]
         public static List<Result> QueryForPlugin(PluginPair pair, Query query, bool delayedExecution = false)
         {
             if (pair == null)
@@ -160,11 +170,21 @@ namespace PowerLauncher.Plugin
                 throw new ArgumentNullException(nameof(pair));
             }
 
+            if (!pair.IsPluginInitialized)
+            {
+                return new List<Result>();
+            }
+
+            if (string.IsNullOrEmpty(query.ActionKeyword) && string.IsNullOrWhiteSpace(query.Search))
+            {
+                return new List<Result>();
+            }
+
             try
             {
                 List<Result> results = null;
                 var metadata = pair.Metadata;
-                var milliseconds = Stopwatch.Debug($"PluginManager.QueryForPlugin - Cost for {metadata.Name}", () =>
+                var milliseconds = Wox.Infrastructure.Stopwatch.Debug($"PluginManager.QueryForPlugin - Cost for {metadata.Name}", () =>
                 {
                     if (delayedExecution && (pair.Plugin is IDelayedExecutionPlugin))
                     {
@@ -182,8 +202,21 @@ namespace PowerLauncher.Plugin
                     }
                 });
 
+                if (milliseconds > 50)
+                {
+                    Log.Warn($"PluginManager.QueryForPlugin {metadata.Name}. Query cost - {milliseconds} milliseconds", typeof(PluginManager));
+                }
+
                 metadata.QueryCount += 1;
                 metadata.AvgQueryTime = metadata.QueryCount == 1 ? milliseconds : (metadata.AvgQueryTime + milliseconds) / 2;
+
+                if (results != null)
+                {
+                    foreach (var result in results)
+                    {
+                        result.Metadata = pair.Metadata;
+                    }
+                }
 
                 return results;
             }
@@ -249,7 +282,6 @@ namespace PowerLauncher.Plugin
             return AllPlugins.Where(p => p.Plugin is T);
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Suppressing this to enable FxCop. We are logging the exception, and going forward general exceptions should not be caught")]
         public static List<ContextMenuResult> GetContextMenusForPlugin(Result result)
         {
             var pluginPair = _contextMenuPlugins.FirstOrDefault(o => o.Metadata.ID == result.PluginID);

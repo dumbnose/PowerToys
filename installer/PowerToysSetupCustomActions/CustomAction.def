@@ -1,6 +1,7 @@
 LIBRARY "PowerToysSetupCustomActions"
 
 EXPORTS
+	ApplyModulesRegistryChangeSetsCA
 	CreateScheduledTaskCA
 	DetectPrevInstallPathCA
 	RemoveScheduledTasksCA
@@ -13,3 +14,10 @@ EXPORTS
 	TelemetryLogRepairCancelCA
 	TelemetryLogRepairFailCA
 	TerminateProcessesCA
+	CertifyVirtualCameraDriverCA
+	InstallVirtualCameraDriverCA
+	InstallEmbeddedMSIXCA
+	UnApplyModulesRegistryChangeSetsCA
+	UninstallVirtualCameraDriverCA
+	UnRegisterContextMenuPackagesCA
+	UninstallEmbeddedMSIXCA

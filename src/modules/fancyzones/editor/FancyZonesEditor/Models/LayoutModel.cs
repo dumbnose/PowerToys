@@ -3,7 +3,9 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace FancyZonesEditor.Models
@@ -48,6 +50,7 @@ namespace FancyZonesEditor.Models
             _isApplied = other._isApplied;
             _sensitivityRadius = other._sensitivityRadius;
             _zoneCount = other._zoneCount;
+            _quickKey = other._quickKey;
         }
 
         // Name - the display name for this layout model - is also used as the key in the registry
@@ -72,7 +75,9 @@ namespace FancyZonesEditor.Models
 
         public LayoutType Type { get; set; }
 
+#pragma warning disable CA1720 // Identifier contains type name (Not worth the effort to change this now.)
         public Guid Guid
+#pragma warning restore CA1720 // Identifier contains type name
         {
             get
             {
@@ -158,6 +163,61 @@ namespace FancyZonesEditor.Models
 
         private int _sensitivityRadius = LayoutSettings.DefaultSensitivityRadius;
 
+        public List<string> QuickKeysAvailable
+        {
+            get
+            {
+                List<string> result = new List<string>();
+                foreach (var pair in MainWindowSettingsModel.LayoutHotkeys.SelectedKeys)
+                {
+                    if (string.IsNullOrEmpty(pair.Value) || pair.Value == Uuid)
+                    {
+                        result.Add(pair.Key);
+                    }
+                }
+
+                return result;
+            }
+        }
+
+        public string QuickKey
+        {
+            get
+            {
+                return _quickKey == -1 ? Properties.Resources.Quick_Key_None : _quickKey.ToString(CultureInfo.CurrentCulture);
+            }
+
+            set
+            {
+                var intValue = -1;
+                string none = Properties.Resources.Quick_Key_None;
+
+                if (value != none && int.TryParse(value, out var parsedInt))
+                {
+                    intValue = parsedInt;
+                }
+
+                if (intValue != _quickKey)
+                {
+                    string prev = _quickKey == -1 ? none : _quickKey.ToString(CultureInfo.CurrentCulture);
+                    _quickKey = intValue;
+
+                    if (intValue != -1)
+                    {
+                        MainWindowSettingsModel.LayoutHotkeys.SelectKey(value, Uuid);
+                    }
+                    else
+                    {
+                        MainWindowSettingsModel.LayoutHotkeys.FreeKey(prev);
+                    }
+
+                    FirePropertyChanged(nameof(QuickKey));
+                }
+            }
+        }
+
+        private int _quickKey = -1;
+
         // TemplateZoneCount - number of zones selected in the picker window for template layouts
         public int TemplateZoneCount
         {
@@ -200,6 +260,11 @@ namespace FancyZonesEditor.Models
         // Removes this Layout from the registry and the loaded CustomModels list
         public void Delete()
         {
+            if (_quickKey != -1)
+            {
+                MainWindowSettingsModel.LayoutHotkeys.FreeKey(QuickKey);
+            }
+
             var customModels = MainWindowSettingsModel.CustomModels;
             int i = customModels.IndexOf(this);
             if (i != -1)
@@ -240,6 +305,18 @@ namespace FancyZonesEditor.Models
         public void Persist()
         {
             PersistData();
+        }
+
+        public void LayoutHotkeys_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            foreach (var pair in MainWindowSettingsModel.LayoutHotkeys.SelectedKeys)
+            {
+                if (pair.Value == Uuid)
+                {
+                    QuickKey = pair.Key.ToString();
+                    break;
+                }
+            }
         }
     }
 }

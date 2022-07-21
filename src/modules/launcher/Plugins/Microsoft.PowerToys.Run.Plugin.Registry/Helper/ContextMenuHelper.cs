@@ -75,17 +75,16 @@ namespace Microsoft.PowerToys.Run.Plugin.Registry.Helper
             list.Add(new ContextMenuResult
             {
                 AcceleratorKey = Key.Enter,
+                AcceleratorModifiers = ModifierKeys.Control,
                 Action = _ => TryToOpenInRegistryEditor(entry),
                 FontFamily = "Segoe MDL2 Assets",
                 Glyph = "\xE8A7",                           // E8A7 => Symbol: OpenInNewWindow
                 PluginName = assemblyName,
-                Title = $"{Resources.OpenKeyInRegistryEditor} (Enter)",
+                Title = $"{Resources.OpenKeyInRegistryEditor} (Ctrl+Enter)",
             });
 
             return list;
         }
-
-        #pragma warning disable CA1031 // Do not catch general exception types
 
         /// <summary>
         /// Open the Windows registry editor and jump to registry key inside the given key (inside the <see cref="RegistryEntry"/>
@@ -134,7 +133,5 @@ namespace Microsoft.PowerToys.Run.Plugin.Registry.Helper
                 return false;
             }
         }
-
-        #pragma warning restore CA1031 // Do not catch general exception types
     }
 }

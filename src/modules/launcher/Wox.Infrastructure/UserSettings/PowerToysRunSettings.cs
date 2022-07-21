@@ -1,13 +1,12 @@
-// Copyright (c) Microsoft Corporation
+﻿// Copyright (c) Microsoft Corporation
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
 using System;
 using System.Collections.ObjectModel;
 using System.Drawing;
+using System.Text.Json.Serialization;
 using ManagedCommon;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 using Wox.Plugin;
 
 namespace Wox.Infrastructure.UserSettings
@@ -43,9 +42,125 @@ namespace Wox.Infrastructure.UserSettings
             }
         }
 
+        private bool _useCentralizedKeyboardHook;
+
+        public bool UseCentralizedKeyboardHook
+        {
+            get
+            {
+                return _useCentralizedKeyboardHook;
+            }
+
+            set
+            {
+                if (_useCentralizedKeyboardHook != value)
+                {
+                    _useCentralizedKeyboardHook = value;
+                    OnPropertyChanged(nameof(UseCentralizedKeyboardHook));
+                }
+            }
+        }
+
+        private bool _searchQueryResultsWithDelay = true;
+
+        public bool SearchQueryResultsWithDelay
+        {
+            get
+            {
+                return _searchQueryResultsWithDelay;
+            }
+
+            set
+            {
+                if (_searchQueryResultsWithDelay != value)
+                {
+                    _searchQueryResultsWithDelay = value;
+                    OnPropertyChanged(nameof(SearchQueryResultsWithDelay));
+                }
+            }
+        }
+
+        private int _searchInputDelay = 150;
+
+        private int _searchClickedItemWeight = 5;
+
+        private bool _searchQueryTuningEnabled;
+
+        private bool _searchWaitForSlowResults;
+
+        public int SearchInputDelay
+        {
+            get
+            {
+                return _searchInputDelay;
+            }
+
+            set
+            {
+                if (_searchInputDelay != value)
+                {
+                    _searchInputDelay = value;
+                    OnPropertyChanged(nameof(SearchInputDelay));
+                }
+            }
+        }
+
+        public bool SearchQueryTuningEnabled
+        {
+            get
+            {
+                return _searchQueryTuningEnabled;
+            }
+
+            set
+            {
+                if (_searchQueryTuningEnabled != value)
+                {
+                    _searchQueryTuningEnabled = value;
+                    OnPropertyChanged(nameof(SearchQueryTuningEnabled));
+                }
+            }
+        }
+
+        public bool SearchWaitForSlowResults
+        {
+            get
+            {
+                return _searchWaitForSlowResults;
+            }
+
+            set
+            {
+                if (_searchWaitForSlowResults != value)
+                {
+                    _searchWaitForSlowResults = value;
+                    OnPropertyChanged(nameof(_searchWaitForSlowResults));
+                }
+            }
+        }
+
+        public int SearchClickedItemWeight
+        {
+            get
+            {
+                return _searchClickedItemWeight;
+            }
+
+            set
+            {
+                if (_searchClickedItemWeight != value)
+                {
+                    _searchClickedItemWeight = value;
+                    OnPropertyChanged(nameof(SearchClickedItemWeight));
+                }
+            }
+        }
+
         public string Language { get; set; } = "en";
 
         public Theme Theme { get; set; } = Theme.System;
+
+        public StartupPosition StartupPosition { get; set; } = StartupPosition.Cursor;
 
         public string QueryBoxFont { get; set; } = FontFamily.GenericSansSerif.Name;
 
@@ -171,11 +286,11 @@ namespace Wox.Infrastructure.UserSettings
 
         public bool IgnoreHotkeysOnFullscreen { get; set; }
 
-        public bool UsePowerToysRunnerKeyboardHook { get; set; }
+        public bool StartedFromPowerToysRunner { get; set; }
 
         public HttpProxy Proxy { get; set; } = new HttpProxy();
 
-        [JsonConverter(typeof(StringEnumConverter))]
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public LastQueryMode LastQueryMode { get; set; } = LastQueryMode.Selected;
     }
 

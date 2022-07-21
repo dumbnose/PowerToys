@@ -5,7 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using Microsoft.Search.Interop;
+using Microsoft.Plugin.Indexer.Interop;
+using Wox.Plugin.Logger;
 
 namespace Microsoft.Plugin.Indexer.SearchHelper
 {
@@ -49,7 +50,12 @@ namespace Microsoft.Plugin.Indexer.SearchHelper
                 // # is URI syntax for the fragment component, need to be encoded so LocalPath returns complete path
                 // Using OrdinalIgnoreCase since this is internal and used with symbols
                 var string_path = ((string)oleDBResult.FieldData[0]).Replace("#", "%23", StringComparison.OrdinalIgnoreCase);
-                var uri_path = new Uri(string_path);
+
+                if (!Uri.TryCreate(string_path, UriKind.RelativeOrAbsolute, out Uri uri_path))
+                {
+                    Log.Warn($"Failed to parse URI '${string_path}'", typeof(WindowsSearchAPI));
+                    continue;
+                }
 
                 var result = new SearchResult
                 {
@@ -82,7 +88,7 @@ namespace Microsoft.Plugin.Indexer.SearchHelper
                 pattern = pattern.Replace("*", "%", StringComparison.Ordinal);
                 pattern = pattern.Replace("?", "_", StringComparison.Ordinal);
 
-                if (pattern.Contains("%", StringComparison.Ordinal) || pattern.Contains("_", StringComparison.Ordinal))
+                if (pattern.Contains('%', StringComparison.Ordinal) || pattern.Contains('_', StringComparison.Ordinal))
                 {
                     queryHelper.QueryWhereRestrictions += " AND System.FileName LIKE '" + pattern + "' ";
                 }

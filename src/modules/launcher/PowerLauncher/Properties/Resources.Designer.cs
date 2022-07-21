@@ -108,18 +108,18 @@ namespace PowerLauncher.Properties {
         /// <summary>
         ///   Looks up a localized string similar to Settings will be reset to default and program will continue to function..
         /// </summary>
-        public static string deseralization_error_message {
+        public static string deserialization_error_message {
             get {
-                return ResourceManager.GetString("deseralization_error_message", resourceCulture);
+                return ResourceManager.GetString("deserialization_error_message", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Looks up a localized string similar to PowerToys Run deserialization error.
         /// </summary>
-        public static string deseralization_error_title {
+        public static string deserialization_error_title {
             get {
-                return ResourceManager.GetString("deseralization_error_title", resourceCulture);
+                return ResourceManager.GetString("deserialization_error_title", resourceCulture);
             }
         }
         
@@ -129,6 +129,24 @@ namespace PowerLauncher.Properties {
         public static string executeQuery {
             get {
                 return ResourceManager.GetString("executeQuery", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Plugins: {0} - fail to load and would be disabled, please contact plugins creator for help.
+        /// </summary>
+        public static string FailedToInitializePluginsDescription {
+            get {
+                return ResourceManager.GetString("FailedToInitializePluginsDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Fail to initialize plugins.
+        /// </summary>
+        public static string FailedToInitializePluginsTitle {
+            get {
+                return ResourceManager.GetString("FailedToInitializePluginsTitle", resourceCulture);
             }
         }
         

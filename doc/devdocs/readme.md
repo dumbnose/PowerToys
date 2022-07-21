@@ -18,7 +18,7 @@ Once you've discussed your proposed feature/fix/etc. with a team member, and you
 - Package new ideas into classes or refactor existing ideas into a class as you extend.
 - When adding new classes/methods/changing existing code: add new unit tests or update the existing tests.
 
-## Github Workflow
+## GitHub Workflow
 
 - Before starting to work on a fix/feature, make sure there is an open issue to track the work.
 - Add the `In progress` label to the issue, if not already present also add a `Cost-Small/Medium/Large` estimate and make sure all appropriate labels are set.
@@ -33,61 +33,23 @@ Once you've discussed your proposed feature/fix/etc. with a team member, and you
   - don't close the issue if it's a bug in the current released version since users tend to not search for closed issues, we will close the resolved issues when a new version is released.
   - if it's not a code fix that effects the end user, the issue can be closed (for example a fix in the build or a code refactoring and so on).
 
-
-## Repository Overview
-
-General project organization:
-
-### The [`doc`](/doc) folder
-
-Documentation for the project.
-
-### The [`Wiki`](https://github.com/microsoft/PowerToys/wiki)
-
-The Wiki contains the current specs for the project.
-
-### The [`installer`](/installer) folder
-
-Contains the source code of the PowerToys installer.
-
-### The [`src`](/src) folder
-
-Contains the source code of the PowerToys runner and of all of the PowerToys modules. **This is where most of the magic happens.**
-
-### The [`tools`](/tools) folder
-
-Various tools used by PowerToys. Includes the Visual Studio 2019 project template for new PowerToys.
-
 ## Compiling PowerToys
 
 ### Prerequisites for Compiling PowerToys
 
 1. Windows 10 April 2018 Update (version 1803) or newer
-2. Visual Studio Community/Professional/Enterprise 2019
-3. Run the command below in cmd/terminal to install all the workloads and components for VS.
+2. Visual Studio Community/Professional/Enterprise 2022
+3. Install the [required Windows Apps SDK workloads](https://docs.microsoft.com/en-us/windows/apps/windows-app-sdk/set-up-your-development-environment?tabs=vs-2022-17-1-a%2Cvs-2022-17-1-b#required-workloads-and-components), the [Windows App SDK 1.0.3 C# Visual Studio 2022 extension](https://docs.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads) and the [Windows Apps SDK 1.0.3 runtime](https://docs.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads#windows-app-sdk-10).
+4. Once you've cloned and started the `PowerToys.sln`, in the solution explorer, if you see a dialog that says `install extra components`, click `install`
 
-```shell
-cd "%ProgramFiles(x86)%\Microsoft Visual Studio\2019"
-SET targetFolder="\"
-IF EXIST Preview\NUL (SET targetFolder=Preview)
-IF EXIST Enterprise\NUL (SET targetFolder=Enterprise)
-IF EXIST Professional\NUL (SET targetFolder=Professional)
-IF EXIST Community\NUL (SET targetFolder=Community)
+### Get Submodules to compile
+We have submodules that need to be initialized before you can compile most parts of PowerToys.  This should be a one time step.
 
-ECHO %targetFolder%
+1. Open a terminal
+2. Navigate to the folder you cloned PowerToys to.
+3. Run `git submodule update --init --recursive`
 
-"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vs_installer.exe" ^
-modify --installpath "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\%targetFolder%" ^
---add Microsoft.VisualStudio.Workload.NativeDesktop ^
---add Microsoft.VisualStudio.Workload.ManagedDesktop ^
---add Microsoft.VisualStudio.Workload.Universal ^
---add Microsoft.VisualStudio.Component.Windows10SDK.17134 ^
---add Microsoft.VisualStudio.ComponentGroup.UWP.VC ^
---add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre ^
---add Microsoft.VisualStudio.Component.VC.ATL.Spectre
-```
-
-### Compile source code
+### Compiling Source Code
 
 - Open `PowerToys.sln` in Visual Studio, in the `Solutions Configuration` drop-down menu select `Release` or `Debug`, from the `Build` menu choose `Build Solution`.
 - The PowerToys binaries will be in your repo under `x64\Release\`.
@@ -101,25 +63,60 @@ Our installer is two parts, an EXE and an MSI.  The EXE (Bootstrapper) contains 
 
 The installer can only be compiled in `Release` mode, step 1 and 2 must be done before the MSI will be able to be compiled.
 
-1. Compile PowerToys.sln. Instructions are listed above.
-2. Compile Bug reporting tool. Path from root: `tools\BugReportTool\BugReportTool.sln` (details listed below)
-3. Compile PowerToysSetup.sln Path from root: `installer\PowerToysSetup.sln` (details listed below)
+1. Compile `PowerToys.sln`. Instructions are listed above.
+2. Compile `BugReportTool.sln` tool. Path from root: `tools\BugReportTool\BugReportTool.sln` (details listed below)
+3. Compile `WebcamReportTool.sln` tool. Path from root: `tools\WebcamReportTool\WebcamReportTool.sln` (details listed below)
+3. Compile `StylesReportTool.sln` tool. Path from root: `tools\StylesReportTool\StylesReportTool.sln` (details listed below)
+4. Compile `PowerToysSetup.sln` Path from root: `installer\PowerToysSetup.sln` (details listed below)
 
 ### Prerequisites for building the MSI installer
 
-1. Build `tools\BugReportTool\BugReportTool.sln`: in Visual Studio, in the `Solutions Configuration` drop-down menu select `Release`, from the `Build` menu choose `Build Solution`.
-2. Install the [WiX Toolset Visual Studio 2019 Extension](https://marketplace.visualstudio.com/items?itemName=RobMensching.WiXToolset).
-3. Install the [WiX Toolset build tools](https://wixtoolset.org/releases/).
+1. Install the [WiX Toolset Visual Studio 2022 Extension](https://marketplace.visualstudio.com/items?itemName=WixToolset.WixToolsetVisualStudio2022Extension).
+2. Install the [WiX Toolset build tools](https://wixtoolset.org/releases/v3-14-0-6526/).
+3. Download [WiX binaries](https://wixtoolset.org/downloads/v3.14.0.6526/wix314-binaries.zip) and extract `wix.targets` to `C:\Program Files (x86)\WiX Toolset v3.14`.
 
-### Locally compiling the .MSI installer
+### Locally building the installer prerequisite projects all at once from the command-line
 
-- Open `installer\PowerToysSetup.sln`: in Visual Studio, in the `Solutions Configuration` drop-down menu select `Release`, from the `Build` menu choose `Build Solution`.
-- The resulting `PowerToysSetup.msi` installer will be available in the `installer\PowerToysSetup\x64\Release\` folder.
+1. Open a `Developer Command Prompt for VS 2022`
+2. Ensure `nuget.exe` is in your `%path%`
+3. In the repo root, run these commands:
+  
+```
+nuget restore .\tools\BugReportTool\BugReportTool.sln
+msbuild -p:Platform=x64 -p:Configuration=Release .\tools\BugReportTool\BugReportTool.sln
 
-### Locally compiling the .EXE Bootstrapper installer
+nuget restore .\tools\WebcamReportTool\WebcamReportTool.sln
+msbuild -p:Platform=x64 -p:Configuration=Release .\tools\WebcamReportTool\WebcamReportTool.sln
 
-- Open `installer\PowerToysBootstrapper\PowerToysBootstrapper.sln`: in Visual Studio, in the `Solutions Configuration` drop-down menu select `Release`, from the `Build` menu choose `Build Solution`.
-- The `PowerToysSetup-0.0.1-x64.exe` binary is created in the `installer\PowerToysBootstrapper\x64\Release\` folder.
+nuget restore .\tools\StylesReportTool\StylesReportTool.sln
+msbuild -p:Platform=x64 -p:Configuration=Release .\tools\StylesReportTool\StylesReportTool.sln
+```
+
+### Locally compiling the Bug reporting tool
+
+1. Open `tools\BugReportTool\BugReportTool.sln`
+2. In Visual Studio, in the `Solutions Configuration` drop-down menu select `Release`
+3. From the `Build` menu, choose `Build Solution`.
+
+### Locally compiling the Webcam reporting tool
+
+1. Open `tools\WebcamReportTool\WebcamReportTool.sln`
+2. In Visual Studio, in the `Solutions Configuration` drop-down menu select `Release`
+3. From the `Build` menu, choose `Build Solution`.
+
+### Locally compiling the Window styles reporting tool
+
+1. Open `tools\StylesReportTool\StylesReportTool.sln`
+2. In Visual Studio, in the `Solutions Configuration` drop-down menu select `Release`
+3. From the `Build` menu, choose `Build Solution`.
+
+### Locally compiling the installer
+
+1. Open `installer\PowerToysSetup.sln`
+2. In Visual Studio, in the `Solutions Configuration` drop-down menu select `Release`
+3. From the `Build` menu choose `Build Solution`.
+
+The resulting `PowerToysSetup.msi` installer will be available in the `installer\PowerToysSetup\x64\Release\` folder.
 
 #### Supported arguments for the .EXE Bootstrapper installer
 
@@ -163,29 +160,6 @@ Definition of the interface used by the [`runner`](/src/runner) to manage the Po
 
 The common lib, as the name suggests, contains code shared by multiple PowerToys components and modules, e.g. [json parsing](/src/common/json.h) and [IPC primitives](/src/common/two_way_pipe_message_ipc.h).
 
-### [`Settings`](settings.md)
+### [`Settings`](settingsv2/)
 
-WebView project for editing the PowerToys settings.
-
-The html portion of the project that is shown in the WebView is contained in [`settings-html`](/src/settings/settings-html).
-Instructions on how build a new version and update this project are in the [Web project for the Settings UI](./settings-web.md).
-
-While developing, it's possible to connect the WebView to the development server running in localhost by setting the `_DEBUG_WITH_LOCALHOST` flag to `1` and following the instructions near it in `./main.cpp`.
-
-### [`Settings-web`](settings-web.md)
-This project generates the web UI shown in the [PowerToys Settings](/src/editor).
-It's a `ReactJS` project created using [Fluent UI](https://developer.microsoft.com/en-us/fluentui#/).
-
-#### Options
-
-This module has a setting to serve as an example for each of the currently implemented settings property:
-
-- BoolToggle property
-- IntSpinner property
-- String property
-- ColorPicker property
-- CustomAction property
-
-![Image of the Options](/doc/images/settings/example_settings.png)
-
-[installerArgWiki]: https://github.com/microsoft/PowerToys/wiki/Installer-arguments-for-exe
+Settings v2 is our current settings implementation.  Please head over to the dev docs that goes into the current settings system.
