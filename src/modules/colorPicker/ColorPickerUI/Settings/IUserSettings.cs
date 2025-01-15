@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Collections.ObjectModel;
+
 using ColorPicker.Common;
 using Microsoft.PowerToys.Settings.UI.Library.Enumerations;
 
@@ -14,7 +15,9 @@ namespace ColorPicker.Settings
 
         SettingItem<bool> ChangeCursor { get; }
 
-        SettingItem<ColorRepresentationType> CopiedColorRepresentation { get; set; }
+        SettingItem<string> CopiedColorRepresentation { get; set; }
+
+        SettingItem<string> CopiedColorRepresentationFormat { get; set; }
 
         SettingItem<ColorPickerActivationAction> ActivationAction { get; }
 
@@ -22,7 +25,7 @@ namespace ColorPicker.Settings
 
         SettingItem<int> ColorHistoryLimit { get; }
 
-        ObservableCollection<string> VisibleColorFormats { get; }
+        ObservableCollection<System.Collections.Generic.KeyValuePair<string, string>> VisibleColorFormats { get; }
 
         SettingItem<bool> ShowColorName { get; }
 

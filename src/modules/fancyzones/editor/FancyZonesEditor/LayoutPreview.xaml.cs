@@ -7,8 +7,9 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using FancyZonesEditor.Logs;
+
 using FancyZonesEditor.Models;
+using ManagedCommon;
 
 namespace FancyZonesEditor
 {
@@ -264,7 +265,9 @@ namespace FancyZonesEditor
         private void RenderCanvasPreview(CanvasLayoutModel canvas)
         {
             var screenWorkArea = App.Overlay.WorkArea;
-            canvas.ScaleLayout(workAreaWidth: screenWorkArea.Width, workAreaHeight: screenWorkArea.Height);
+
+            var renderLayout = (CanvasLayoutModel)canvas.Clone();
+            renderLayout.ScaleLayout(workAreaWidth: screenWorkArea.Width, workAreaHeight: screenWorkArea.Height);
 
             Viewbox viewbox = new Viewbox
             {
@@ -278,7 +281,7 @@ namespace FancyZonesEditor
             };
             viewbox.Child = frame;
 
-            foreach (Int32Rect zone in canvas.Zones)
+            foreach (Int32Rect zone in renderLayout.Zones)
             {
                 Border rect = new Border();
                 Canvas.SetTop(rect, zone.Y);
@@ -288,11 +291,11 @@ namespace FancyZonesEditor
 
                 if (IsActualSize)
                 {
-                   rect.Style = (Style)FindResource("CanvasLayoutActualScalePreviewStyle");
+                    rect.Style = (Style)FindResource("CanvasLayoutActualScalePreviewStyle");
                 }
                 else
                 {
-                   rect.Style = (Style)FindResource("CanvasLayoutSmallScalePreviewStyle");
+                    rect.Style = (Style)FindResource("CanvasLayoutSmallScalePreviewStyle");
                 }
 
                 frame.Children.Add(rect);

@@ -4,12 +4,13 @@
 
 using System;
 using System.Threading.Tasks;
+
 using Microsoft.PowerToys.Settings.UI.Services;
 using Windows.ApplicationModel.Activation;
 
 namespace Microsoft.PowerToys.Settings.UI.Activation
 {
-    internal class DefaultActivationHandler : ActivationHandler<IActivatedEventArgs>
+    internal sealed class DefaultActivationHandler : ActivationHandler<IActivatedEventArgs>
     {
         private readonly Type navElement;
 

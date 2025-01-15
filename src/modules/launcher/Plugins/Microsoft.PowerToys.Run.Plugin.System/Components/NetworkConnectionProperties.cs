@@ -10,14 +10,16 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Text;
+
 using Microsoft.PowerToys.Run.Plugin.System.Properties;
 
 namespace Microsoft.PowerToys.Run.Plugin.System.Components
 {
     /// <summary>
-    /// This class represents the informations for a network connection/interface
+    /// This class represents the information for a network connection/interface
     /// </summary>
-    internal class NetworkConnectionProperties
+    internal sealed class NetworkConnectionProperties
     {
         /// <summary>
         /// Gets the name of the adapter
@@ -114,6 +116,9 @@ namespace Microsoft.PowerToys.Run.Plugin.System.Components
         /// </summary>
         internal IPAddressCollection WinsServers { get; private set; }
 
+        private static readonly CompositeFormat MicrosoftPluginSysGbps = CompositeFormat.Parse(Properties.Resources.Microsoft_plugin_sys_Gbps);
+        private static readonly CompositeFormat MicrosoftPluginSysMbps = CompositeFormat.Parse(Properties.Resources.Microsoft_plugin_sys_Mbps);
+
         /// <summary>
         /// Initializes a new instance of the <see cref="NetworkConnectionProperties"/> class.
         /// This private constructor is used when we crete the list of adapter (properties) by calling <see cref="NetworkConnectionProperties.GetList()"/>.
@@ -143,15 +148,13 @@ namespace Microsoft.PowerToys.Run.Plugin.System.Components
         /// <returns>List containing all network adapters</returns>
         internal static List<NetworkConnectionProperties> GetList()
         {
-            List<NetworkConnectionProperties> list = new List<NetworkConnectionProperties>();
-
-            var interfaces = NetworkInterface.GetAllNetworkInterfaces().Where(x => x.NetworkInterfaceType != NetworkInterfaceType.Loopback && x.GetPhysicalAddress() != null);
-            foreach (NetworkInterface i in interfaces)
-            {
-                list.Add(new NetworkConnectionProperties(i));
-            }
-
-            return list;
+            var interfaces = NetworkInterface.GetAllNetworkInterfaces()
+                                             .Where(x => x.NetworkInterfaceType != NetworkInterfaceType.Loopback && x.GetPhysicalAddress() != null)
+                                             .Select(i => new NetworkConnectionProperties(i))
+                                             .OrderByDescending(i => i.IPv4) // list IPv4 first
+                                             .ThenBy(i => i.IPv6Primary) // then IPv6
+                                             .ToList();
+            return interfaces;
         }
 
         /// <summary>
@@ -238,7 +241,7 @@ namespace Microsoft.PowerToys.Run.Plugin.System.Components
                     }
                     else if (ipList[i].SuffixOrigin == SuffixOrigin.Random)
                     {
-                       IPv6Temporary = ip.ToString();
+                        IPv6Temporary = ip.ToString();
                     }
                     else
                     {
@@ -288,7 +291,7 @@ namespace Microsoft.PowerToys.Run.Plugin.System.Components
         /// <returns>A formatted string like `100 MB/s`</returns>
         private static string GetFormattedSpeedValue(long speed)
         {
-            return (speed >= 1000000000) ? string.Format(CultureInfo.InvariantCulture, Resources.Microsoft_plugin_sys_Gbps, speed / 1000000000) : string.Format(CultureInfo.InvariantCulture, Resources.Microsoft_plugin_sys_Mbps, speed / 1000000);
+            return (speed >= 1000000000) ? string.Format(CultureInfo.InvariantCulture, MicrosoftPluginSysGbps, speed / 1000000000) : string.Format(CultureInfo.InvariantCulture, MicrosoftPluginSysMbps, speed / 1000000);
         }
 
         /// <summary>

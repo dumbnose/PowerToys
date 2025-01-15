@@ -1,36 +1,29 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\..\Version.props" />
+  <!-- Look at Directory.Build.props in root for common stuff as well -->
+  <Import Project="..\..\..\Common.Dotnet.CsWinRT.props" />
+  <Import Project="..\..\..\Common.SelfContained.props" />
   
   <PropertyGroup>
     <AssemblyTitle>PowerToys.ImageResizer</AssemblyTitle>
-    <OutputPath>$(SolutionDir)$(Platform)\$(Configuration)\modules\ImageResizer</OutputPath>
+    <OutputPath>..\..\..\..\$(Platform)\$(Configuration)</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <GenerateSatelliteAssembliesForCore>true</GenerateSatelliteAssembliesForCore>
     <UseWPF>true</UseWPF>
   </PropertyGroup>
-  
+
   <PropertyGroup>
     <ProjectGuid>{2BE46397-4DFA-414C-9BD4-41E4BBF8CB34}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <RootNamespace>ImageResizer</RootNamespace>
     <AssemblyName>PowerToys.ImageResizer</AssemblyName>
-    <TargetFramework>net6.0-windows10.0.19041.0</TargetFramework>
     <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
-    <IntermediateOutputPath>$(SolutionDir)$(Platform)\$(Configuration)\obj\$(AssemblyName)\</IntermediateOutputPath>
   </PropertyGroup>
   
   <PropertyGroup>
     <ApplicationIcon>Resources\ImageResizer.ico</ApplicationIcon>
   </PropertyGroup>
-  
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <Optimize>true</Optimize>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
-    <Optimize>false</Optimize>
-  </PropertyGroup>
-  
+
   <ItemGroup>
     <EmbeddedResource Update="Properties\Resources.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
@@ -45,16 +38,15 @@
     <Resource Include="Resources\ImageResizer.png" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.39" />
-    <PackageReference Include="ModernWpfUI" Version="0.9.4" />
-    <PackageReference Include="System.IO.Abstractions">
-      <Version>12.2.5</Version>
-    </PackageReference>
-    <PackageReference Include="System.Text.Json" Version="6.0.2" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" />
+    <PackageReference Include="System.IO.Abstractions" />
+    <PackageReference Include="WPF-UI" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\common\GPOWrapperProjection\GPOWrapperProjection.csproj" />
     <ProjectReference Include="..\..\..\common\interop\PowerToys.Interop.vcxproj" />
     <ProjectReference Include="..\..\..\common\Common.UI\Common.UI.csproj" />
+    <ProjectReference Include="..\..\..\common\ManagedCommon\ManagedCommon.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">

@@ -5,6 +5,7 @@
 using System;
 using System.ComponentModel;
 using System.Globalization;
+
 using FancyZonesEditor.ViewModels;
 
 namespace FancyZonesEditor.Utils
@@ -60,7 +61,7 @@ namespace FancyZonesEditor.Utils
                 }
                 else
                 {
-                    return ScreenBoundsWidth + " x " + ScreenBoundsHeight;
+                    return ScreenBoundsWidth + " × " + ScreenBoundsHeight;
                 }
             }
         }

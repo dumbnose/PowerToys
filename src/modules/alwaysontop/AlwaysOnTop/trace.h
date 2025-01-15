@@ -1,14 +1,15 @@
 #pragma once
 
+#include <common/Telemetry/TraceBase.h>
+
 class Trace
 {
 public:
-    static void RegisterProvider() noexcept;
-    static void UnregisterProvider() noexcept;
-
-    class AlwaysOnTop
+    class AlwaysOnTop : public telemetry::TraceBase
     {
     public:
         static void Enable(bool enabled) noexcept;
+        static void PinWindow() noexcept;
+        static void UnpinWindow() noexcept;
     };
 };

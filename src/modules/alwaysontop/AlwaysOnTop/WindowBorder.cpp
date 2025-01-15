@@ -5,6 +5,7 @@
 #include "winrt/Windows.Foundation.h"
 
 #include <FrameDrawer.h>
+#include <ScalingUtils.h>
 #include <Settings.h>
 #include <WindowCornersUtil.h>
 
@@ -32,7 +33,7 @@ std::optional<RECT> GetFrameRect(HWND window)
 }
 
 WindowBorder::WindowBorder(HWND window) :
-    SettingsObserver({ SettingId::FrameColor, SettingId::FrameThickness, SettingId::FrameAccentColor, SettingId::RoundCornersEnabled }),
+    SettingsObserver({ SettingId::FrameColor, SettingId::FrameThickness, SettingId::FrameAccentColor, SettingId::FrameOpacity, SettingId::RoundCornersEnabled }),
     m_window(nullptr),
     m_trackingWindow(window),
     m_frameDrawer(nullptr)
@@ -112,7 +113,20 @@ bool WindowBorder::Init(HINSTANCE hinstance)
         return false;
     }
 
+    // make window transparent
+    int const pos = -GetSystemMetrics(SM_CXVIRTUALSCREEN) - 8;
+    if (wil::unique_hrgn hrgn{ CreateRectRgn(pos, 0, (pos + 1), 1) })
+    {
+        DWM_BLURBEHIND bh = { DWM_BB_ENABLE | DWM_BB_BLURREGION, TRUE, hrgn.get(), FALSE };
+        DwmEnableBlurBehindWindow(m_window, &bh);
+    }
+
     if (!SetLayeredWindowAttributes(m_window, RGB(0, 0, 0), 0, LWA_COLORKEY))
+    {
+        return false;
+    }
+
+    if (!SetLayeredWindowAttributes(m_window, 0, 255, LWA_ALPHA))
     {
         return false;
     }
@@ -126,6 +140,9 @@ bool WindowBorder::Init(HINSTANCE hinstance)
         , windowRect.right - windowRect.left
         , windowRect.bottom - windowRect.top
         , SWP_NOMOVE | SWP_NOSIZE);
+
+    BOOL val = TRUE;
+    DwmSetWindowAttribute(m_window, DWMWA_EXCLUDED_FROM_PEEK, &val, sizeof(val));
 
     m_frameDrawer = FrameDrawer::Create(m_window);
     if (!m_frameDrawer)
@@ -189,13 +206,16 @@ void WindowBorder::UpdateBorderProperties() const
         color = AlwaysOnTopSettings::settings().frameColor;
     }
 
-    int cornerRadius = 0;
+    float opacity = AlwaysOnTopSettings::settings().frameOpacity / 100.0f;
+    float scalingFactor = ScalingUtils::ScalingFactor(m_trackingWindow);
+    float thickness = AlwaysOnTopSettings::settings().frameThickness * scalingFactor;
+    float cornerRadius = 0.0;
     if (AlwaysOnTopSettings::settings().roundCornersEnabled)
     {
-        cornerRadius = WindowBordersUtils::AreCornersRounded(m_trackingWindow) ? 8 : 0;
+        cornerRadius = WindowCornerUtils::CornersRadius(m_trackingWindow) * scalingFactor;
     }
     
-    m_frameDrawer->SetBorderRect(frameRect, color, AlwaysOnTopSettings::settings().frameThickness, cornerRadius);
+    m_frameDrawer->SetBorderRect(frameRect, color, opacity, static_cast<int>(thickness), cornerRadius);
 }
 
 LRESULT WindowBorder::WndProc(UINT message, WPARAM wparam, LPARAM lparam) noexcept
@@ -261,22 +281,14 @@ void WindowBorder::SettingsUpdate(SettingId id)
     break;
 
     case SettingId::FrameColor:
-    {
-        UpdateBorderProperties();
-    }
-    break;
-
     case SettingId::FrameAccentColor:
-    {
-        UpdateBorderProperties();
-    }
-    break;
-
+    case SettingId::FrameOpacity:
     case SettingId::RoundCornersEnabled:
     {
         UpdateBorderProperties();
     }
     break;
+
     default:
         break;
     }

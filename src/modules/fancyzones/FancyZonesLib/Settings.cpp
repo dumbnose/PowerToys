@@ -17,11 +17,12 @@ namespace NonLocalizable
     // FancyZones settings descriptions are localized, but underlying toggle (spinner, color picker) names are not.
     const wchar_t ShiftDragID[] = L"fancyzones_shiftDrag";
     const wchar_t MouseSwitchID[] = L"fancyzones_mouseSwitch";
+    const wchar_t MouseMiddleClickSpanningMultipleZonesID[] = L"fancyzones_mouseMiddleClickSpanningMultipleZones";
     const wchar_t OverrideSnapHotKeysID[] = L"fancyzones_overrideSnapHotkeys";
     const wchar_t MoveWindowAcrossMonitorsID[] = L"fancyzones_moveWindowAcrossMonitors";
     const wchar_t MoveWindowsBasedOnPositionID[] = L"fancyzones_moveWindowsBasedOnPosition";
     const wchar_t OverlappingZonesAlgorithmID[] = L"fancyzones_overlappingZonesAlgorithm";
-    const wchar_t DisplayChangeMoveWindowsID[] = L"fancyzones_displayChange_moveWindows";
+    const wchar_t DisplayOrWorkAreaChangeMoveWindowsID[] = L"fancyzones_displayOrWorkAreaChange_moveWindows";
     const wchar_t ZoneSetChangeMoveWindowsID[] = L"fancyzones_zoneSetChange_moveWindows";
     const wchar_t AppLastZoneMoveWindowsID[] = L"fancyzones_appLastZone_moveWindows";
     const wchar_t OpenWindowOnActiveMonitorID[] = L"fancyzones_openWindowOnActiveMonitor";
@@ -32,7 +33,6 @@ namespace NonLocalizable
     const wchar_t ShowOnAllMonitorsID[] = L"fancyzones_show_on_all_monitors";
     const wchar_t SpanZonesAcrossMonitorsID[] = L"fancyzones_span_zones_across_monitors";
     const wchar_t MakeDraggedWindowTransparentID[] = L"fancyzones_makeDraggedWindowTransparent";
-    const wchar_t AllowPopupWindowSnapID[] = L"fancyzones_allowPopupWindowSnap";
     const wchar_t AllowChildWindowSnapID[] = L"fancyzones_allowChildWindowSnap";
     const wchar_t DisableRoundCornersOnSnapping[] = L"fancyzones_disableRoundCornersOnSnap";
 
@@ -108,10 +108,11 @@ void FancyZonesSettings::LoadSettings()
         // flags
         SetBoolFlag(values, NonLocalizable::ShiftDragID, SettingId::ShiftDrag, m_settings.shiftDrag);
         SetBoolFlag(values, NonLocalizable::MouseSwitchID, SettingId::MouseSwitch, m_settings.mouseSwitch);
+        SetBoolFlag(values, NonLocalizable::MouseMiddleClickSpanningMultipleZonesID, SettingId::MouseMiddleClickSpanningMultipleZones, m_settings.mouseMiddleClickSpanningMultipleZones);
         SetBoolFlag(values, NonLocalizable::OverrideSnapHotKeysID, SettingId::OverrideSnapHotkeys, m_settings.overrideSnapHotkeys);
         SetBoolFlag(values, NonLocalizable::MoveWindowAcrossMonitorsID, SettingId::MoveWindowAcrossMonitors, m_settings.moveWindowAcrossMonitors);
         SetBoolFlag(values, NonLocalizable::MoveWindowsBasedOnPositionID, SettingId::MoveWindowsBasedOnPosition, m_settings.moveWindowsBasedOnPosition);
-        SetBoolFlag(values, NonLocalizable::DisplayChangeMoveWindowsID, SettingId::DisplayChangeMoveWindows, m_settings.displayChange_moveWindows);
+        SetBoolFlag(values, NonLocalizable::DisplayOrWorkAreaChangeMoveWindowsID, SettingId::DisplayOrWorkAreaChangeMoveWindows, m_settings.displayOrWorkAreaChange_moveWindows);
         SetBoolFlag(values, NonLocalizable::ZoneSetChangeMoveWindowsID, SettingId::ZoneSetChangeMoveWindows, m_settings.zoneSetChange_moveWindows);
         SetBoolFlag(values, NonLocalizable::AppLastZoneMoveWindowsID, SettingId::AppLastZoneMoveWindows, m_settings.appLastZone_moveWindows);
         SetBoolFlag(values, NonLocalizable::OpenWindowOnActiveMonitorID, SettingId::OpenWindowOnActiveMonitor, m_settings.openWindowOnActiveMonitor);
@@ -125,7 +126,6 @@ void FancyZonesSettings::LoadSettings()
         SetBoolFlag(values, NonLocalizable::WindowSwitchingToggleID, SettingId::WindowSwitching, m_settings.windowSwitching);
         SetBoolFlag(values, NonLocalizable::SystemThemeID, SettingId::SystemTheme, m_settings.systemTheme);
         SetBoolFlag(values, NonLocalizable::ShowZoneNumberID, SettingId::ShowZoneNumber, m_settings.showZoneNumber);
-        SetBoolFlag(values, NonLocalizable::AllowPopupWindowSnapID, SettingId::AllowSnapPopupWindows, m_settings.allowSnapPopupWindows);
         SetBoolFlag(values, NonLocalizable::AllowChildWindowSnapID, SettingId::AllowSnapChildWindows, m_settings.allowSnapChildWindows);
         SetBoolFlag(values, NonLocalizable::DisableRoundCornersOnSnapping, SettingId::DisableRoundCornersOnSnapping, m_settings.disableRoundCorners);
 
@@ -212,7 +212,7 @@ void FancyZonesSettings::LoadSettings()
             std::wstring apps = std::move(*val);
             std::vector<std::wstring> excludedApps;
             auto excludedUppercase = apps;
-            CharUpperBuffW(excludedUppercase.data(), (DWORD)excludedUppercase.length());
+            CharUpperBuffW(excludedUppercase.data(), static_cast<DWORD>(excludedUppercase.length()));
             std::wstring_view view(excludedUppercase);
             view = left_trim<wchar_t>(trim<wchar_t>(view));
 
@@ -236,7 +236,7 @@ void FancyZonesSettings::LoadSettings()
         if (auto val = values.get_int_value(NonLocalizable::OverlappingZonesAlgorithmID))
         {
             // Avoid undefined behavior
-            if (*val >= 0 || *val < (int)OverlappingZonesAlgorithm::EnumElements)
+            if (*val >= 0 && *val < static_cast<int>(OverlappingZonesAlgorithm::EnumElements))
             {
                 auto algorithm = (OverlappingZonesAlgorithm)*val;
                 if (m_settings.overlappingZonesAlgorithm != algorithm)

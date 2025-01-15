@@ -8,6 +8,7 @@
 #include <common/utils/logger_helper.h>
 #include <common/utils/ProcessWaiter.h>
 #include <common/utils/UnhandledExceptionHandler.h>
+#include <common/utils/gpo.h>
 
 #include <trace.h>
 
@@ -21,13 +22,18 @@ std::unique_ptr<KeyboardManagerEditor> editor = nullptr;
 const std::wstring instanceMutexName = L"Local\\PowerToys_KBMEditor_InstanceMutex";
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-                     _In_opt_ HINSTANCE hPrevInstance,
-                     _In_ LPWSTR    lpCmdLine,
-                     _In_ int       nCmdShow)
+                      _In_opt_ HINSTANCE /*hPrevInstance*/,
+                      _In_ LPWSTR /*lpCmdLine*/,
+                      _In_ int /*nCmdShow*/)
 {
-    UNREFERENCED_PARAMETER(hPrevInstance);
-
     LoggerHelpers::init_logger(KeyboardManagerConstants::ModuleName, L"Editor", LogSettings::keyboardManagerLoggerName);
+
+    if (powertoys_gpo::getConfiguredKeyboardManagerEnabledValue() == powertoys_gpo::gpo_rule_configured_disabled)
+    {
+        Logger::warn(L"Tried to start with a GPO policy setting the utility to always be disabled. Please contact your systems administrator.");
+        return 0;
+    }
+
     InitUnhandledExceptionHandler();
     Trace::RegisterProvider();
 
@@ -70,9 +76,26 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     {
         type = static_cast<KeyboardManagerEditorType>(_wtoi(cmdArgs[1]));
     }
-    
-    if (numArgs == 3)
+
+    std::wstring keysForShortcutToEdit = L"";
+    std::wstring action = L"";    
+
+    // do some parsing of the cmdline arg to see if we need to behave different
+    // like, single edit mode, or "delete" mode.    
+    // These extra args are from "OpenEditor" in the KeyboardManagerViewModel
+    if (numArgs >= 3)
     {
+        if (numArgs >= 4)
+        {
+            keysForShortcutToEdit = std::wstring(cmdArgs[3]);
+        }
+
+        if (numArgs >= 5)
+        {
+            action = std::wstring(cmdArgs[4]);
+        }
+
+
         std::wstring pid = std::wstring(cmdArgs[2]);
         Logger::trace(L"Editor started from the settings with pid {}", pid);
         if (!pid.empty())
@@ -98,12 +121,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         auto errorMessage = get_last_error_message(errorCode);
         Logger::error(L"Unable to start keyboard hook: {}", errorMessage.has_value() ? errorMessage.value() : L"");
         Trace::Error(errorCode, errorMessage.has_value() ? errorMessage.value() : L"", L"start_lowlevel_keyboard_hook.SetWindowsHookEx");
-        
+
         return -1;
     }
-    
-    editor->OpenEditorWindow(type);
-    
+
+    editor->OpenEditorWindow(type, keysForShortcutToEdit, action);
+
     editor = nullptr;
 
     Trace::UnregisterProvider();
@@ -143,7 +166,7 @@ bool KeyboardManagerEditor::StartLowLevelKeyboardHook()
     return (hook != nullptr);
 }
 
-void KeyboardManagerEditor::OpenEditorWindow(KeyboardManagerEditorType type)
+void KeyboardManagerEditor::OpenEditorWindow(KeyboardManagerEditorType type, std::wstring keysForShortcutToEdit, std::wstring action)
 {
     switch (type)
     {
@@ -151,7 +174,7 @@ void KeyboardManagerEditor::OpenEditorWindow(KeyboardManagerEditorType type)
         CreateEditKeyboardWindow(hInstance, keyboardManagerState, mappingConfiguration);
         break;
     case KeyboardManagerEditorType::ShortcutEditor:
-        CreateEditShortcutsWindow(hInstance, keyboardManagerState, mappingConfiguration);
+        CreateEditShortcutsWindow(hInstance, keyboardManagerState, mappingConfiguration, keysForShortcutToEdit, action);
     }
 }
 
@@ -201,6 +224,8 @@ LRESULT KeyboardManagerEditor::KeyHookProc(int nCode, WPARAM wParam, LPARAM lPar
     {
         event.lParam = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
         event.wParam = wParam;
+        event.lParam->vkCode = Helpers::EncodeKeyNumpadOrigin(event.lParam->vkCode, event.lParam->flags & LLKHF_EXTENDED);
+
         if (editor->HandleKeyboardHookEvent(&event) == 1)
         {
             // Reset Num Lock whenever a NumLock key down event is suppressed since Num Lock key state change occurs before it is intercepted by low level hooks

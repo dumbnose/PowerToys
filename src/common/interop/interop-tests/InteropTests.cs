@@ -4,8 +4,9 @@
 
 using System;
 using System.Threading;
-using interop;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using PowerToys.Interop;
 
 namespace Microsoft.Interop.Tests
 {
@@ -49,6 +50,9 @@ namespace Microsoft.Interop.Tests
                     serverPipe.Start();
                     ClientPipe.Start();
 
+                    // Test can be flaky as the pipes are still being set up and we end up receiving no message. Wait for a bit to avoid that.
+                    Thread.Sleep(100);
+
                     ClientPipe.Send(testString);
                     reset.WaitOne();
 
@@ -66,8 +70,6 @@ namespace Microsoft.Interop.Tests
                     ClientPipe.Dispose();
                 }
 
-                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                // TODO: set large fields to null
                 disposedValue = true;
             }
         }

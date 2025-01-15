@@ -6,10 +6,11 @@ using System;
 using System.IO.Abstractions.TestingHelpers;
 using System.Linq;
 using System.Text.Json;
+
 using Microsoft.PowerToys.Settings.UI.Library;
-using Microsoft.PowerToys.Settings.UI.Library.ViewModels;
 using Microsoft.PowerToys.Settings.UI.UnitTests.BackwardsCompatibility;
 using Microsoft.PowerToys.Settings.UI.UnitTests.Mocks;
+using Microsoft.PowerToys.Settings.UI.ViewModels;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -231,12 +232,12 @@ namespace ViewModelTests
             viewModel.AddRow("New size");
 
             // Assert
-            ImageSize newTestSize = viewModel.Sizes.Where<ImageSize>(x => x.Id == 0).First();
+            ImageSize newTestSize = viewModel.Sizes.First(x => x.Id == 0);
             Assert.AreEqual(newTestSize.Name, "New size 1");
-            Assert.AreEqual(newTestSize.Fit, (int)ResizeFit.Fit);
+            Assert.AreEqual(newTestSize.Fit, ResizeFit.Fit);
             Assert.AreEqual(newTestSize.Width, 854);
             Assert.AreEqual(newTestSize.Height, 480);
-            Assert.AreEqual(newTestSize.Unit, (int)ResizeUnit.Pixel);
+            Assert.AreEqual(newTestSize.Unit, ResizeUnit.Pixel);
         }
 
         [TestMethod]
@@ -248,7 +249,7 @@ namespace ViewModelTests
             ImageResizerViewModel viewModel = new ImageResizerViewModel(mockSettingsUtils.Object, SettingsRepository<GeneralSettings>.GetInstance(_mockGeneralSettingsUtils.Object), sendMockIPCConfigMSG, (string name) => name);
             viewModel.AddRow("New Size");
             int sizeOfOriginalArray = viewModel.Sizes.Count;
-            ImageSize deleteCandidate = viewModel.Sizes.Where<ImageSize>(x => x.Id == 0).First();
+            ImageSize deleteCandidate = viewModel.Sizes.First(x => x.Id == 0);
 
             // act
             viewModel.DeleteImageSize(0);
@@ -287,10 +288,10 @@ namespace ViewModelTests
             {
                 Id = 0,
                 Name = "Test",
-                Fit = (int)ResizeFit.Fit,
+                Fit = ResizeFit.Fit,
                 Width = 30,
                 Height = 30,
-                Unit = (int)ResizeUnit.Pixel,
+                Unit = ResizeUnit.Pixel,
             };
 
             double negativeWidth = -2.0;

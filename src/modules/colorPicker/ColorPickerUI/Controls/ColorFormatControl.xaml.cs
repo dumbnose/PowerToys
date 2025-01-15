@@ -4,12 +4,13 @@
 
 using System;
 using System.Globalization;
+using System.Linq;
 using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+
 using ColorPicker.Helpers;
 using ColorPicker.Models;
 
@@ -78,14 +79,16 @@ namespace ColorPicker.Controls
         private static void SelectedColorPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var self = (ColorFormatControl)d;
-            var colorText = self.ColorFormatModel.Convert((Color)e.NewValue);
+            var colorText = self.ColorFormatModel.GetColorText((Color)e.NewValue);
             self.ColorTextRepresentationTextBlock.Text = colorText;
+            self.ColorTextRepresentationTextBlock.ToolTip = colorText;
             self.SelectedColorCopyHelperText = string.Format(CultureInfo.InvariantCulture, "{0} {1}", self.ColorFormatModel.FormatName, colorText);
         }
 
         private static void ColorFormatModelPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             ((ColorFormatControl)d).FormatNameTextBlock.Text = ((ColorFormatModel)e.NewValue).FormatName;
+            ((ColorFormatControl)d).FormatNameTextBlock.ToolTip = ((ColorFormatModel)e.NewValue).FormatName;
         }
 
         private static void ColorCopiedBorderPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -110,10 +113,11 @@ namespace ColorPicker.Controls
                 return;
             }
 
-            var peer = UIElementAutomationPeer.FromElement(clipboardNotification);
+            var innerTextBlock = ((StackPanel)clipboardNotification).Children.OfType<TextBlock>().FirstOrDefault();
+            var peer = UIElementAutomationPeer.FromElement(innerTextBlock);
             if (peer == null)
             {
-                peer = UIElementAutomationPeer.CreatePeerForElement(clipboardNotification);
+                peer = UIElementAutomationPeer.CreatePeerForElement(innerTextBlock);
             }
 
             peer.RaiseAutomationEvent(AutomationEvents.MenuOpened);

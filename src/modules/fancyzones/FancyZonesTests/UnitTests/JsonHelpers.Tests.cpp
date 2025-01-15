@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include <filesystem>
 #include <fstream>
 #include <utility>
@@ -106,20 +106,21 @@ namespace FancyZonesUnitTests
             Assert::IsFalse(BackwardsCompatibility::DeviceIdData::IsValidDeviceId(deviceId));
         }
     };
+    
     TEST_CLASS (ZoneSetLayoutTypeUnitTest)
     {
         TEST_METHOD (ZoneSetLayoutTypeToString)
         {
             std::map<int, std::wstring> expectedMap = {
-                std::make_pair(-2, L"TypeToString_ERROR"),
-                std::make_pair(-1, L"blank"),
-                std::make_pair(0, L"focus"),
-                std::make_pair(1, L"columns"),
-                std::make_pair(2, L"rows"),
-                std::make_pair(3, L"grid"),
-                std::make_pair(4, L"priority-grid"),
-                std::make_pair(5, L"custom"),
-                std::make_pair(6, L"TypeToString_ERROR"),
+                std::make_pair(-1, L"TypeToString_ERROR"),
+                std::make_pair(0, L"blank"),
+                std::make_pair(1, L"focus"),
+                std::make_pair(2, L"columns"),
+                std::make_pair(3, L"rows"),
+                std::make_pair(4, L"grid"),
+                std::make_pair(5, L"priority-grid"),
+                std::make_pair(6, L"custom"),
+                std::make_pair(7, L"TypeToString_ERROR"),
             };
 
             for (const auto& expected : expectedMap)
@@ -238,8 +239,8 @@ namespace FancyZonesUnitTests
 
         TEST_METHOD (FromJsonInvalidTypes)
         {
-            json::JsonObject m_json = json::JsonObject::Parse(L"{\"ref-width\": true, \"ref-height\": \"string\", \"zones\": [{\"X\": \"11\", \"Y\": \"22\", \"width\": \".\", \"height\": \"*\"}, {\"X\": null, \"Y\": {}, \"width\": [], \"height\": \"абвгд\"}]}");
-            Assert::IsFalse(CanvasLayoutInfoJSON::FromJson(m_json).has_value());
+            json::JsonObject local_json = json::JsonObject::Parse(L"{\"ref-width\": true, \"ref-height\": \"string\", \"zones\": [{\"X\": \"11\", \"Y\": \"22\", \"width\": \".\", \"height\": \"*\"}, {\"X\": null, \"Y\": {}, \"width\": [], \"height\": \"абвгд\"}]}");
+            Assert::IsFalse(CanvasLayoutInfoJSON::FromJson(local_json).has_value());
         }
     };
 
@@ -679,15 +680,6 @@ namespace FancyZonesUnitTests
 
     TEST_CLASS (ZoneSetDataUnitTest)
     {
-        TEST_METHOD (ToJsonGeneral)
-        {
-            json::JsonObject expected = json::JsonObject::Parse(L"{\"uuid\": \"{33A2B101-06E0-437B-A61E-CDBECF502906}\", \"type\": \"rows\"}");
-            ZoneSetData data{ L"{33A2B101-06E0-437B-A61E-CDBECF502906}", ZoneSetLayoutType::Rows };
-            const auto actual = ZoneSetDataJSON::ToJson(data);
-            auto res = CustomAssert::CompareJsonObjects(expected, actual);
-            Assert::IsTrue(res.first, res.second.c_str());
-        }
-
         TEST_METHOD (FromJsonGeneral)
         {
             ZoneSetData expected{ L"{33A2B101-06E0-437B-A61E-CDBECF502906}", ZoneSetLayoutType::Columns };
@@ -721,9 +713,8 @@ namespace FancyZonesUnitTests
 
         TEST_METHOD (FromJsonMissingKeys)
         {
-            ZoneSetData data{ L"{33A2B101-06E0-437B-A61E-CDBECF502906}", ZoneSetLayoutType::Columns };
-            const auto json = ZoneSetDataJSON::ToJson(data);
-
+            const auto json = json::JsonObject::Parse(L"{\"uuid\": \"{33A2B101-06E0-437B-A61E-CDBECF502906}\", \"type\": \"columns\"}");
+            
             auto iter = json.First();
             while (iter.HasCurrent())
             {

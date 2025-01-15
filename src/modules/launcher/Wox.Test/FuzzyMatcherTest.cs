@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Wox.Infrastructure;
 using Wox.Plugin;
@@ -156,7 +157,7 @@ namespace Wox.Test
         [DataRow("goo", "Google Chrome", StringMatcher.SearchPrecisionScore.Regular, true)]
         [DataRow("chr", "Google Chrome", StringMatcher.SearchPrecisionScore.Low, true)]
         [DataRow("chr", "Chrome", StringMatcher.SearchPrecisionScore.Regular, true)]
-        [DataRow("chr", "Help cure hope raise on mind entity Chrome", StringMatcher.SearchPrecisionScore.Regular, false)]
+        [DataRow("chr", "Help cure hope raise on mind entity Chrome", StringMatcher.SearchPrecisionScore.Regular, true)]
         [DataRow("chr", "Help cure hope raise on mind entity Chrome", StringMatcher.SearchPrecisionScore.Low, true)]
         [DataRow("chr", "Candy Crush Saga from King", StringMatcher.SearchPrecisionScore.Regular, false)]
         [DataRow("chr", "Candy Crush Saga from King", StringMatcher.SearchPrecisionScore.None, true)]
@@ -203,7 +204,7 @@ namespace Wox.Test
         [DataRow("mic", MicrosoftSqlServerManagementStudio, StringMatcher.SearchPrecisionScore.Regular, true)]
         [DataRow("chr", "Shutdown", StringMatcher.SearchPrecisionScore.Regular, false)]
         [DataRow("mssms", MicrosoftSqlServerManagementStudio, StringMatcher.SearchPrecisionScore.Regular, false)]
-        [DataRow("chr", "Change settings for text-to-speech and for speech recognition (if installed).", StringMatcher.SearchPrecisionScore.Regular, false)]
+        [DataRow("chr", "Change settings for text-to-speech and for speech recognition (if installed).", StringMatcher.SearchPrecisionScore.Regular, true)]
         [DataRow("ch r", "Change settings for text-to-speech and for speech recognition (if installed).", StringMatcher.SearchPrecisionScore.Regular, true)]
         [DataRow("a test", "This is a test", StringMatcher.SearchPrecisionScore.Regular, true)]
         [DataRow("test", "This is a test", StringMatcher.SearchPrecisionScore.Regular, true)]

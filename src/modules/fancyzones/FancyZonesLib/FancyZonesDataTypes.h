@@ -16,7 +16,7 @@ namespace FancyZonesDataTypes
 {
     enum class ZoneSetLayoutType : int
     {
-        Blank = -1,
+        Blank,
         Focus,
         Columns,
         Rows,
@@ -36,8 +36,8 @@ namespace FancyZonesDataTypes
 
     struct CanvasLayoutInfo
     {
-        int lastWorkAreaWidth;
-        int lastWorkAreaHeight;
+        int lastWorkAreaWidth{};
+        int lastWorkAreaHeight{};
 
         struct Rect
         {
@@ -47,7 +47,7 @@ namespace FancyZonesDataTypes
             int height;
         };
         std::vector<CanvasLayoutInfo::Rect> zones;
-        int sensitivityRadius;
+        int sensitivityRadius{};
     };
 
     struct GridLayoutInfo
@@ -95,29 +95,29 @@ namespace FancyZonesDataTypes
         std::vector<int> m_rowsPercents;
         std::vector<int> m_columnsPercents;
         std::vector<std::vector<int>> m_cellChildMap;
-        bool m_showSpacing;
-        int m_spacing;
-        int m_sensitivityRadius;
+        bool m_showSpacing{};
+        int m_spacing{};
+        int m_sensitivityRadius{};
     };
 
     struct CustomLayoutData
     {
         std::wstring name;
-        CustomLayoutType type;
+        CustomLayoutType type{};
         std::variant<CanvasLayoutInfo, GridLayoutInfo> info;
     };
 
     struct ZoneSetData
     {
         std::wstring uuid;
-        ZoneSetLayoutType type;
+        ZoneSetLayoutType type{};
     };
 
     struct DeviceId
     {
         std::wstring id;
         std::wstring instanceId;
-        int number;
+        int number{};
 
         bool isDefault() const noexcept;
         std::wstring toString() const noexcept;
@@ -125,7 +125,7 @@ namespace FancyZonesDataTypes
 
     struct MonitorId
     {
-        HMONITOR monitor;
+        HMONITOR monitor{};
         DeviceId deviceId;
         std::wstring serialNumber;
 
@@ -135,27 +135,27 @@ namespace FancyZonesDataTypes
     struct WorkAreaId
     {
         MonitorId monitorId;
-        GUID virtualDesktopId;
+        GUID virtualDesktopId{};
 
         std::wstring toString() const noexcept;
-    }; 
+    };
 
     struct AppZoneHistoryData
     {
         std::unordered_map<DWORD, HWND> processIdToHandleMap; // Maps process id(DWORD) of application to zoned window handle(HWND)
 
-        std::wstring zoneSetUuid;
-        WorkAreaId workAreaId;
-        ZoneIndexSet zoneIndexSet;
+        GUID layoutId = {};
+        WorkAreaId workAreaId = {};
+        ZoneIndexSet zoneIndexSet = {};
     };
 
     struct DeviceInfoData
     {
         ZoneSetData activeZoneSet;
-        bool showSpacing;
-        int spacing;
-        int zoneCount;
-        int sensitivityRadius;
+        bool showSpacing{};
+        int spacing{};
+        int zoneCount{};
+        int sensitivityRadius{};
     };
 
     inline bool operator==(const ZoneSetData& lhs, const ZoneSetData& rhs)
@@ -194,7 +194,7 @@ namespace FancyZonesDataTypes
         {
             return lhs.monitor == rhs.monitor;
         }
-        
+
         if (!lhs.serialNumber.empty() && !rhs.serialNumber.empty())
         {
             bool serialNumbersEqual = lhs.serialNumber == rhs.serialNumber;
@@ -209,14 +209,12 @@ namespace FancyZonesDataTypes
 
     inline bool operator==(const WorkAreaId& lhs, const WorkAreaId& rhs)
     {
-        bool vdEqual = (lhs.virtualDesktopId == rhs.virtualDesktopId || lhs.virtualDesktopId == GUID_NULL || rhs.virtualDesktopId == GUID_NULL);
-        return vdEqual && lhs.monitorId == rhs.monitorId;
+        return lhs.virtualDesktopId == rhs.virtualDesktopId && lhs.monitorId == rhs.monitorId;
     }
 
     inline bool operator!=(const WorkAreaId& lhs, const WorkAreaId& rhs)
     {
-        bool vdEqual = (lhs.virtualDesktopId == rhs.virtualDesktopId || lhs.virtualDesktopId == GUID_NULL || rhs.virtualDesktopId == GUID_NULL);
-        return !vdEqual || lhs.monitorId != rhs.monitorId;
+        return lhs.virtualDesktopId != rhs.virtualDesktopId || lhs.monitorId != rhs.monitorId;
     }
 
     inline bool operator<(const WorkAreaId& lhs, const WorkAreaId& rhs)
@@ -232,13 +230,18 @@ namespace FancyZonesDataTypes
                    lhs.virtualDesktopId.Data2 < rhs.virtualDesktopId.Data2 ||
                    lhs.virtualDesktopId.Data3 < rhs.virtualDesktopId.Data3;
         }
-        
+
         if (!lhs.monitorId.serialNumber.empty() || rhs.monitorId.serialNumber.empty())
         {
             return lhs.monitorId.serialNumber < rhs.monitorId.serialNumber;
         }
 
         return lhs.monitorId.deviceId < rhs.monitorId.deviceId;
+    }
+
+    inline bool operator==(const AppZoneHistoryData& lhs, const AppZoneHistoryData& rhs)
+    {
+        return lhs.layoutId == rhs.layoutId && lhs.workAreaId == rhs.workAreaId && lhs.zoneIndexSet == rhs.zoneIndexSet && lhs.processIdToHandleMap == rhs.processIdToHandleMap;
     }
 }
 
@@ -247,7 +250,7 @@ namespace std
     template<>
     struct hash<FancyZonesDataTypes::WorkAreaId>
     {
-        size_t operator()(const FancyZonesDataTypes::WorkAreaId& Value) const
+        size_t operator()(const FancyZonesDataTypes::WorkAreaId& /*Value*/) const
         {
             return 0;
         }

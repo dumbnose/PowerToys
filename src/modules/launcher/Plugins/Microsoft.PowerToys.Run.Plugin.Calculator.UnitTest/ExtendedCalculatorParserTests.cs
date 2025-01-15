@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Microsoft.PowerToys.Run.Plugin.Calculator.UnitTests
@@ -37,8 +38,6 @@ namespace Microsoft.PowerToys.Run.Plugin.Calculator.UnitTests
 
         [DataTestMethod]
         [DataRow("test")]
-        [DataRow("pi(2)")] // Incorrect input, constant is being treated as a function.
-        [DataRow("e(2)")]
         [DataRow("[10,10]")] // '[10,10]' is interpreted as array by mages engine
         public void Interpret_NoResult_WhenCalled(string input)
         {
@@ -74,6 +73,8 @@ namespace Microsoft.PowerToys.Run.Plugin.Calculator.UnitTests
                 new object[] { "e*2", 5.43656365691809M },
                 new object[] { "ln(3)",  1.09861228866810M },
                 new object[] { "log(3)", 0.47712125471966M },
+                new object[] { "log2(3)", 1.58496250072116M },
+                new object[] { "log10(3)", 0.47712125471966M },
                 new object[] { "ln(e)", 1M },
                 new object[] { "cosh(0)", 1M },
             };
@@ -166,6 +167,10 @@ namespace Microsoft.PowerToys.Run.Plugin.Calculator.UnitTests
         [DataTestMethod]
         [DataRow("log(3)", true)]
         [DataRow("ln(3)", true)]
+        [DataRow("log2(3)", true)]
+        [DataRow("log10(3)", true)]
+        [DataRow("log2", false)]
+        [DataRow("log10", false)]
         [DataRow("log", false)]
         [DataRow("ln", false)]
         [DataRow("ceil(2 * (pi ^ 2))", true)]
@@ -174,6 +179,8 @@ namespace Microsoft.PowerToys.Run.Plugin.Calculator.UnitTests
         [DataRow("abcde", false)]
         [DataRow("1 + 2 +", false)]
         [DataRow("1+2*", false)]
+        [DataRow("1+2/", false)]
+        [DataRow("1+2%", false)]
         [DataRow("1 && 3 &&", false)]
         [DataRow("sqrt( 36)", true)]
         [DataRow("max 4", false)]
@@ -185,6 +192,13 @@ namespace Microsoft.PowerToys.Run.Plugin.Calculator.UnitTests
         [DataRow("cos", false)]
         [DataRow("abs", false)]
         [DataRow("1+1.1e3", true)]
+        [DataRow("randi(8)", true)]
+        [DataRow("randi()", false)]
+        [DataRow("randi(0.5)", true)]
+        [DataRow("rand()", true)]
+        [DataRow("rand(0.5)", false)]
+        [DataRow("0X78AD+0o123", true)]
+        [DataRow("0o9", false)]
         public void InputValid_TestValid_WhenCalled(string input, bool valid)
         {
             // Act
@@ -220,6 +234,9 @@ namespace Microsoft.PowerToys.Run.Plugin.Calculator.UnitTests
                new object[] { "sign(2)", +1M },
                new object[] { "abs(-2)", 2M },
                new object[] { "abs(2)", 2M },
+               new object[] { "0+(1*2)/(0+1)", 2M }, // Validate that division by "(0+1)" is not interpret as division by zero.
+               new object[] { "0+(1*2)/0.5", 4M }, // Validate that division by number with decimal digits is not interpret as division by zero.
+               new object[] { "0+(1*2)/0o004", 0.5M }, // Validate that division by an octal number with zeroes is not treated as division by zero.
            };
 
         [DataTestMethod]
@@ -230,8 +247,33 @@ namespace Microsoft.PowerToys.Run.Plugin.Calculator.UnitTests
             var engine = new CalculateEngine();
 
             // Act
-            // Using InvariantCulture since this is internal
-            var result = engine.Interpret(input, CultureInfo.InvariantCulture, out _);
+            // Using en-us culture to have a fixed number style
+            var result = engine.Interpret(input, new CultureInfo("en-us", false), out _);
+
+            // Assert
+            Assert.IsNotNull(result);
+            Assert.AreEqual(expectedResult, result.Result);
+        }
+
+        private static IEnumerable<object[]> Interpret_TestScientificNotation_WhenCalled_Data =>
+           new[]
+           {
+               new object[] { "0.2E1", "en-US", 2M },
+               new object[] { "0,2E1", "pt-PT", 2M },
+           };
+
+        [DataTestMethod]
+        [DynamicData(nameof(Interpret_TestScientificNotation_WhenCalled_Data))]
+        public void Interpret_TestScientificNotation_WhenCalled(string input, string sourceCultureName, decimal expectedResult)
+        {
+            // Arrange
+            var translator = NumberTranslator.Create(new CultureInfo(sourceCultureName, false), new CultureInfo("en-US", false));
+            var engine = new CalculateEngine();
+
+            // Act
+            // Using en-us culture to have a fixed number style
+            var translatedInput = translator.Translate(input);
+            var result = engine.Interpret(translatedInput, new CultureInfo("en-US", false), out _);
 
             // Assert
             Assert.IsNotNull(result);

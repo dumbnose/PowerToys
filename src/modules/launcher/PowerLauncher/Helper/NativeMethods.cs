@@ -7,7 +7,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Text;
-using Microsoft.Win32.SafeHandles;
+
 using static PowerLauncher.Helper.WindowsInteropHelper;
 
 // http://blogs.microsoft.co.il/arik/2010/05/28/wpf-single-instance-application/
@@ -70,6 +70,9 @@ namespace PowerLauncher.Helper
         [DllImport("user32.DLL", CharSet = CharSet.Unicode)]
         internal static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
 
+        [DllImport("shell32.dll")]
+        public static extern int SHQueryUserNotificationState(out UserNotificationState state);
+
         public static string[] CommandLineToArgvW(string cmdLine)
         {
             IntPtr argv = IntPtr.Zero;
@@ -101,7 +104,7 @@ namespace PowerLauncher.Helper
         }
     }
 
-    // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey
+    // https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-registerhotkey
     internal enum HOTKEY_MODIFIERS : uint
     {
         ALT = 0x0001,
@@ -112,7 +115,7 @@ namespace PowerLauncher.Helper
         CHECK_FLAGS = 0x000F, // modifiers to compare between keys.
     }
 
-    // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
+    // https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-showwindow
     internal enum SW : int
     {
         HIDE = 0x0000,
@@ -242,5 +245,16 @@ namespace PowerLauncher.Helper
         // It's relatively safe to reuse.
         TRAYMOUSEMESSAGE = 0x800, // WM_USER + 1024
         APP = 0x8000,
+    }
+
+    internal enum UserNotificationState : int
+    {
+        QUNS_NOT_PRESENT = 1,
+        QUNS_BUSY,
+        QUNS_RUNNING_D3D_FULL_SCREEN,
+        QUNS_PRESENTATION_MODE,
+        QUNS_ACCEPTS_NOTIFICATIONS,
+        QUNS_QUIET_TIME,
+        QUNS_APP,
     }
 }

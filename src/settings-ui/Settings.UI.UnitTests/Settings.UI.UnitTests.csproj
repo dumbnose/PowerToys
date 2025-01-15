@@ -1,38 +1,25 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\Version.props" />
+  <!-- Look at Directory.Build.props in root for common stuff as well -->
+  <Import Project="..\..\Common.Dotnet.CsWinRT.props" />
+
   <PropertyGroup>
-    <TargetFramework>net6.0-windows</TargetFramework>
     <IsPackable>false</IsPackable>
-    
-    <Version>$(Version).0</Version>
-  </PropertyGroup>
+    <OutputPath>..\..\..\$(Configuration)\$(Platform)\tests\SettingsTests\</OutputPath>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutputPath>..\..\..\x64\Debug\SettingsTests\</OutputPath>
-    <DebugType>full</DebugType>
-    <DebugSymbols>true</DebugSymbols>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutputPath>..\..\..\x64\Release\SettingsTest\</OutputPath>
+    <!-- TODO: fix issues and reenable -->
+    <!-- These are caused by streamjsonrpc dependency on Microsoft.VisualStudio.Threading.Analyzers -->
+    <!-- We might want to add that to the project and fix the issues as well -->
+    <NoWarn>VSTHRD002;VSTHRD110;VSTHRD100;VSTHRD200;VSTHRD101</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-    <PackageReference Include="Moq" Version="4.16.1" />
-    <PackageReference Include="MSTest.TestAdapter" Version="2.2.3" />
-    <PackageReference Include="MSTest.TestFramework" Version="2.2.3" />
-    <PackageReference Include="coverlet.collector" Version="3.1.2">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="System.IO.Abstractions.TestingHelpers" Version="12.2.3" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="MSTest" />
+    <PackageReference Include="System.IO.Abstractions.TestingHelpers" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Settings.UI.Library\Settings.UI.Library.csproj" />
+    <ProjectReference Include="..\Settings.UI\PowerToys.Settings.csproj" />
   </ItemGroup>
-
 </Project>

@@ -3,12 +3,14 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.ComponentModel.Composition;
+using System.Globalization;
 using System.Threading;
 using System.Windows;
-using ColorPicker.Helpers;
+
 using ColorPicker.Mouse;
-using Common.UI;
 using ManagedCommon;
+using Microsoft.PowerToys.Telemetry;
 
 namespace ColorPickerUI
 {
@@ -17,14 +19,36 @@ namespace ColorPickerUI
     /// </summary>
     public partial class App : Application, IDisposable
     {
+        public ETWTrace EtwTrace { get; private set; } = new ETWTrace();
+
         private Mutex _instanceMutex;
         private static string[] _args;
         private int _powerToysRunnerPid;
         private bool disposedValue;
-        private ThemeManager _themeManager;
+
+        private CancellationTokenSource NativeThreadCTS { get; set; }
+
+        [Export]
+        private static CancellationToken ExitToken { get; set; }
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            try
+            {
+                string appLanguage = LanguageHelper.LoadLanguage();
+                if (!string.IsNullOrEmpty(appLanguage))
+                {
+                    System.Threading.Thread.CurrentThread.CurrentUICulture = new CultureInfo(appLanguage);
+                }
+            }
+            catch (CultureNotFoundException ex)
+            {
+                Logger.LogError("CultureNotFoundException: " + ex.Message);
+            }
+
+            NativeThreadCTS = new CancellationTokenSource();
+            ExitToken = NativeThreadCTS.Token;
+
             _args = e?.Args;
 
             // allow only one instance of color picker
@@ -33,7 +57,7 @@ namespace ColorPickerUI
             {
                 Logger.LogWarning("There is ColorPicker instance running. Exiting Color Picker");
                 _instanceMutex = null;
-                Environment.Exit(0);
+                Shutdown(0);
                 return;
             }
 
@@ -45,7 +69,8 @@ namespace ColorPickerUI
                 RunnerHelper.WaitForPowerToysRunner(_powerToysRunnerPid, () =>
                 {
                     Logger.LogInfo("PowerToys Runner exited. Exiting ColorPicker");
-                    Environment.Exit(0);
+                    NativeThreadCTS.Cancel();
+                    Dispatcher.Invoke(Shutdown);
                 });
             }
             else
@@ -53,7 +78,6 @@ namespace ColorPickerUI
                 _powerToysRunnerPid = -1;
             }
 
-            _themeManager = new ThemeManager(this);
             base.OnStartup(e);
         }
 
@@ -75,12 +99,9 @@ namespace ColorPickerUI
                 if (disposing)
                 {
                     _instanceMutex?.Dispose();
+                    EtwTrace?.Dispose();
                 }
 
-                _themeManager?.Dispose();
-
-                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                // TODO: set large fields to null
                 disposedValue = true;
             }
         }

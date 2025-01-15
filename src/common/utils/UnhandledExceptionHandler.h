@@ -93,7 +93,7 @@ inline std::wstring GetModuleName(HANDLE process, const STACKFRAME64& stack)
         return std::wstring();
     }
 
-    if (!GetModuleFileNameW((HINSTANCE)moduleBase, modulePath, MAX_PATH))
+    if (!GetModuleFileNameW(reinterpret_cast<HINSTANCE>(moduleBase), modulePath, MAX_PATH))
     {
         Logger::error(L"Failed to get a module path. {}", get_last_error_or_default(GetLastError()));
         return std::wstring();
@@ -105,7 +105,7 @@ inline std::wstring GetModuleName(HANDLE process, const STACKFRAME64& stack)
 
 inline std::wstring GetName(HANDLE process, const STACKFRAME64& stack)
 {
-    static IMAGEHLP_SYMBOL64* pSymbol = (IMAGEHLP_SYMBOL64*)malloc(sizeof(IMAGEHLP_SYMBOL64) + MAX_PATH * sizeof(TCHAR));
+    static IMAGEHLP_SYMBOL64* pSymbol = static_cast<IMAGEHLP_SYMBOL64*>(malloc(sizeof(IMAGEHLP_SYMBOL64) + MAX_PATH * sizeof(TCHAR)));
     if (!pSymbol)
     {
         return std::wstring();
@@ -156,7 +156,7 @@ inline void LogStackTrace()
         Logger::error(L"Failed to capture context. {}", get_last_error_or_default(GetLastError()));
         return;
     }
-    
+
     STACKFRAME64 stack;
     memset(&stack, 0, sizeof(STACKFRAME64));
 
@@ -238,14 +238,14 @@ inline LONG WINAPI UnhandledExceptionHandler(PEXCEPTION_POINTERS info)
 }
 
 /* Handler to trap abort() calls */
-inline void AbortHandler(int signal_number)
+inline void AbortHandler(int /*signal_number*/)
 {
     Logger::error("--- ABORT");
     try
     {
         LogStackTrace();
     }
-    catch(...)
+    catch (...)
     {
         Logger::error("Failed to log stack trace on abort");
         Logger::flush();
@@ -271,9 +271,9 @@ inline void InitUnhandledExceptionHandler(void)
         // Global handler for unhandled exceptions
         SetUnhandledExceptionFilter(UnhandledExceptionHandler);
         // Handler for abort()
-        signal(SIGABRT, &AbortHandler);    
+        signal(SIGABRT, &AbortHandler);
     }
-    catch(...)
+    catch (...)
     {
         Logger::error("Failed to init global unhandled exception handler");
     }

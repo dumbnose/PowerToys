@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+
 using Microsoft.Win32;
 using Wox.Plugin;
 using Wox.Plugin.Logger;
@@ -90,24 +91,24 @@ namespace Wox.Infrastructure.Exception
             sb.AppendLine();
 
             // GlobalAssemblyCache - .NET Core and .NET 5 and later: false in all cases.
-            // Source https://docs.microsoft.com/en-us/dotnet/api/system.reflection.assembly.globalassemblycache?view=net-6.0
-            foreach (var ass in AppDomain.CurrentDomain.GetAssemblies())
+            // Source https://learn.microsoft.com/dotnet/api/system.reflection.assembly.globalassemblycache?view=net-6.0
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 sb.Append("* ");
-                sb.Append(ass.FullName);
+                sb.Append(assembly.FullName);
                 sb.Append(" (");
 
-                if (ass.IsDynamic)
+                if (assembly.IsDynamic)
                 {
                     sb.Append("dynamic assembly doesn't has location");
                 }
-                else if (string.IsNullOrEmpty(ass.Location))
+                else if (string.IsNullOrEmpty(assembly.Location))
                 {
                     sb.Append("location is null or empty");
                 }
                 else
                 {
-                    sb.Append(ass.Location);
+                    sb.Append(assembly.Location);
                 }
 
                 sb.AppendLine(")");
@@ -116,7 +117,7 @@ namespace Wox.Infrastructure.Exception
             return sb.ToString();
         }
 
-        // http://msdn.microsoft.com/en-us/library/hh925568%28v=vs.110%29.aspx
+        // http://msdn.microsoft.com/library/hh925568%28v=vs.110%29.aspx
         private static List<string> GetFrameworkVersionFromRegistry()
         {
             try
@@ -127,7 +128,7 @@ namespace Wox.Infrastructure.Exception
                     foreach (string versionKeyName in ndpKey.GetSubKeyNames())
                     {
                         // Using InvariantCulture since this is internal and involves version key
-                        if (versionKeyName.StartsWith("v", StringComparison.InvariantCulture))
+                        if (versionKeyName.StartsWith('v'))
                         {
                             RegistryKey versionKey = ndpKey.OpenSubKey(versionKeyName);
                             string name = (string)versionKey.GetValue("Version", string.Empty);

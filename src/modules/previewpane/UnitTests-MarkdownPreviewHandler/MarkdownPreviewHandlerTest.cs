@@ -6,8 +6,8 @@ using System;
 using System.Drawing;
 using System.Threading;
 using System.Windows.Forms;
+
 using Microsoft.PowerToys.PreviewHandler.Markdown;
-using Microsoft.PowerToys.STATestExtension;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -17,7 +17,7 @@ namespace MarkdownPreviewHandlerUnitTests
     public class MarkdownPreviewHandlerTest
     {
         // A long timeout is needed. WebView2 can take a long time to load the first time in some CI systems.
-        private static readonly int HardTimeoutInMilliseconds = 30000;
+        private static readonly int HardTimeoutInMilliseconds = 60000;
         private static readonly int SleepTimeInMilliseconds = 200;
 
         [TestMethod]

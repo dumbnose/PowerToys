@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation
+﻿// Copyright (c) Microsoft Corporation
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -9,20 +9,22 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Windows;
-using Common.UI;
-using interop;
+
 using ManagedCommon;
 using Microsoft.PowerLauncher.Telemetry;
 using Microsoft.PowerToys.Telemetry;
 using PowerLauncher.Helper;
 using PowerLauncher.Plugin;
 using PowerLauncher.ViewModel;
+using PowerToys.Interop;
+using Windows.Globalization;
 using Wox;
 using Wox.Infrastructure;
 using Wox.Infrastructure.Image;
 using Wox.Infrastructure.UserSettings;
 using Wox.Plugin;
 using Wox.Plugin.Logger;
+
 using Stopwatch = Wox.Infrastructure.Stopwatch;
 
 namespace PowerLauncher
@@ -31,7 +33,12 @@ namespace PowerLauncher
     {
         public static PublicAPIInstance API { get; private set; }
 
+        private readonly Alphabet _alphabet = new Alphabet();
+
+        public static CancellationTokenSource NativeThreadCTS { get; private set; }
+
         private static bool _disposed;
+
         private PowerToysRunSettings _settings;
         private MainViewModel _mainVM;
         private MainWindow _mainWindow;
@@ -39,14 +46,36 @@ namespace PowerLauncher
         private SettingWindowViewModel _settingsVM;
         private StringMatcher _stringMatcher;
         private SettingsReader _settingsReader;
+        private ETWTrace etwTrace = new ETWTrace();
 
         // To prevent two disposals running at the same time.
-        private static readonly object _disposingLock = new object();
+        private static readonly Lock _disposingLock = new Lock();
 
         [STAThread]
         public static void Main()
         {
+            NativeThreadCTS = new CancellationTokenSource();
+
+            try
+            {
+                string appLanguage = LanguageHelper.LoadLanguage();
+                if (!string.IsNullOrEmpty(appLanguage))
+                {
+                    System.Threading.Thread.CurrentThread.CurrentUICulture = new CultureInfo(appLanguage);
+                }
+            }
+            catch (CultureNotFoundException ex)
+            {
+                Logger.LogError("CultureNotFoundException: " + ex.Message);
+            }
+
             Log.Info($"Starting PowerToys Run with PID={Environment.ProcessId}", typeof(App));
+            if (PowerToys.GPOWrapperProjection.GPOWrapper.GetConfiguredPowerLauncherEnabledValue() == PowerToys.GPOWrapperProjection.GpoRuleConfigured.Disabled)
+            {
+                Log.Warn("Tried to start with a GPO policy setting the utility to always be disabled. Please contact your systems administrator.", typeof(App));
+                return;
+            }
+
             int powerToysPid = GetPowerToysPId();
             if (powerToysPid != 0)
             {
@@ -67,21 +96,26 @@ namespace PowerLauncher
             using (var application = new App())
             {
                 application.InitializeComponent();
-                new Thread(() =>
-                {
-                    var eventHandle = new EventWaitHandle(false, EventResetMode.AutoReset, Constants.RunExitEvent());
-                    if (eventHandle.WaitOne())
+
+                Common.UI.NativeEventWaiter.WaitForEventLoop(
+                    Constants.RunExitEvent(),
+                    () =>
                     {
                         Log.Warn("RunExitEvent was signaled. Exiting PowerToys", typeof(App));
+                        application.etwTrace?.Dispose();
+                        application.etwTrace = null;
                         ExitPowerToys(application);
-                    }
-                }).Start();
+                    },
+                    Application.Current.Dispatcher,
+                    NativeThreadCTS.Token);
 
                 if (powerToysPid != 0)
                 {
                     RunnerHelper.WaitForPowerToysRunner(powerToysPid, () =>
                     {
                         Log.Info($"Runner with pid={powerToysPid} exited. Exiting PowerToys Run", typeof(App));
+                        application.etwTrace?.Dispose();
+                        application.etwTrace = null;
                         ExitPowerToys(application);
                     });
                 }
@@ -107,24 +141,28 @@ namespace PowerLauncher
                 RegisterAppDomainExceptions();
                 RegisterDispatcherUnhandledException();
 
-                _themeManager = new ThemeManager(this);
-                ImageLoader.Initialize(_themeManager.GetCurrentTheme());
+                ImageLoader.Initialize();
 
                 _settingsVM = new SettingWindowViewModel();
                 _settings = _settingsVM.Settings;
                 _settings.StartedFromPowerToysRunner = e.Args.Contains("--started-from-runner");
 
-                _stringMatcher = new StringMatcher();
+                _alphabet.Initialize(_settings);
+                _stringMatcher = new StringMatcher(_alphabet);
                 StringMatcher.Instance = _stringMatcher;
                 _stringMatcher.UserSettingSearchPrecision = _settings.QuerySearchPrecision;
 
-                _mainVM = new MainViewModel(_settings);
-                _mainWindow = new MainWindow(_settings, _mainVM);
-                API = new PublicAPIInstance(_settingsVM, _mainVM, _themeManager);
+                _mainVM = new MainViewModel(_settings, NativeThreadCTS.Token);
+                _mainWindow = new MainWindow(_settings, _mainVM, NativeThreadCTS.Token);
+                _themeManager = new ThemeManager(_settings, _mainWindow);
+                API = new PublicAPIInstance(_settingsVM, _mainVM, _alphabet, _themeManager);
                 _settingsReader = new SettingsReader(_settings, _themeManager);
                 _settingsReader.ReadSettings();
 
                 PluginManager.InitializePlugins(API);
+
+                _mainVM.RefreshPluginsOverview();
+                _settingsReader.SetRefreshPluginsOverviewCallback(() => _mainVM.RefreshPluginsOverview());
 
                 Current.MainWindow = _mainWindow;
                 Current.MainWindow.Title = Constant.ExeFileName;
@@ -133,20 +171,12 @@ namespace PowerLauncher
 
                 _settingsReader.ReadSettingsOnChange();
 
-                _mainVM.MainWindowVisibility = Visibility.Visible;
-                _mainVM.ColdStartFix();
-                _themeManager.ThemeChanged += OnThemeChanged;
                 textToLog.AppendLine("End PowerToys Run startup ----------------------------------------------------  ");
 
                 bootTime.Stop();
 
                 Log.Info(textToLog.ToString(), GetType());
                 PowerToysTelemetry.Log.WriteEvent(new LauncherBootEvent() { BootTimeMs = bootTime.ElapsedMilliseconds });
-
-                // [Conditional("RELEASE")]
-                // check update every 5 hours
-
-                // check updates on startup
             });
         }
 
@@ -154,14 +184,7 @@ namespace PowerLauncher
         {
             SingleInstance<App>.SingleInstanceMutex.Close();
 
-            try
-            {
-                app.Dispose();
-            }
-            finally
-            {
-                Environment.Exit(0);
-            }
+            app.Dispatcher.Invoke(() => app.Shutdown());
         }
 
         private static int GetPowerToysPId()
@@ -194,6 +217,7 @@ namespace PowerLauncher
 
             Current.Exit += (s, e) =>
             {
+                NativeThreadCTS.Cancel();
                 Log.Info("Application.Current.Exit", GetType());
                 Dispose();
             };
@@ -203,17 +227,6 @@ namespace PowerLauncher
                 Log.Info("Application.Current.SessionEnding", GetType());
                 Dispose();
             };
-        }
-
-        /// <summary>
-        /// Callback when windows theme is changed.
-        /// </summary>
-        /// <param name="oldTheme">Previous Theme</param>
-        /// <param name="newTheme">Current Theme</param>
-        private void OnThemeChanged(Theme oldTheme, Theme newTheme)
-        {
-            ImageLoader.UpdateIconPath(newTheme);
-            _mainVM.Query();
         }
 
         /// <summary>
@@ -262,33 +275,18 @@ namespace PowerLauncher
                 Log.Info("Start PowerToys Run Exit----------------------------------------------------  ", GetType());
                 if (disposing)
                 {
-                    if (_themeManager != null)
-                    {
-                        _themeManager.ThemeChanged -= OnThemeChanged;
-                    }
-
                     API?.SaveAppAllSettings();
                     PluginManager.Dispose();
 
                     // Dispose needs to be called on the main Windows thread, since some resources owned by the thread need to be disposed.
                     _mainWindow?.Dispatcher.Invoke(Dispose);
-                    API?.Dispose();
                     _mainVM?.Dispose();
-                    _themeManager?.Dispose();
                 }
 
-                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                // TODO: set large fields to null
                 Log.Info("End PowerToys Run Exit ----------------------------------------------------  ", GetType());
             });
         }
 
-        // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        // ~App()
-        // {
-        //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-        //     Dispose(disposing: false);
-        // }
         public void Dispose()
         {
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method

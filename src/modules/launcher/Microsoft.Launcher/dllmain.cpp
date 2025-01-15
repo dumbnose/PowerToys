@@ -2,7 +2,6 @@
 #include <interface/powertoy_module_interface.h>
 #include <common/SettingsAPI/settings_objects.h>
 #include <common/interop/shared_constants.h>
-#include "trace.h"
 #include "Generated Files/resource.h"
 #include <launcher\Microsoft.Launcher\LauncherConstants.h>
 #include <common/logger/logger.h>
@@ -29,20 +28,19 @@ namespace
     const wchar_t JSON_KEY_USE_CENTRALIZED_KEYBOARD_HOOK[] = L"use_centralized_keyboard_hook";
 }
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
+BOOL APIENTRY DllMain(HMODULE /*hModule*/, DWORD ul_reason_for_call, LPVOID /*lpReserved*/)
 {
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        Trace::RegisterProvider();
         break;
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
         break;
     case DLL_PROCESS_DETACH:
-        Trace::UnregisterProvider();
         break;
     }
+
     return TRUE;
 }
 
@@ -152,6 +150,12 @@ public:
         return app_key.c_str();
     }
 
+    // Return the configured status for the gpo policy for the module
+    virtual powertoys_gpo::gpo_rule_configured_t gpo_policy_enabled_configuration() override
+    {
+        return powertoys_gpo::getConfiguredPowerLauncherEnabledValue();
+    }
+
     // Return JSON with the configuration options.
     virtual bool get_config(wchar_t* buffer, int* buffer_size) override
     {
@@ -176,7 +180,7 @@ public:
             PowerToysSettings::CustomActionObject action_object =
                 PowerToysSettings::CustomActionObject::from_json_string(action);
         }
-        catch (std::exception ex)
+        catch (std::exception&)
         {
             // Improper JSON.
         }
@@ -198,7 +202,7 @@ public:
             // Otherwise call a custom function to process the settings before saving them to disk:
             // save_settings();
         }
-        catch (std::exception ex)
+        catch (std::exception&)
         {
             // Improper JSON.
         }
@@ -239,7 +243,7 @@ public:
             std::wstring params;
             params += L" -powerToysPid " + std::to_wstring(powertoys_pid) + L" ";
             params += L"--started-from-runner ";
-            runExecutablePath += L"\\modules\\launcher\\PowerToys.PowerLauncher.exe";
+            runExecutablePath += L"\\PowerToys.PowerLauncher.exe";
             processStarted = RunNonElevatedFailsafe(runExecutablePath, params, modulePath).has_value();
         }
         else
@@ -252,7 +256,7 @@ public:
 
             SHELLEXECUTEINFOW sei{ sizeof(sei) };
             sei.fMask = { SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI };
-            sei.lpFile = L"modules\\launcher\\PowerToys.PowerLauncher.exe";
+            sei.lpFile = L"PowerToys.PowerLauncher.exe";
             sei.nShow = SW_SHOWNORMAL;
             sei.lpParameters = executable_args.data();
 
@@ -312,7 +316,7 @@ public:
     }
 
     // Process the hotkey event
-    virtual bool on_hotkey(size_t hotkeyId) override
+    virtual bool on_hotkey(size_t /*hotkeyId*/) override
     {
         // For now, hotkeyId will always be zero
         if (m_enabled)
@@ -342,7 +346,7 @@ public:
         DWORD windowPid;
         GetWindowThreadProcessId(nextWindow, &windowPid);
 
-        if (windowPid == (DWORD)closePid)
+        if (windowPid == static_cast<DWORD>(closePid))
             ::PostMessage(nextWindow, WM_CLOSE, 0, 0);
 
         return true;
@@ -366,7 +370,7 @@ void Microsoft_Launcher::init_settings()
 
         parse_hotkey(settings);
     }
-    catch (std::exception ex)
+    catch (std::exception&)
     {
         // Error while loading from the settings file. Let default values stay as they are.
     }
@@ -394,7 +398,7 @@ void Microsoft_Launcher::parse_hotkey(PowerToysSettings::PowerToyValues& setting
         try
         {
             auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES);
-            m_use_centralized_keyboard_hook = (bool)jsonPropertiesObject.GetNamedBoolean(JSON_KEY_USE_CENTRALIZED_KEYBOARD_HOOK);
+            m_use_centralized_keyboard_hook =jsonPropertiesObject.GetNamedBoolean(JSON_KEY_USE_CENTRALIZED_KEYBOARD_HOOK);
         }
         catch (...)
         {

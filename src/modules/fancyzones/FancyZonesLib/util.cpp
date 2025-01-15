@@ -123,6 +123,15 @@ namespace FancyZonesUtils
         monitorInfo = std::move(sortedMonitorInfo);
     }
 
+    std::vector<HMONITOR> GetMonitorsOrdered()
+    {
+        auto monitors = FancyZonesUtils::GetAllMonitorRects<&MONITORINFOEX::rcWork>();
+        FancyZonesUtils::OrderMonitors(monitors);
+        std::vector<HMONITOR> output;
+        std::transform(std::begin(monitors), std::end(monitors), std::back_inserter(output), [](const auto& info) { return info.first; });
+        return output;
+    }
+
     bool IsValidGuid(const std::wstring& str)
     {
         GUID id;
@@ -248,29 +257,12 @@ namespace FancyZonesUtils
         return closestIdx;
     }
 
-    RECT PrepareRectForCycling(RECT windowRect, RECT workAreaRect, DWORD vkCode) noexcept
+    void SwallowKey(const WORD key) noexcept
     {
-        LONG deltaX = 0, deltaY = 0;
-        switch (vkCode)
-        {
-        case VK_UP:
-            deltaY = workAreaRect.bottom - workAreaRect.top;
-            break;
-        case VK_DOWN:
-            deltaY = workAreaRect.top - workAreaRect.bottom;
-            break;
-        case VK_LEFT:
-            deltaX = workAreaRect.right - workAreaRect.left;
-            break;
-        case VK_RIGHT:
-            deltaX = workAreaRect.left - workAreaRect.right;
-        }
-
-        windowRect.left += deltaX;
-        windowRect.right += deltaX;
-        windowRect.top += deltaY;
-        windowRect.bottom += deltaY;
-
-        return windowRect;
+        INPUT inputKey[1] = {};
+        inputKey[0].type = INPUT_KEYBOARD;
+        inputKey[0].ki.wVk = key;
+        inputKey[0].ki.dwFlags = KEYEVENTF_KEYUP;
+        SendInput(1, inputKey, sizeof(INPUT));
     }
 }

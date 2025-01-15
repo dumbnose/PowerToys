@@ -162,14 +162,12 @@ class PowerRenameModule : public PowertoyModuleIface
 {
 private:
     // Enabled by default
-    bool m_enabled = true;
+    bool m_enabled = false;
     std::wstring app_name;
     //contains the non localized key of the powertoy
     std::wstring app_key;
 
 public:
-
-
     // Return the localized display name of the powertoy
     virtual PCWSTR get_name() override
     {
@@ -180,6 +178,12 @@ public:
     virtual const wchar_t* get_key() override
     {
         return app_key.c_str();
+    }
+
+    // Return the configured status for the gpo policy for the module
+    virtual powertoys_gpo::gpo_rule_configured_t gpo_policy_enabled_configuration() override
+    {
+        return powertoys_gpo::getConfiguredPowerRenameEnabledValue();
     }
 
     // Enable the powertoy
@@ -198,16 +202,13 @@ public:
                 package::RegisterSparsePackage(path, packageUri);
             }
         }
-
-        save_settings();
     }
 
     // Disable the powertoy
     virtual void disable()
     {
-        Logger::info(L"PowerRename disabled");
         m_enabled = false;
-        save_settings();
+        Logger::info(L"PowerRename disabled");
     }
 
     // Returns if the powertoy is enabled
@@ -286,7 +287,7 @@ public:
 
             Trace::SettingsChanged();
         }
-        catch (std::exception e)
+        catch (std::exception& e)
         {
             Logger::error("Configuration parsing failed: {}", std::string{ e.what() });
         }
@@ -294,7 +295,7 @@ public:
 
     // Signal from the Settings editor to call a custom action.
     // This can be used to spawn more complex editors.
-    virtual void call_custom_action(const wchar_t* action) override
+    virtual void call_custom_action(const wchar_t* /*action*/) override
     {
     }
 
@@ -312,8 +313,6 @@ public:
 
     void save_settings()
     {
-        CSettingsInstance().SetEnabled(m_enabled);
-        CSettingsInstance().Save();
         Trace::EnablePowerRename(m_enabled);
     }
 

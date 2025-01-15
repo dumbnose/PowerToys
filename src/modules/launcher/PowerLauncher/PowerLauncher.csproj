@@ -1,42 +1,23 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\..\Version.props" />
+  <!-- Look at Directory.Build.props in root for common stuff as well -->
+  <Import Project="..\..\..\Common.Dotnet.CsWinRT.props" />	
+  <Import Project="..\..\..\Common.SelfContained.props" />
+
   <PropertyGroup>
     <AssemblyTitle>PowerToys.Run</AssemblyTitle>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net6.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
+    <UseWindowsForms>False</UseWindowsForms>
     <StartupObject>PowerLauncher.App</StartupObject>
-    <ApplicationIcon>Images\RunResource.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\PowerLauncher\RunResource.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <AssetTargetFallback>uap10.0.18362</AssetTargetFallback>
-    <Version>$(Version).0</Version>
-    <Authors>Microsoft Corporation</Authors>
+    <AssetTargetFallback>uap10.0.19041</AssetTargetFallback>
     <Description>PowerToys PowerLauncher</Description>
     <AssemblyName>PowerToys.PowerLauncher</AssemblyName>
-    <OutputPath>..\..\..\..\$(Platform)\$(Configuration)\modules\launcher\</OutputPath>
+    <OutputPath>..\..\..\..\$(Platform)\$(Configuration)</OutputPath>
     <GenerateSatelliteAssembliesForCore>true</GenerateSatelliteAssembliesForCore>
-  </PropertyGroup>
-
-
-  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Optimize>false</Optimize>
-  </PropertyGroup>
-
-
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <DefineConstants>TRACE;RELEASE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
   </PropertyGroup>
 
   <ItemGroup>
@@ -44,29 +25,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="app.png" />
-    <None Remove="Images\app.dark.png" />
-    <None Remove="Images\app.light.png" />
-    <None Remove="Images\app.light1.png" />
-    <None Remove="Images\app_error.dark.png" />
-    <None Remove="Images\app_error.light.png" />
-    <None Remove="Images\RunResource.ico" />
+    <None Remove="Assets\PowerLauncher\app_error.dark.png" />
+    <None Remove="Assets\PowerLauncher\app_error.light.png" />
+    <None Remove="Assets\PowerLauncher\RunResource.ico" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="app.png">
+    <Content Include="Assets\PowerLauncher\app_error.dark.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Images\app.dark.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Images\app.light.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Images\app_error.dark.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Images\app_error.light.png">
+    <Content Include="Assets\PowerLauncher\app_error.light.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -76,24 +44,26 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Interop.Microsoft.Office.Interop.OneNote" Version="1.1.0.2" />
-    <PackageReference Include="JetBrains.Annotations" Version="2021.3.0" />
-    <PackageReference Include="Mages" Version="2.0.1" />
-    <PackageReference Include="LazyCache" Version="2.4.0" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="6.0.2" />
-    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.2" />
-    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.39" />
-    <PackageReference Include="ModernWpfUI" Version="0.9.4" />
-    <PackageReference Include="ScipBe.Common.Office.OneNote" Version="3.0.1" />
-    <PackageReference Include="System.Reactive" Version="5.0.0" />
-    <PackageReference Include="System.Runtime" Version="4.3.1" />
-    <PackageReference Include="Microsoft.VCRTForwarders.140" Version="1.0.7" />
-    <PackageReference Include="System.Data.OleDb" Version="6.0.0" />
-    <PackageReference Include="System.ServiceProcess.ServiceController" Version="6.0.0" />
-    <PackageReference Include="UnitsNet" Version="4.76.0" />
+    <PackageReference Include="Interop.Microsoft.Office.Interop.OneNote" />
+    <PackageReference Include="Mages" />
+    <PackageReference Include="LazyCache" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" />
+    <PackageReference Include="ScipBe.Common.Office.OneNote" />
+    <PackageReference Include="System.Drawing.Common">
+      <ExcludeAssets>runtime</ExcludeAssets> <!-- Should already be present on .net sdk runtime, so we avoid the conflicting runtime version from nuget -->
+    </PackageReference>
+    <PackageReference Include="System.Reactive" />
+    <PackageReference Include="System.Data.OleDb" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" />
+    <PackageReference Include="UnitsNet" />
+    <!-- HACK: To make sure the version pulled in by Microsoft.Extensions.Hosting is current. -->
+    <PackageReference Include="System.Text.Json" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\common\GPOWrapperProjection\GPOWrapperProjection.csproj" />
     <ProjectReference Include="..\..\..\common\interop\PowerToys.Interop.vcxproj" />
     <ProjectReference Include="..\..\..\common\ManagedCommon\ManagedCommon.csproj" />
     <ProjectReference Include="..\..\..\common\Common.UI\Common.UI.csproj" />
@@ -111,7 +81,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Images\RunAsset.ico">
+    <None Update="Assets\PowerLauncher\RunAsset.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Properties\Settings.settings">
@@ -141,7 +111,7 @@
     </Page>
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Images\RunResource.ico" />
+    <Resource Include="Assets\PowerLauncher\RunResource.ico" />
   </ItemGroup>
   <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">

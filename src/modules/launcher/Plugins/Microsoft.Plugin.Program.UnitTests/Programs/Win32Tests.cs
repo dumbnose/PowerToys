@@ -5,11 +5,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Wox.Infrastructure;
 using Wox.Infrastructure.FileSystemHelper;
 using Wox.Plugin;
+
 using Win32Program = Microsoft.Plugin.Program.Programs.Win32Program;
 
 namespace Microsoft.Plugin.Program.UnitTests.Programs
@@ -22,7 +24,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Name = "Imaging Devices",
             ExecutableName = "imagingdevices.exe",
             FullPath = "c:\\program files\\windows photo viewer\\imagingdevices.exe",
-            LnkResolvedPath = null,
+            LnkFilePath = null,
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -31,7 +33,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Name = "Notepad",
             ExecutableName = "notepad.exe",
             FullPath = "c:\\windows\\system32\\notepad.exe",
-            LnkResolvedPath = "c:\\users\\powertoys\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\accessories\\notepad.lnk",
+            LnkFilePath = "c:\\users\\powertoys\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\accessories\\notepad.lnk",
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -40,7 +42,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Name = "Notepad",
             ExecutableName = "notepad.exe",
             FullPath = "c:\\windows\\system32\\notepad.exe",
-            LnkResolvedPath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\accessories\\notepad.lnk",
+            LnkFilePath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\accessories\\notepad.lnk",
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -50,7 +52,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             ExecutableName = "cmd.exe",
             FullPath = "c:\\windows\\system32\\cmd.exe",
             Arguments = @"/E:ON /V:ON /K ""C:\Program Files\Microsoft SDKs\Azure\.NET SDK\v2.9\\bin\setenv.cmd""",
-            LnkResolvedPath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\microsoft azure\\microsoft azure sdk for .net\\v2.9\\microsoft azure command prompt - v2.9.lnk",
+            LnkFilePath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\microsoft azure\\microsoft azure sdk for .net\\v2.9\\microsoft azure command prompt - v2.9.lnk",
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -60,7 +62,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             ExecutableName = "cmd.exe",
             FullPath = "c:\\windows\\system32\\cmd.exe",
             Arguments = @"/k ""C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat""",
-            LnkResolvedPath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\visual studio 2019\\visual studio tools\\vc\\x64 native tools command prompt for vs 2019.lnk",
+            LnkFilePath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\visual studio 2019\\visual studio tools\\vc\\x64 native tools command prompt for vs 2019.lnk",
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -69,7 +71,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Name = "Command Prompt",
             ExecutableName = "cmd.exe",
             FullPath = "c:\\windows\\system32\\cmd.exe",
-            LnkResolvedPath = "c:\\users\\powertoys\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\system tools\\command prompt.lnk",
+            LnkFilePath = "c:\\users\\powertoys\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\system tools\\command prompt.lnk",
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -78,7 +80,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Name = "File Explorer",
             ExecutableName = "File Explorer.lnk",
             FullPath = "c:\\users\\powertoys\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\system tools\\file explorer.lnk",
-            LnkResolvedPath = null,
+            LnkFilePath = null,
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -87,7 +89,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Name = "File Explorer",
             ExecutableName = "explorer.exe",
             FullPath = "c:\\windows\\explorer.exe",
-            LnkResolvedPath = null,
+            LnkFilePath = null,
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -96,7 +98,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Name = "Wordpad",
             ExecutableName = "wordpad.exe",
             FullPath = "c:\\program files\\windows nt\\accessories\\wordpad.exe",
-            LnkResolvedPath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\accessories\\wordpad.lnk",
+            LnkFilePath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\accessories\\wordpad.lnk",
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -105,7 +107,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Name = "WORDPAD",
             ExecutableName = "WORDPAD.EXE",
             FullPath = "c:\\program files\\windows nt\\accessories\\wordpad.exe",
-            LnkResolvedPath = null,
+            LnkFilePath = null,
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -113,7 +115,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
         {
             Name = "Twitter",
             FullPath = "c:\\program files (x86)\\google\\chrome\\application\\chrome_proxy.exe",
-            LnkResolvedPath = "c:\\users\\powertoys\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\chrome apps\\twitter.lnk",
+            LnkFilePath = "c:\\users\\powertoys\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\chrome apps\\twitter.lnk",
             Arguments = " --profile-directory=Default --app-id=jgeosdfsdsgmkedfgdfgdfgbkmhcgcflmi",
             AppType = 0,
         };
@@ -122,7 +124,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
         {
             Name = "Web page",
             FullPath = "c:\\program files (x86)\\microsoft\\edge\\application\\msedge_proxy.exe",
-            LnkResolvedPath = "c:\\users\\powertoys\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\web page.lnk",
+            LnkFilePath = "c:\\users\\powertoys\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\web page.lnk",
             Arguments = "--profile-directory=Default --app-id=homljgmgpmcbpjbnjpfijnhipfkiclkd",
             AppType = 0,
         };
@@ -131,7 +133,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
         {
             Name = "edge - Bing",
             FullPath = "c:\\program files (x86)\\microsoft\\edge\\application\\msedge_proxy.exe",
-            LnkResolvedPath = "c:\\users\\powertoys\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\edge - bing.lnk",
+            LnkFilePath = "c:\\users\\powertoys\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\edge - bing.lnk",
             Arguments = "  --profile-directory=Default --app-id=aocfnapldcnfbofgmbbllojgocaelgdd",
             AppType = 0,
         };
@@ -141,7 +143,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Name = "Microsoft Edge",
             ExecutableName = "msedge.exe",
             FullPath = "c:\\program files (x86)\\microsoft\\edge\\application\\msedge.exe",
-            LnkResolvedPath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\microsoft edge.lnk",
+            LnkFilePath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\microsoft edge.lnk",
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -150,7 +152,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Name = "Google Chrome",
             ExecutableName = "chrome.exe",
             FullPath = "c:\\program files (x86)\\google\\chrome\\application\\chrome.exe",
-            LnkResolvedPath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\google chrome.lnk",
+            LnkFilePath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\google chrome.lnk",
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -159,7 +161,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Name = "Proxy App",
             ExecutableName = "test_proxy.exe",
             FullPath = "c:\\program files (x86)\\microsoft\\edge\\application\\test_proxy.exe",
-            LnkResolvedPath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\test proxy.lnk",
+            LnkFilePath = "c:\\programdata\\microsoft\\windows\\start menu\\programs\\test proxy.lnk",
             AppType = Win32Program.ApplicationType.Win32Application,
         };
 
@@ -168,7 +170,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Name = "cmd",
             ExecutableName = "cmd.exe",
             FullPath = "c:\\windows\\system32\\cmd.exe",
-            LnkResolvedPath = null,
+            LnkFilePath = null,
             AppType = Win32Program.ApplicationType.RunCommand, // Run command
         };
 
@@ -178,7 +180,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             Description = "Cmder: Lovely Console Emulator",
             ExecutableName = "Cmder.exe",
             FullPath = "c:\\tools\\cmder\\cmder.exe",
-            LnkResolvedPath = null,
+            LnkFilePath = null,
             AppType = Win32Program.ApplicationType.RunCommand, // Run command
         };
 
@@ -188,7 +190,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             ExecutableName = "Shop Titans.url",
             FullPath = "steam://rungameid/1258080",
             ParentDirectory = "C:\\Users\\temp\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Steam",
-            LnkResolvedPath = null,
+            LnkFilePath = null,
             AppType = Win32Program.ApplicationType.InternetShortcutApplication,
         };
 
@@ -198,7 +200,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             ExecutableName = "Shop Titans.url",
             FullPath = "steam://rungameid/1258080",
             ParentDirectory = "C:\\Users\\temp\\Desktop",
-            LnkResolvedPath = null,
+            LnkFilePath = null,
             AppType = Win32Program.ApplicationType.InternetShortcutApplication,
         };
 
@@ -208,7 +210,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             ExecutableName = "dummy.appref-ms",
             FullPath = "C:\\dummy.appref-ms",
             ParentDirectory = "C:\\",
-            LnkResolvedPath = null,
+            LnkFilePath = null,
             AppType = Win32Program.ApplicationType.ApprefApplication,
         };
 
@@ -218,7 +220,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             ExecutableName = "application.lnk",
             FullPath = "C:\\application.lnk",
             ParentDirectory = "C:\\",
-            LnkResolvedPath = "C:\\application.lnk",
+            LnkFilePath = "C:\\application.lnk",
             AppType = Win32Program.ApplicationType.ShortcutApplication,
         };
 
@@ -228,7 +230,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             ExecutableName = "application.lnk",
             FullPath = "C:\\dummy\\folder",
             ParentDirectory = "C:\\dummy\\",
-            LnkResolvedPath = "C:\\tools\\application.lnk",
+            LnkFilePath = "C:\\tools\\application.lnk",
             AppType = Win32Program.ApplicationType.Folder,
         };
 
@@ -238,7 +240,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             ExecutableName = "application.lnk",
             FullPath = "C:\\dummy\\file.pdf",
             ParentDirectory = "C:\\dummy\\",
-            LnkResolvedPath = "C:\\tools\\application.lnk",
+            LnkFilePath = "C:\\tools\\application.lnk",
             AppType = Win32Program.ApplicationType.GenericFile,
         };
 
@@ -303,7 +305,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
         }
 
         [TestMethod]
-        public void DedupFunctionMustRemoveDuplicatesForExeExtensionsWithoutLnkResolvedPath()
+        public void DedupFunctionMustRemoveDuplicatesForExeExtensionsWithoutLnkFilePath()
         {
             // Arrange
             List<Win32Program> prgms = new List<Win32Program>
@@ -317,7 +319,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
 
             // Assert
             Assert.AreEqual(1, apps.Count);
-            Assert.IsTrue(!string.IsNullOrEmpty(apps[0].LnkResolvedPath));
+            Assert.IsTrue(!string.IsNullOrEmpty(apps[0].LnkFilePath));
         }
 
         [TestMethod]
@@ -593,11 +595,26 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
             StringMatcher.Instance = new StringMatcher();
 
             // Act
+            var result = _chrome.Result("chrome", string.Empty, mock.Object);
+
+            // Assert
+            // Using Ordinal since this is used internally
+            Assert.IsTrue(result.Title.Equals(_chrome.Name, StringComparison.Ordinal));
+            Assert.IsFalse(result.Title.Equals(_chrome.Description, StringComparison.Ordinal));
+        }
+
+        [TestMethod]
+        public void RunCommandsShouldSetExecutableNameAsTitleWhileCreatingResult()
+        {
+            var mock = new Mock<IPublicAPI>();
+            StringMatcher.Instance = new StringMatcher();
+
+            // Act
             var result = _cmderRunCommand.Result("cmder", string.Empty, mock.Object);
 
             // Assert
             // Using Ordinal since this is used internally
-            Assert.IsTrue(result.Title.Equals(_cmderRunCommand.Name, StringComparison.Ordinal));
+            Assert.IsTrue(result.Title.Equals(_cmderRunCommand.ExecutableName, StringComparison.Ordinal));
             Assert.IsFalse(result.Title.Equals(_cmderRunCommand.Description, StringComparison.Ordinal));
         }
 

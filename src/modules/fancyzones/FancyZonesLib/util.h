@@ -34,6 +34,16 @@ namespace FancyZonesUtils
         RECT m_rect{};
     };
 
+    inline bool operator==(const FancyZonesUtils::Rect& left, const FancyZonesUtils::Rect& right)
+    {
+        return left.left() == right.left() && left.right() == right.right() && left.top() == right.top() && left.bottom() == right.bottom();
+    }
+
+    inline bool operator!=(const FancyZonesUtils::Rect& left, const FancyZonesUtils::Rect& right)
+    {
+        return left.left() != right.left() || left.right() != right.right() || left.top() != right.top() || left.bottom() != right.bottom();
+    }
+
     inline void InitRGB(_Out_ RGBQUAD* quad, BYTE alpha, COLORREF color)
     {
         ZeroMemory(quad, sizeof(*quad));
@@ -43,7 +53,7 @@ namespace FancyZonesUtils
         quad->rgbBlue = GetBValue(color) * alpha / 255;
     }
 
-    inline void FillRectARGB(wil::unique_hdc& hdc, RECT const* prcFill, BYTE alpha, COLORREF color, bool blendAlpha)
+    inline void FillRectARGB(wil::unique_hdc& hdc, RECT const* prcFill, BYTE alpha, COLORREF color, bool /*blendAlpha*/)
     {
         BITMAPINFO bi;
         ZeroMemory(&bi, sizeof(bi));
@@ -93,7 +103,7 @@ namespace FancyZonesUtils
         }
     }
 
-    inline BYTE OpacitySettingToAlpha(int opacity)
+    constexpr inline BYTE OpacitySettingToAlpha(int opacity)
     {
         return static_cast<BYTE>(opacity * 2.55);
     }
@@ -104,7 +114,7 @@ namespace FancyZonesUtils
         using result_t = std::vector<std::pair<HMONITOR, RECT>>;
         result_t result;
 
-        auto enumMonitors = [](HMONITOR monitor, HDC hdc, LPRECT pRect, LPARAM param) -> BOOL {
+        auto enumMonitors = [](HMONITOR monitor, HDC /*hdc*/, LPRECT /*pRect*/, LPARAM param) -> BOOL {
             MONITORINFOEX mi;
             mi.cbSize = sizeof(mi);
             result_t& result = *reinterpret_cast<result_t*>(param);
@@ -126,7 +136,7 @@ namespace FancyZonesUtils
         using result_t = std::vector<std::pair<HMONITOR, MONITORINFOEX>>;
         result_t result;
 
-        auto enumMonitors = [](HMONITOR monitor, HDC hdc, LPRECT pRect, LPARAM param) -> BOOL {
+        auto enumMonitors = [](HMONITOR monitor, HDC /*hdc*/, LPRECT /*pRect*/, LPARAM param) -> BOOL {
             MONITORINFOEX mi;
             mi.cbSize = sizeof(mi);
             result_t& result = *reinterpret_cast<result_t*>(param);
@@ -143,13 +153,12 @@ namespace FancyZonesUtils
     }
 
     template<RECT MONITORINFO::*member>
-    RECT GetAllMonitorsCombinedRect()
+    RECT GetMonitorsCombinedRect(const std::vector<std::pair<HMONITOR, RECT>>& monitorRects)
     {
-        auto allMonitors = GetAllMonitorRects<member>();
         bool empty = true;
         RECT result{ 0, 0, 0, 0 };
 
-        for (auto& [monitor, rect] : allMonitors)
+        for (auto& [monitor, rect] : monitorRects)
         {
             if (empty)
             {
@@ -168,13 +177,48 @@ namespace FancyZonesUtils
         return result;
     }
 
+    template<RECT MONITORINFO::*member>
+    RECT GetAllMonitorsCombinedRect()
+    {
+        auto allMonitors = GetAllMonitorRects<member>();
+        return GetMonitorsCombinedRect<member>(allMonitors);
+    }
+
+    constexpr RECT PrepareRectForCycling(RECT windowRect, RECT workAreaRect, DWORD vkCode) noexcept
+    {
+        LONG deltaX = 0, deltaY = 0;
+        switch (vkCode)
+        {
+        case VK_UP:
+            deltaY = workAreaRect.bottom - workAreaRect.top;
+            break;
+        case VK_DOWN:
+            deltaY = workAreaRect.top - workAreaRect.bottom;
+            break;
+        case VK_LEFT:
+            deltaX = workAreaRect.right - workAreaRect.left;
+            break;
+        case VK_RIGHT:
+            deltaX = workAreaRect.left - workAreaRect.right;
+        }
+
+        windowRect.left += deltaX;
+        windowRect.right += deltaX;
+        windowRect.top += deltaY;
+        windowRect.bottom += deltaY;
+
+        return windowRect;
+    }
+
     UINT GetDpiForMonitor(HMONITOR monitor) noexcept;
     void OrderMonitors(std::vector<std::pair<HMONITOR, RECT>>& monitorInfo);
+    std::vector<HMONITOR> GetMonitorsOrdered();
 
     bool IsValidGuid(const std::wstring& str);
     std::optional<GUID> GuidFromString(const std::wstring& str) noexcept;
     std::optional<std::wstring> GuidToString(const GUID& guid) noexcept;
 
-    RECT PrepareRectForCycling(RECT windowRect, RECT workAreaRect, DWORD vkCode) noexcept;
-    size_t ChooseNextZoneByPosition(DWORD vkCode, RECT windowRect, const std::vector<RECT>& zoneRects) noexcept;    
+    size_t ChooseNextZoneByPosition(DWORD vkCode, RECT windowRect, const std::vector<RECT>& zoneRects) noexcept;
+
+    void SwallowKey(const WORD key) noexcept;
 }

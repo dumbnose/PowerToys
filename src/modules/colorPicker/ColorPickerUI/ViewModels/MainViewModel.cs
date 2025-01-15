@@ -4,20 +4,19 @@
 
 using System;
 using System.ComponentModel.Composition;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Media;
+
 using ColorPicker.Common;
 using ColorPicker.Helpers;
 using ColorPicker.Keyboard;
 using ColorPicker.Mouse;
 using ColorPicker.Settings;
-using ColorPicker.Telemetry;
 using ColorPicker.ViewModelContracts;
-using interop;
-using Microsoft.PowerToys.Settings.UI.Library.Enumerations;
-using Microsoft.PowerToys.Telemetry;
+using Common.UI;
+using ManagedCommon;
+using PowerToys.Interop;
 
 namespace ColorPicker.ViewModels
 {
@@ -27,6 +26,7 @@ namespace ColorPicker.ViewModels
         private readonly ZoomWindowHelper _zoomWindowHelper;
         private readonly AppStateHandler _appStateHandler;
         private readonly IUserSettings _userSettings;
+        private KeyboardMonitor _keyboardMonitor;
 
         /// <summary>
         /// Backing field for <see cref="OtherColor"/>
@@ -49,31 +49,71 @@ namespace ColorPicker.ViewModels
             ZoomWindowHelper zoomWindowHelper,
             AppStateHandler appStateHandler,
             KeyboardMonitor keyboardMonitor,
-            IUserSettings userSettings)
+            IUserSettings userSettings,
+            CancellationToken exitToken)
         {
             _zoomWindowHelper = zoomWindowHelper;
             _appStateHandler = appStateHandler;
             _userSettings = userSettings;
-            NativeEventWaiter.WaitForEventLoop(Constants.ShowColorPickerSharedEvent(), _appStateHandler.StartUserSession);
-            NativeEventWaiter.WaitForEventLoop(Constants.ColorPickerSendSettingsTelemetryEvent(), _userSettings.SendSettingsTelemetry);
+            _keyboardMonitor = keyboardMonitor;
+
+            NativeEventWaiter.WaitForEventLoop(
+                Constants.TerminateColorPickerSharedEvent(),
+                Application.Current.Shutdown,
+                Application.Current.Dispatcher,
+                exitToken);
+
+            NativeEventWaiter.WaitForEventLoop(
+                Constants.ShowColorPickerSharedEvent(),
+                _appStateHandler.StartUserSession,
+                Application.Current.Dispatcher,
+                exitToken);
+
+            NativeEventWaiter.WaitForEventLoop(
+                Constants.ColorPickerSendSettingsTelemetryEvent(),
+                _userSettings.SendSettingsTelemetry,
+                Application.Current.Dispatcher,
+                exitToken);
 
             if (mouseInfoProvider != null)
             {
+                SetColorDetails(mouseInfoProvider.CurrentColor);
                 mouseInfoProvider.MouseColorChanged += Mouse_ColorChanged;
                 mouseInfoProvider.OnMouseDown += MouseInfoProvider_OnMouseDown;
                 mouseInfoProvider.OnMouseWheel += MouseInfoProvider_OnMouseWheel;
+                mouseInfoProvider.OnSecondaryMouseUp += MouseInfoProvider_OnSecondaryMouseUp;
             }
 
             _userSettings.ShowColorName.PropertyChanged += (s, e) => { OnPropertyChanged(nameof(ShowColorName)); };
 
+            _appStateHandler.EnterPressed += AppStateHandler_EnterPressed;
+            _appStateHandler.UserSessionStarted += AppStateHandler_UserSessionStarted;
+            _appStateHandler.UserSessionEnded += AppStateHandler_UserSessionEnded;
+
             // Only start a local keyboard low level hook if running as a standalone.
             // Otherwise, the global keyboard hook from runner will be used to activate Color Picker through ShowColorPickerSharedEvent
-            // and the Escape key will be registered as a shortcut by appStateHandler when ColorPicker is being used.
-            // This is much lighter than using a local low level keyboard hook.
+            // The appStateHandler starts and disposes a low level hook when ColorPicker is being used.
+            // The hook catches the Esc, Space, Enter and Arrow key presses.
+            // This is much lighter than using a permanent local low level keyboard hook.
             if ((System.Windows.Application.Current as ColorPickerUI.App).IsRunningDetachedFromPowerToys())
             {
                 keyboardMonitor?.Start();
             }
+        }
+
+        private void AppStateHandler_UserSessionEnded(object sender, EventArgs e)
+        {
+            _keyboardMonitor.Dispose();
+        }
+
+        private void AppStateHandler_UserSessionStarted(object sender, EventArgs e)
+        {
+            _keyboardMonitor?.Start();
+        }
+
+        private void AppStateHandler_EnterPressed(object sender, EventArgs e)
+        {
+            MouseInfoProvider_OnMouseDown(null, default(System.Drawing.Point));
         }
 
         /// <summary>
@@ -124,9 +164,7 @@ namespace ColorPicker.ViewModels
         /// <param name="color">The new <see cref="Color"/> under the mouse cursor</param>
         private void Mouse_ColorChanged(object sender, System.Drawing.Color color)
         {
-            ColorBrush = new SolidColorBrush(Color.FromArgb(color.A, color.R, color.G, color.B));
-            ColorText = ColorRepresentationHelper.GetStringRepresentation(color, _userSettings.CopiedColorRepresentation.Value);
-            ColorName = ColorNameHelper.GetColorName(color);
+            SetColorDetails(color);
         }
 
         /// <summary>
@@ -158,10 +196,22 @@ namespace ColorPicker.ViewModels
             _appStateHandler.OnColorPickerMouseDown();
         }
 
+        private void MouseInfoProvider_OnSecondaryMouseUp(object sender, IntPtr wParam)
+        {
+            _appStateHandler.EndUserSession();
+        }
+
         private string GetColorString()
         {
             var color = ((SolidColorBrush)ColorBrush).Color;
             return color.A + "|" + color.R + "|" + color.G + "|" + color.B;
+        }
+
+        private void SetColorDetails(System.Drawing.Color color)
+        {
+            ColorBrush = new SolidColorBrush(Color.FromArgb(color.A, color.R, color.G, color.B));
+            ColorText = ColorRepresentationHelper.GetStringRepresentation(color, _userSettings.CopiedColorRepresentation.Value, _userSettings.CopiedColorRepresentationFormat.Value);
+            ColorName = ColorRepresentationHelper.GetColorNameFromColorIdentifier(ColorNameHelper.GetColorNameIdentifier(color));
         }
 
         /// <summary>

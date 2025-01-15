@@ -4,12 +4,12 @@
 
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+
 using Common.UI;
-using FancyZonesEditor.Logs;
 using FancyZonesEditor.Utils;
 using ManagedCommon;
 
@@ -35,10 +35,6 @@ namespace FancyZonesEditor
 
         private ThemeManager _themeManager;
 
-        private EventWaitHandle _eventHandle;
-
-        private Thread _exitWaitThread;
-
         public static bool DebugMode
         {
             get
@@ -50,6 +46,8 @@ namespace FancyZonesEditor
         private static bool _debugMode;
         private bool _isDisposed;
 
+        private CancellationTokenSource NativeThreadCTS { get; set; }
+
         [Conditional("DEBUG")]
         private void DebugModeCheck()
         {
@@ -58,35 +56,60 @@ namespace FancyZonesEditor
 
         public App()
         {
+            var languageTag = LanguageHelper.LoadLanguage();
+
+            if (!string.IsNullOrEmpty(languageTag))
+            {
+                try
+                {
+                    System.Threading.Thread.CurrentThread.CurrentUICulture = new CultureInfo(languageTag);
+                }
+                catch (CultureNotFoundException ex)
+                {
+                    Logger.LogError("CultureNotFoundException: " + ex.Message);
+                }
+            }
+
+            Logger.InitializeLogger("\\FancyZones\\Editor\\Logs");
+
             // DebugModeCheck();
+            NativeThreadCTS = new CancellationTokenSource();
             FancyZonesEditorIO = new FancyZonesEditorIO();
             Overlay = new Overlay();
             MainWindowSettings = new MainWindowSettingsModel();
 
-            _exitWaitThread = new Thread(App_WaitExit);
-            _exitWaitThread.Start();
+            App_WaitExit();
         }
 
         private void OnStartup(object sender, StartupEventArgs e)
         {
+            if (PowerToys.GPOWrapperProjection.GPOWrapper.GetConfiguredFancyZonesEnabledValue() == PowerToys.GPOWrapperProjection.GpoRuleConfigured.Disabled)
+            {
+                Logger.LogWarning("Tried to start with a GPO policy setting the utility to always be disabled. Please contact your systems administrator.");
+                Shutdown(0);
+                return;
+            }
+
             AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+
+            _themeManager = new ThemeManager(this);
 
             RunnerHelper.WaitForPowerToysRunner(PowerToysPID, () =>
             {
                 Logger.LogInfo("Runner exited");
-                Environment.Exit(0);
+                NativeThreadCTS.Cancel();
+                Application.Current.Dispatcher.Invoke(Application.Current.Shutdown);
             });
 
-            _themeManager = new ThemeManager(this);
-
             var parseResult = FancyZonesEditorIO.ParseParams();
+
             if (!parseResult.Result)
             {
                 Logger.LogError(ParsingErrorReportTag + ": " + parseResult.Message + "; " + ParsingErrorDataTag + ": " + parseResult.MalformedData);
                 MessageBox.Show(parseResult.Message, FancyZonesEditor.Properties.Resources.Error_Parsing_Data_Title, MessageBoxButton.OK);
             }
 
-            parseResult = FancyZonesEditorIO.ParseAppliedLayouts();
+            parseResult = FancyZonesEditorIO.ParseLayoutTemplates();
             if (!parseResult.Result)
             {
                 Logger.LogError(ParsingErrorReportTag + ": " + parseResult.Message + "; " + ParsingErrorDataTag + ": " + parseResult.MalformedData);
@@ -100,6 +123,13 @@ namespace FancyZonesEditor
                 MessageBox.Show(parseResult.Message, FancyZonesEditor.Properties.Resources.Error_Parsing_Data_Title, MessageBoxButton.OK);
             }
 
+            parseResult = FancyZonesEditorIO.ParseDefaultLayouts();
+            if (!parseResult.Result)
+            {
+                Logger.LogError(ParsingErrorReportTag + ": " + parseResult.Message + "; " + ParsingErrorDataTag + ": " + parseResult.MalformedData);
+                MessageBox.Show(parseResult.Message, FancyZonesEditor.Properties.Resources.Error_Parsing_Data_Title, MessageBoxButton.OK);
+            }
+
             parseResult = FancyZonesEditorIO.ParseLayoutHotkeys();
             if (!parseResult.Result)
             {
@@ -107,7 +137,7 @@ namespace FancyZonesEditor
                 MessageBox.Show(parseResult.Message, FancyZonesEditor.Properties.Resources.Error_Parsing_Data_Title, MessageBoxButton.OK);
             }
 
-            parseResult = FancyZonesEditorIO.ParseLayoutTemplates();
+            parseResult = FancyZonesEditorIO.ParseAppliedLayouts();
             if (!parseResult.Result)
             {
                 Logger.LogError(ParsingErrorReportTag + ": " + parseResult.Message + "; " + ParsingErrorDataTag + ": " + parseResult.MalformedData);
@@ -122,26 +152,23 @@ namespace FancyZonesEditor
 
         private void OnExit(object sender, ExitEventArgs e)
         {
+            NativeThreadCTS.Cancel();
             Dispose();
-
-            if (_eventHandle != null)
-            {
-                _eventHandle.Set();
-            }
-
-            _exitWaitThread.Join();
 
             Logger.LogInfo("FancyZones Editor exited");
         }
 
         private void App_WaitExit()
         {
-            _eventHandle = new EventWaitHandle(false, EventResetMode.AutoReset, interop.Constants.FZEExitEvent());
-            if (_eventHandle.WaitOne())
+            NativeEventWaiter.WaitForEventLoop(
+            PowerToys.Interop.Constants.FZEExitEvent(),
+            () =>
             {
                 Logger.LogInfo("Exit event triggered");
-                Environment.Exit(0);
-            }
+                Application.Current.Shutdown();
+            },
+            Current.Dispatcher,
+            NativeThreadCTS.Token);
         }
 
         public void App_KeyUp(object sender, System.Windows.Input.KeyEventArgs e)
@@ -199,8 +226,6 @@ namespace FancyZonesEditor
                     _themeManager?.Dispose();
                 }
 
-                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                // TODO: set large fields to null
                 _isDisposed = true;
                 Logger.LogInfo("FancyZones Editor disposed");
             }

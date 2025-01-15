@@ -5,7 +5,7 @@
 #include <memory>
 #include <optional>
 
-#include <FancyZonesLib/FancyZonesData/Layout.h>
+#include <FancyZonesLib/FancyZonesData/LayoutData.h>
 #include <FancyZonesLib/FancyZonesDataTypes.h>
 #include <FancyZonesLib/GuidUtils.h>
 #include <FancyZonesLib/ModuleConstants.h>
@@ -30,8 +30,8 @@ namespace NonLocalizable
         const static wchar_t* RefHeightID = L"ref-height";
         const static wchar_t* RefWidthID = L"ref-width";
         const static wchar_t* ZonesID = L"zones";
-        const static wchar_t* XID = L"X";
-        const static wchar_t* YID = L"Y";
+        const static wchar_t* XAxisID = L"X";
+        const static wchar_t* YAxisID = L"Y";
         const static wchar_t* WidthID = L"width";
         const static wchar_t* HeightID = L"height";
 
@@ -58,13 +58,14 @@ public:
         std::wstring saveFolderPath = PTSettingsHelper::get_module_save_folder_location(NonLocalizable::ModuleKey);
 #if defined(UNIT_TESTS)
         return saveFolderPath + L"\\test-custom-layouts.json";
-#endif
+#else
         return saveFolderPath + L"\\custom-layouts.json";
+#endif
     }
 
     void LoadData();
 
-    std::optional<Layout> GetLayout(const GUID& id) const noexcept;
+    std::optional<LayoutData> GetLayout(const GUID& id) const noexcept;
     std::optional<FancyZonesDataTypes::CustomLayoutData> GetCustomLayoutData(const GUID& id) const noexcept;
     const TCustomLayoutMap& GetAllLayouts() const noexcept;
 

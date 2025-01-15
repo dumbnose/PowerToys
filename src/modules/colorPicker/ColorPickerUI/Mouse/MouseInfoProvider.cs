@@ -4,12 +4,15 @@
 
 using System;
 using System.ComponentModel.Composition;
+using System.Configuration;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Windows.Input;
 using System.Windows.Threading;
+
 using ColorPicker.Helpers;
 using ColorPicker.Settings;
+
 using static ColorPicker.NativeMethods;
 
 namespace ColorPicker.Mouse
@@ -18,7 +21,7 @@ namespace ColorPicker.Mouse
     [PartCreationPolicy(CreationPolicy.Shared)]
     public class MouseInfoProvider : IMouseInfoProvider
     {
-        private const int MousePullInfoIntervalInMs = 10;
+        private readonly double _mousePullInfoIntervalInMs;
         private readonly DispatcherTimer _timer = new DispatcherTimer();
         private readonly MouseHook _mouseHook;
         private readonly IUserSettings _userSettings;
@@ -29,7 +32,8 @@ namespace ColorPicker.Mouse
         [ImportingConstructor]
         public MouseInfoProvider(AppStateHandler appStateMonitor, IUserSettings userSettings)
         {
-            _timer.Interval = TimeSpan.FromMilliseconds(MousePullInfoIntervalInMs);
+            _mousePullInfoIntervalInMs = 1000.0 / GetMainDisplayRefreshRate();
+            _timer.Interval = TimeSpan.FromMilliseconds(_mousePullInfoIntervalInMs);
             _timer.Tick += Timer_Tick;
 
             if (appStateMonitor != null)
@@ -42,6 +46,8 @@ namespace ColorPicker.Mouse
             _mouseHook = new MouseHook();
             _userSettings = userSettings;
             _userSettings.CopiedColorRepresentation.PropertyChanged += CopiedColorRepresentation_PropertyChanged;
+            _previousMousePosition = GetCursorPosition();
+            _previousColor = GetPixelColor(_previousMousePosition);
         }
 
         public event EventHandler<Color> MouseColorChanged;
@@ -52,11 +58,21 @@ namespace ColorPicker.Mouse
 
         public event MouseUpEventHandler OnMouseDown;
 
+        public event SecondaryMouseUpEventHandler OnSecondaryMouseUp;
+
         public System.Windows.Point CurrentPosition
         {
             get
             {
                 return _previousMousePosition;
+            }
+        }
+
+        public Color CurrentColor
+        {
+            get
+            {
+                return _previousColor;
             }
         }
 
@@ -101,6 +117,22 @@ namespace ColorPicker.Mouse
             return (System.Windows.Point)lpPoint;
         }
 
+        private static double GetMainDisplayRefreshRate()
+        {
+            double refreshRate = 60.0;
+
+            foreach (var monitor in MonitorResolutionHelper.AllMonitors)
+            {
+                if (monitor.IsPrimary && EnumDisplaySettingsW(monitor.Name, ENUM_CURRENT_SETTINGS, out DEVMODEW lpDevMode))
+                {
+                    refreshRate = (double)lpDevMode.dmDisplayFrequency;
+                    break;
+                }
+            }
+
+            return refreshRate;
+        }
+
         private void AppStateMonitor_AppClosed(object sender, EventArgs e)
         {
             DisposeHook();
@@ -116,6 +148,7 @@ namespace ColorPicker.Mouse
 
             _mouseHook.OnMouseDown += MouseHook_OnMouseDown;
             _mouseHook.OnMouseWheel += MouseHook_OnMouseWheel;
+            _mouseHook.OnSecondaryMouseUp += MouseHook_OnSecondaryMouseUp;
 
             if (_userSettings.ChangeCursor.Value)
             {
@@ -140,6 +173,12 @@ namespace ColorPicker.Mouse
             OnMouseDown?.Invoke(this, p);
         }
 
+        private void MouseHook_OnSecondaryMouseUp(object sender, IntPtr wParam)
+        {
+            DisposeHook();
+            OnSecondaryMouseUp?.Invoke(this, wParam);
+        }
+
         private void CopiedColorRepresentation_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             _colorFormatChanged = true;
@@ -155,6 +194,7 @@ namespace ColorPicker.Mouse
             _previousMousePosition = new System.Windows.Point(-1, 1);
             _mouseHook.OnMouseDown -= MouseHook_OnMouseDown;
             _mouseHook.OnMouseWheel -= MouseHook_OnMouseWheel;
+            _mouseHook.OnSecondaryMouseUp -= MouseHook_OnSecondaryMouseUp;
 
             if (_userSettings.ChangeCursor.Value)
             {

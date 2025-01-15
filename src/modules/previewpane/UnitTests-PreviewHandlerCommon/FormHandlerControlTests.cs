@@ -2,10 +2,10 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
 using System.Drawing;
 
 using System.Windows.Forms;
+
 using Common;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -14,7 +14,7 @@ namespace PreviewHandlerCommonUnitTests
     [TestClass]
     public class FormHandlerControlTests
     {
-        private class TestFormControl : FormHandlerControl
+        private sealed class TestFormControl : FormHandlerControl
         {
         }
 
@@ -95,22 +95,6 @@ namespace PreviewHandlerCommonUnitTests
                     // Assert
                     Assert.AreEqual(font, testFormHandlerControl.Font);
                 }
-            }
-        }
-
-        [TestMethod]
-        public void FormHandlerControlShouldUpdateBoundsWhenSetRectCalled()
-        {
-            // Arrange
-            using (var testFormHandlerControl = new TestFormControl())
-            {
-                var bounds = new Rectangle(2, 2, 4, 4);
-
-                // Act
-                testFormHandlerControl.SetRect(bounds);
-
-                // Assert
-                Assert.AreEqual(bounds, testFormHandlerControl.Bounds);
             }
         }
 

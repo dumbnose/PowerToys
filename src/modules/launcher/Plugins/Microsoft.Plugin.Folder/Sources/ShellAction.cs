@@ -3,13 +3,11 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
-using System.Diagnostics;
 using System.Globalization;
-using System.Reflection;
 using System.Text.RegularExpressions;
+
 using Wox.Infrastructure;
 using Wox.Plugin;
-using Wox.Plugin.Logger;
 
 namespace Microsoft.Plugin.Folder.Sources
 {
@@ -17,20 +15,14 @@ namespace Microsoft.Plugin.Folder.Sources
     {
         public bool Execute(string sanitizedPath, IPublicAPI contextApi)
         {
-            if (contextApi == null)
-            {
-                throw new ArgumentNullException(nameof(contextApi));
-            }
+            ArgumentNullException.ThrowIfNull(contextApi);
 
             return OpenFileOrFolder(sanitizedPath, contextApi);
         }
 
         public bool ExecuteSanitized(string search, IPublicAPI contextApi)
         {
-            if (contextApi == null)
-            {
-                throw new ArgumentNullException(nameof(contextApi));
-            }
+            ArgumentNullException.ThrowIfNull(contextApi);
 
             return Execute(SanitizedPath(search), contextApi);
         }
@@ -41,7 +33,7 @@ namespace Microsoft.Plugin.Folder.Sources
 
             // A network path must start with \\
             // Using Ordinal since this is internal and used with a symbol
-            if (!sanitizedPath.StartsWith("\\", StringComparison.Ordinal))
+            if (!sanitizedPath.StartsWith('\\'))
             {
                 return sanitizedPath;
             }

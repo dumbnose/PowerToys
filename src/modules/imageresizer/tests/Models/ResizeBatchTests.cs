@@ -1,6 +1,8 @@
+#pragma warning disable IDE0073
 // Copyright (c) Brice Lambson
 // The Brice Lambson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.  Code forked from Brice Lambson's https://github.com/bricelam/ImageResizer/
+#pragma warning restore IDE0073
 
 using System;
 using System.Collections.Concurrent;
@@ -8,6 +10,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Moq.Protected;
@@ -86,7 +89,7 @@ namespace ImageResizer.Models
             var batch = CreateBatch(_ => { });
             batch.Files.Add("Image1.jpg");
             batch.Files.Add("Image2.jpg");
-            var calls = new ConcurrentBag<(int i, double count)>();
+            var calls = new ConcurrentBag<(int I, double Count)>();
 
             batch.Process(
                 (i, count) => calls.Add((i, count)),

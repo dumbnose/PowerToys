@@ -15,7 +15,7 @@
 
 namespace NonLocalizable
 {
-    const wchar_t ModulePath[] = L"modules\\AlwaysOnTop\\PowerToys.AlwaysOnTop.exe";
+    const wchar_t ModulePath[] = L"PowerToys.AlwaysOnTop.exe";
 }
 
 namespace
@@ -30,12 +30,12 @@ namespace
     const wchar_t JSON_KEY_VALUE[] = L"value";
 }
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
+BOOL APIENTRY DllMain(HMODULE /*hModule*/, DWORD ul_reason_for_call, LPVOID /*lpReserved*/)
 {
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        Trace::RegisterProvider();
+        Trace::AlwaysOnTop::RegisterProvider();
         break;
 
     case DLL_THREAD_ATTACH:
@@ -43,7 +43,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         break;
 
     case DLL_PROCESS_DETACH:
-        Trace::UnregisterProvider();
+        Trace::AlwaysOnTop::UnregisterProvider();
         break;
     }
     return TRUE;
@@ -64,11 +64,16 @@ public:
         return app_key.c_str();
     }
 
+    // Return the configured status for the gpo policy for the module
+    virtual powertoys_gpo::gpo_rule_configured_t gpo_policy_enabled_configuration() override
+    {
+        return powertoys_gpo::getConfiguredAlwaysOnTopEnabledValue();
+    }
+
     // Return JSON with the configuration options.
     // These are the settings shown on the settings page along with their current values.
     virtual bool get_config(wchar_t* buffer, int* buffer_size) override
     {
-        return false;
         HINSTANCE hinstance = reinterpret_cast<HINSTANCE>(&__ImageBase);
 
         // Create a Settings object.
@@ -94,13 +99,13 @@ public:
             // Otherwise call a custom function to process the settings before saving them to disk:
             // save_settings();
         }
-        catch (std::exception ex)
+        catch (std::exception&)
         {
             // Improper JSON.
         }
     }
 
-    virtual bool on_hotkey(size_t hotkeyId) override
+    virtual bool on_hotkey(size_t /*hotkeyId*/) override
     {
         if (m_enabled)
         {
@@ -117,7 +122,7 @@ public:
 
         return false;
     }
-    
+
     virtual size_t get_hotkeys(Hotkey* hotkeys, size_t buffer_size) override
     {
         if (m_hotkey.key)
@@ -169,6 +174,7 @@ public:
         app_name = L"AlwaysOnTop"; //TODO: localize
         app_key = NonLocalizable::ModuleKey;
         m_hPinEvent = CreateDefaultEvent(CommonSharedConstants::ALWAYS_ON_TOP_PIN_EVENT);
+        m_hTerminateEvent = CreateDefaultEvent(CommonSharedConstants::ALWAYS_ON_TOP_TERMINATE_EVENT);
         init_settings();
     }
 
@@ -216,6 +222,12 @@ private:
             Trace::AlwaysOnTop::Enable(false);
         }
 
+        SetEvent(m_hTerminateEvent);
+
+        // Wait for 1.5 seconds for the process to end correctly and stop etw tracer
+        WaitForSingleObject(m_hProcess, 1500);
+
+        // If process is still running, terminate it
         if (m_hProcess)
         {
             TerminateProcess(m_hProcess, 0);
@@ -273,7 +285,7 @@ private:
 
             parse_hotkey(settings);
         }
-        catch (std::exception ex)
+        catch (std::exception&)
         {
             Logger::warn(L"An exception occurred while loading the settings file");
             // Error while loading from the settings file. Let default values stay as they are.
@@ -289,6 +301,7 @@ private:
 
     // Handle to event used to pin/unpin windows
     HANDLE m_hPinEvent;
+    HANDLE m_hTerminateEvent;
 };
 
 extern "C" __declspec(dllexport) PowertoyModuleIface* __cdecl powertoy_create()

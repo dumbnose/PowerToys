@@ -4,11 +4,12 @@ enum class SettingId
 {
     ShiftDrag = 0,
     MouseSwitch,
+    MouseMiddleClickSpanningMultipleZones,
     OverrideSnapHotkeys,
     MoveWindowAcrossMonitors,
     MoveWindowsBasedOnPosition,
     OverlappingZonesAlgorithm,
-    DisplayChangeMoveWindows,
+    DisplayOrWorkAreaChangeMoveWindows,
     ZoneSetChangeMoveWindows,
     AppLastZoneMoveWindows,
     OpenWindowOnActiveMonitor,
@@ -31,7 +32,6 @@ enum class SettingId
     NextTabHotkey,
     PrevTabHotkey,
     ExcludedApps,
-    AllowSnapPopupWindows,
     AllowSnapChildWindows,
     DisableRoundCornersOnSnapping,
 };

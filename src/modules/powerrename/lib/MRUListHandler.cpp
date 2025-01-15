@@ -123,12 +123,12 @@ void MRUListHandler::ParseJson()
             unsigned int oldSize{ size };
             if (json::has(jsonObject, c_maxMRUSize, json::JsonValueType::Number))
             {
-                oldSize = (unsigned int)jsonObject.GetNamedNumber(c_maxMRUSize);
+                oldSize = static_cast<unsigned int>(jsonObject.GetNamedNumber(c_maxMRUSize));
             }
             unsigned int oldPushIdx{ 0 };
             if (json::has(jsonObject, c_insertionIdx, json::JsonValueType::Number))
             {
-                oldPushIdx = (unsigned int)jsonObject.GetNamedNumber(c_insertionIdx);
+                oldPushIdx = static_cast<unsigned int>(jsonObject.GetNamedNumber(c_insertionIdx));
                 if (oldPushIdx < 0 || oldPushIdx >= oldSize)
                 {
                     oldPushIdx = 0;
@@ -148,7 +148,7 @@ void MRUListHandler::ParseJson()
                 else
                 {
                     std::vector<std::wstring> temp;
-                    for (unsigned int i = 0; i < min(jsonArray.Size(), size); ++i)
+                    for (unsigned int i = 0; i < std::min(jsonArray.Size(), size); ++i)
                     {
                         int idx = (oldPushIdx + oldSize - (i + 1)) % oldSize;
                         temp.push_back(std::wstring(jsonArray.GetStringAt(idx)));
@@ -156,7 +156,7 @@ void MRUListHandler::ParseJson()
                     if (size > oldSize)
                     {
                         std::reverse(std::begin(temp), std::end(temp));
-                        pushIdx = (unsigned int)temp.size();
+                        pushIdx = static_cast<unsigned int>(temp.size());
                         temp.resize(size);
                     }
                     else

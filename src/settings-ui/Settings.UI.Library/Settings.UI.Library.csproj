@@ -1,31 +1,43 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Look at Directory.Build.props in root for common stuff as well -->
+  <Import Project="..\..\Common.Dotnet.CsWinRT.props" />
+  <Import Project="..\..\Common.SelfContained.props" />
+    <PropertyGroup>
+        <Description>PowerToys Settings UI Library</Description>
+        <AssemblyName>PowerToys.Settings.UI.Lib</AssemblyName>
+    </PropertyGroup>
 
-  <Import Project="..\..\Version.props" />
+    <ItemGroup>
+        <None Include="backup_restore_settings.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
 
-  <PropertyGroup>
-    <TargetFramework>net6.0-windows</TargetFramework>
-    <Version>$(Version).0</Version>
-    <Authors>Microsoft Corporation</Authors>
-    <Product>PowerToys</Product>
-    <Description>PowerToys Settings UI Library</Description>
-    <AssemblyName>PowerToys.Settings.UI.Lib</AssemblyName>
-  </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="System.IO.Abstractions" />
+    </ItemGroup>
 
-  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <DebugSymbols>true</DebugSymbols>
-  </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\common\interop\PowerToys.Interop.vcxproj" />
+        <ProjectReference Include="..\..\common\ManagedCommon\ManagedCommon.csproj" />
+        <ProjectReference Include="..\..\common\ManagedTelemetry\Telemetry\ManagedTelemetry.csproj" />
+        <ProjectReference Include="..\..\modules\MouseUtils\MouseJump.Common\MouseJump.Common.csproj" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="System.IO.Abstractions" Version="12.2.5" />
-    <PackageReference Include="System.Text.Json" Version="6.0.2" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Update="Resources\Resources.Designer.cs">
+            <DependentUpon>Resources.resx</DependentUpon>
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+        </Compile>
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\common\interop\PowerToys.Interop.vcxproj" />
-    <ProjectReference Include="..\..\common\ManagedCommon\ManagedCommon.csproj" />
-    <ProjectReference Include="..\..\common\ManagedTelemetry\Telemetry\ManagedTelemetry.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <EmbeddedResource Update="Resources\Resources.resx">
+            <SubType>Designer</SubType>
+            <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+            <Generator>PublicResXFileCodeGenerator</Generator>
+        </EmbeddedResource>
+    </ItemGroup>
 
 </Project>

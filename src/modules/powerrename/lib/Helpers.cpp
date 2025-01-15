@@ -46,6 +46,11 @@ HRESULT GetTransformedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR sour
 {
     std::locale::global(std::locale(""));
     HRESULT hr = E_INVALIDARG;
+
+    auto contractionOrSingleQuotedWordCheck = [](std::wstring stem, size_t i) {
+        return !i || stem[i - 1] != '\'' || (i == 1 || iswpunct(stem[i - 2]) || iswspace(stem[i - 2]));
+    };
+
     if (source && flags)
     {
         if (flags & Uppercase)
@@ -156,7 +161,7 @@ HRESULT GetTransformedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR sour
 
                 for (size_t i = 0; i < stemLength; i++)
                 {
-                    if (!i || iswspace(stem[i - 1]) || iswpunct(stem[i - 1]))
+                    if (!i || iswspace(stem[i - 1]) || (iswpunct(stem[i - 1]) && contractionOrSingleQuotedWordCheck(stem, i)))
                     {
                         if (iswspace(stem[i]) || iswpunct(stem[i]))
                         {
@@ -167,7 +172,10 @@ HRESULT GetTransformedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR sour
                         {
                             wordLength++;
                         }
-                        if (isFirstWord || i + wordLength == stemLength || std::find(exceptions.begin(), exceptions.end(), stem.substr(i, wordLength)) == exceptions.end())
+
+                        auto subStr = stem.substr(i, wordLength);
+                        std::transform(subStr.begin(), subStr.end(), subStr.begin(), ::towlower);
+                        if (isFirstWord || i + wordLength == stemLength || std::find(exceptions.begin(), exceptions.end(), subStr) == exceptions.end())
                         {
                             stem[i] = towupper(stem[i]);
                             isFirstWord = false;
@@ -188,7 +196,7 @@ HRESULT GetTransformedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR sour
             {
                 hr = StringCchCopy(result, cchMax, source);
             }
-        } 
+        }
         else if (flags & Capitalized)
         {
             if (!(flags & ExtensionOnly))
@@ -205,13 +213,16 @@ HRESULT GetTransformedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR sour
 
                 for (size_t i = 0; i < stemLength; i++)
                 {
-                    if (!i || iswspace(stem[i - 1]) || iswpunct(stem[i - 1]))
+                    if (!i || iswspace(stem[i - 1]) || (iswpunct(stem[i - 1]) && contractionOrSingleQuotedWordCheck(stem, i)))
                     {
                         if (iswspace(stem[i]) || iswpunct(stem[i]))
                         {
                             continue;
                         }
-                        stem[i] = towupper(stem[i]);
+                        else
+                        {
+                            stem[i] = towupper(stem[i]);
+                        }
                     }
                     else
                     {
@@ -234,15 +245,13 @@ HRESULT GetTransformedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR sour
     return hr;
 }
 
-bool isFileTimeUsed(_In_ PCWSTR source) 
+bool isFileTimeUsed(_In_ PCWSTR source)
 {
     bool used = false;
-    std::wstring patterns[] = { L"(([^\\$]|^)(\\$\\$)*)\\$Y", L"(([^\\$]|^)(\\$\\$)*)\\$M", L"(([^\\$]|^)(\\$\\$)*)\\$D", 
-        L"(([^\\$]|^)(\\$\\$)*)\\$h", L"(([^\\$]|^)(\\$\\$)*)\\$m", L"(([^\\$]|^)(\\$\\$)*)\\$s", L"(([^\\$]|^)(\\$\\$)*)\\$f" };
-    size_t patternsLength = ARRAYSIZE(patterns);
-    for (size_t i = 0; !used && i < patternsLength; i++)
+    static const std::array patterns = { std::wregex{ L"(([^\\$]|^)(\\$\\$)*)\\$Y" }, std::wregex{ L"(([^\\$]|^)(\\$\\$)*)\\$M" }, std::wregex{ L"(([^\\$]|^)(\\$\\$)*)\\$D" }, std::wregex{ L"(([^\\$]|^)(\\$\\$)*)\\$h" }, std::wregex{ L"(([^\\$]|^)(\\$\\$)*)\\$m" }, std::wregex{ L"(([^\\$]|^)(\\$\\$)*)\\$s" }, std::wregex{ L"(([^\\$]|^)(\\$\\$)*)\\$f" } };
+    for (size_t i = 0; !used && i < patterns.size(); i++)
     {
-        if (std::regex_search(source, std::wregex(patterns[i])))
+        if (std::regex_search(source, patterns[i]))
         {
             used = true;
         }
@@ -253,7 +262,7 @@ bool isFileTimeUsed(_In_ PCWSTR source)
 HRESULT GetDatedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR source, SYSTEMTIME fileTime)
 {
     std::locale::global(std::locale(""));
-    HRESULT hr = E_INVALIDARG;     
+    HRESULT hr = E_INVALIDARG;
     if (source && wcslen(source) > 0)
     {
         std::wstring res(source);
@@ -274,17 +283,17 @@ HRESULT GetDatedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR source, SY
 
         StringCchPrintf(replaceTerm, MAX_PATH, TEXT("%s%d"), L"$01", (fileTime.wYear % 10));
         res = regex_replace(res, std::wregex(L"(([^\\$]|^)(\\$\\$)*)\\$Y"), replaceTerm);
-        
+
         GetDateFormatEx(localeName, NULL, &fileTime, L"MMMM", formattedDate, MAX_PATH, NULL);
         formattedDate[0] = towupper(formattedDate[0]);
         StringCchPrintf(replaceTerm, MAX_PATH, TEXT("%s%s"), L"$01", formattedDate);
         res = regex_replace(res, std::wregex(L"(([^\\$]|^)(\\$\\$)*)\\$MMMM"), replaceTerm);
-        
+
         GetDateFormatEx(localeName, NULL, &fileTime, L"MMM", formattedDate, MAX_PATH, NULL);
         formattedDate[0] = towupper(formattedDate[0]);
         StringCchPrintf(replaceTerm, MAX_PATH, TEXT("%s%s"), L"$01", formattedDate);
         res = regex_replace(res, std::wregex(L"(([^\\$]|^)(\\$\\$)*)\\$MMM"), replaceTerm);
-                
+
         StringCchPrintf(replaceTerm, MAX_PATH, TEXT("%s%02d"), L"$01", fileTime.wMonth);
         res = regex_replace(res, std::wregex(L"(([^\\$]|^)(\\$\\$)*)\\$MM"), replaceTerm);
 
@@ -295,7 +304,7 @@ HRESULT GetDatedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR source, SY
         formattedDate[0] = towupper(formattedDate[0]);
         StringCchPrintf(replaceTerm, MAX_PATH, TEXT("%s%s"), L"$01", formattedDate);
         res = regex_replace(res, std::wregex(L"(([^\\$]|^)(\\$\\$)*)\\$DDDD"), replaceTerm);
-        
+
         GetDateFormatEx(localeName, NULL, &fileTime, L"ddd", formattedDate, MAX_PATH, NULL);
         formattedDate[0] = towupper(formattedDate[0]);
         StringCchPrintf(replaceTerm, MAX_PATH, TEXT("%s%s"), L"$01", formattedDate);
@@ -328,10 +337,10 @@ HRESULT GetDatedFileName(_Out_ PWSTR result, UINT cchMax, _In_ PCWSTR source, SY
         StringCchPrintf(replaceTerm, MAX_PATH, TEXT("%s%03d"), L"$01", fileTime.wMilliseconds);
         res = regex_replace(res, std::wregex(L"(([^\\$]|^)(\\$\\$)*)\\$fff"), replaceTerm);
 
-        StringCchPrintf(replaceTerm, MAX_PATH, TEXT("%s%02d"), L"$01", fileTime.wMilliseconds/10);
+        StringCchPrintf(replaceTerm, MAX_PATH, TEXT("%s%02d"), L"$01", fileTime.wMilliseconds / 10);
         res = regex_replace(res, std::wregex(L"(([^\\$]|^)(\\$\\$)*)\\$ff"), replaceTerm);
 
-        StringCchPrintf(replaceTerm, MAX_PATH, TEXT("%s%d"), L"$01", fileTime.wMilliseconds/100);
+        StringCchPrintf(replaceTerm, MAX_PATH, TEXT("%s%d"), L"$01", fileTime.wMilliseconds / 100);
         res = regex_replace(res, std::wregex(L"(([^\\$]|^)(\\$\\$)*)\\$f"), replaceTerm);
 
         hr = StringCchCopy(result, cchMax, res.c_str());
@@ -420,7 +429,7 @@ BOOL GetEnumeratedFileName(__out_ecount(cchMax) PWSTR pszUniqueName, UINT cchMax
         if (!pszRest)
         {
             pszRest = PathFindExtension(pszTemplate);
-            cchStem = (int)(pszRest - pszTemplate);
+            cchStem = static_cast<int>(pszRest - pszTemplate);
 
             hr = StringCchCopy(szFormat, ARRAYSIZE(szFormat), L" (%lu)");
         }
@@ -428,7 +437,7 @@ BOOL GetEnumeratedFileName(__out_ecount(cchMax) PWSTR pszUniqueName, UINT cchMax
         {
             pszRest++;
 
-            cchStem = (int)(pszRest - pszTemplate);
+            cchStem = static_cast<int>(pszRest - pszTemplate);
 
             while (*pszRest && *pszRest >= L'0' && *pszRest <= L'9')
             {
@@ -551,7 +560,7 @@ bool DataObjectContainsRenamableItem(_In_ IUnknown* dataSource)
 {
     bool hasRenamable = false;
     CComPtr<IShellItemArray> spsia;
-    if (SUCCEEDED(GetShellItemArrayFromDataObject(dataSource, &spsia)))
+    if (dataSource && SUCCEEDED(GetShellItemArrayFromDataObject(dataSource, &spsia)))
     {
         CComPtr<IEnumShellItems> spesi;
         if (SUCCEEDED(spsia->EnumItems(&spesi)))
@@ -581,7 +590,7 @@ HWND CreateMsgWindow(_In_ HINSTANCE hInst, _In_ WNDPROC pfnWndProc, _In_ void* p
     wc.lpfnWndProc = DefWindowProc;
     wc.cbWndExtra = sizeof(void*);
     wc.hInstance = hInst;
-    wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+    wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_BTNFACE + 1);
     wc.lpszClassName = wndClassName;
 
     RegisterClass(&wc);
@@ -590,10 +599,10 @@ HWND CreateMsgWindow(_In_ HINSTANCE hInst, _In_ WNDPROC pfnWndProc, _In_ void* p
         0, wndClassName, nullptr, 0, 0, 0, 0, 0, HWND_MESSAGE, 0, hInst, nullptr);
     if (hwnd)
     {
-        SetWindowLongPtr(hwnd, 0, (LONG_PTR)p);
+        SetWindowLongPtr(hwnd, 0, reinterpret_cast<LONG_PTR>(p));
         if (pfnWndProc)
         {
-            SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)pfnWndProc);
+            SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(pfnWndProc));
         }
     }
 
@@ -651,4 +660,21 @@ bool LastModifiedTime(const std::wstring& filePath, FILETIME* lpFileTime)
         return true;
     }
     return false;
+}
+
+std::wstring CreateGuidStringWithoutBrackets()
+{
+    GUID guid;
+    if (CoCreateGuid(&guid) == S_OK)
+    {
+        OLECHAR* guidString;
+        if (StringFromCLSID(guid, &guidString) == S_OK)
+        {
+            std::wstring guidStr{ guidString };
+            CoTaskMemFree(guidString);
+            return guidStr.substr(1, guidStr.length() - 2);
+        }
+    }
+
+    return L"";
 }

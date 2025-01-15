@@ -11,13 +11,14 @@ using System.Text;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media.Imaging;
+
 using PowerLauncher.Helper;
 using Wox.Infrastructure.Image;
 using Wox.Plugin.Logger;
 
 namespace PowerLauncher
 {
-    internal partial class ReportWindow
+    internal sealed partial class ReportWindow
     {
         private static readonly IFileSystem FileSystem = new FileSystem();
         private static readonly IFile File = FileSystem.File;

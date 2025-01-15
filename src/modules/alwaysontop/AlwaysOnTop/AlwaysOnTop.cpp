@@ -8,8 +8,15 @@
 #include <common/utils/winapi_error.h>
 #include <common/utils/process_path.h>
 
-#include <WinHookEventIDs.h>
+#include <common/utils/elevation.h>
+#include <common/notifications/NotificationUtil.h>
+#include <Generated Files/resource.h>
+
 #include <interop/shared_constants.h>
+
+#include <trace.h>
+#include <WinHookEventIDs.h>
+
 
 namespace NonLocalizable
 {
@@ -20,14 +27,16 @@ namespace NonLocalizable
 bool isExcluded(HWND window)
 {
     auto processPath = get_process_path(window);
-    CharUpperBuffW(processPath.data(), (DWORD)processPath.length());
-    return find_app_name_in_path(processPath, AlwaysOnTopSettings::settings().excludedApps);
+    CharUpperBuffW(processPath.data(), static_cast<DWORD>(processPath.length()));
+
+    return check_excluded_app(window, processPath, AlwaysOnTopSettings::settings().excludedApps);
 }
 
-AlwaysOnTop::AlwaysOnTop(bool useLLKH) :
+AlwaysOnTop::AlwaysOnTop(bool useLLKH, DWORD mainThreadId) :
     SettingsObserver({SettingId::FrameEnabled, SettingId::Hotkey, SettingId::ExcludeApps}),
     m_hinstance(reinterpret_cast<HINSTANCE>(&__ImageBase)),
-    m_useCentralizedLLKH(useLLKH)
+    m_useCentralizedLLKH(useLLKH),
+    m_mainThreadId(mainThreadId)
 {
     s_instance = this;
     DPIAware::EnableDPIAwarenessForThisProcess();
@@ -54,12 +63,14 @@ AlwaysOnTop::AlwaysOnTop(bool useLLKH) :
 
 AlwaysOnTop::~AlwaysOnTop()
 {
+    m_running = false;
+
     if (m_hPinEvent)
     {
+        // Needed to unblock MsgWaitForMultipleObjects one last time
+        SetEvent(m_hPinEvent);
         CloseHandle(m_hPinEvent);
     }
-
-    m_running = false;
     m_thread.join();
 
     CleanUp();
@@ -178,6 +189,8 @@ void AlwaysOnTop::ProcessCommand(HWND window)
             {
                 m_topmostWindows.erase(iter);
             }
+
+            Trace::AlwaysOnTop::UnpinWindow();
         }
     }
     else
@@ -186,6 +199,7 @@ void AlwaysOnTop::ProcessCommand(HWND window)
         {
             soundType = Sound::Type::On;
             AssignBorder(window);
+            Trace::AlwaysOnTop::PinWindow();
         }
     }
 
@@ -269,6 +283,7 @@ void AlwaysOnTop::RegisterLLKH()
     }
 	
     m_hPinEvent = CreateEventW(nullptr, false, false, CommonSharedConstants::ALWAYS_ON_TOP_PIN_EVENT);
+    m_hTerminateEvent = CreateEventW(nullptr, false, false, CommonSharedConstants::ALWAYS_ON_TOP_TERMINATE_EVENT);
 
     if (!m_hPinEvent)
     {
@@ -276,11 +291,24 @@ void AlwaysOnTop::RegisterLLKH()
         return;
     }
 
-    m_thread = std::thread([this]() {
+    if (!m_hTerminateEvent)
+    {
+        Logger::warn(L"Failed to create terminateEvent. {}", get_last_error_or_default(GetLastError()));
+        return;
+    }
+
+    HANDLE handles[2] = { m_hPinEvent,
+                          m_hTerminateEvent };
+
+    m_thread = std::thread([this, handles]() {
         MSG msg;
         while (m_running)
         {
-            DWORD dwEvt = MsgWaitForMultipleObjects(1, &m_hPinEvent, false, 0, QS_ALLINPUT);
+            DWORD dwEvt = MsgWaitForMultipleObjects(2, handles, false, INFINITE, QS_ALLINPUT);
+            if (!m_running)
+            {
+                break;
+            }
             switch (dwEvt)
             {
             case WAIT_OBJECT_0:
@@ -290,6 +318,9 @@ void AlwaysOnTop::RegisterLLKH()
                 }
                 break;
             case WAIT_OBJECT_0 + 1:
+                PostThreadMessage(m_mainThreadId, WM_QUIT, 0, 0);
+                break;
+            case WAIT_OBJECT_0 + 2:
                 if (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
                 {
                     TranslateMessage(&msg);
@@ -306,12 +337,14 @@ void AlwaysOnTop::RegisterLLKH()
 void AlwaysOnTop::SubscribeToEvents()
 {
     // subscribe to windows events
-    std::array<DWORD, 5> events_to_subscribe = {
+    std::array<DWORD, 7> events_to_subscribe = {
         EVENT_OBJECT_LOCATIONCHANGE,
         EVENT_SYSTEM_MINIMIZESTART,
         EVENT_SYSTEM_MINIMIZEEND,
         EVENT_SYSTEM_MOVESIZEEND,
-        EVENT_OBJECT_NAMECHANGE
+        EVENT_SYSTEM_FOREGROUND,
+        EVENT_OBJECT_DESTROY,
+        EVENT_OBJECT_FOCUS,
     };
 
     for (const auto event : events_to_subscribe)
@@ -367,7 +400,7 @@ bool AlwaysOnTop::IsPinned(HWND window) const noexcept
 
 bool AlwaysOnTop::PinTopmostWindow(HWND window) const noexcept
 {
-    if (!SetProp(window, NonLocalizable::WINDOW_IS_PINNED_PROP, (HANDLE)1))
+    if (!SetProp(window, NonLocalizable::WINDOW_IS_PINNED_PROP, reinterpret_cast<HANDLE>(1)))
     {
         Logger::error(L"SetProp failed, {}", get_last_error_or_default(GetLastError()));
     }
@@ -406,11 +439,11 @@ void AlwaysOnTop::HandleWinHookEvent(WinHookEvent* data) noexcept
         return;
     }
 
-    // fix for the https://github.com/microsoft/PowerToys/issues/15300
-    // check if the window was closed, since for some EVENT_OBJECT_DESTROY doesn't work 
     std::vector<HWND> toErase{};
     for (const auto& [window, border] : m_topmostWindows)
     {
+        // check if the window was closed, since for some EVENT_OBJECT_DESTROY doesn't work
+        // fixes https://github.com/microsoft/PowerToys/issues/15300
         bool visible = IsWindowVisible(window);
         if (!visible)
         {
@@ -472,13 +505,26 @@ void AlwaysOnTop::HandleWinHookEvent(WinHookEvent* data) noexcept
         }
     }
     break;
-    case EVENT_OBJECT_NAMECHANGE:
+    case EVENT_SYSTEM_FOREGROUND:
     {
-        // The accessibility name of the desktop window changes whenever the user
-        // switches virtual desktops.
-        if (data->hwnd == GetDesktopWindow())
+        if (!is_process_elevated() && IsProcessOfWindowElevated(data->hwnd))
         {
-            VirtualDesktopSwitchedHandle();
+            notifications::WarnIfElevationIsRequired(GET_RESOURCE_STRING(IDS_ALWAYSONTOP), GET_RESOURCE_STRING(IDS_SYSTEM_FOREGROUND_ELEVATED), GET_RESOURCE_STRING(IDS_SYSTEM_FOREGROUND_ELEVATED_LEARN_MORE), GET_RESOURCE_STRING(IDS_SYSTEM_FOREGROUND_ELEVATED_DIALOG_DONT_SHOW_AGAIN));
+        }
+        RefreshBorders();
+    }
+    break;
+    case EVENT_OBJECT_FOCUS:
+    {
+        for (const auto& [window, border] : m_topmostWindows)
+        {
+            // check if topmost was reset
+            // fixes https://github.com/microsoft/PowerToys/issues/19168
+            if (!IsTopmost(window))
+            {
+                Logger::trace(L"A window no longer has Topmost set and it should. Setting topmost again.");
+                PinTopmostWindow(window);
+            }
         }
     }
     break;
@@ -487,17 +533,23 @@ void AlwaysOnTop::HandleWinHookEvent(WinHookEvent* data) noexcept
     }
 }
 
-void AlwaysOnTop::VirtualDesktopSwitchedHandle()
+void AlwaysOnTop::RefreshBorders()
 {
     for (const auto& [window, border] : m_topmostWindows)
     {
         if (m_virtualDesktopUtils.IsWindowOnCurrentDesktop(window))
         {
-            AssignBorder(window);
+            if (!border)
+            {
+                AssignBorder(window);
+            }
         }
         else
         {
-            m_topmostWindows[window] = nullptr;
+            if (border)
+            {
+                m_topmostWindows[window] = nullptr;
+            }
         }
     }
 }

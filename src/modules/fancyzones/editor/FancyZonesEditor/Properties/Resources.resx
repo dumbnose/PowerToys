@@ -353,15 +353,23 @@
     <comment>Title for concept behind Merging two zones together or removing an zone</comment>
   </data>
   <data name="KeyboardControlsName" xml:space="preserve">
-    <value>Keyboard Navigation:</value>
+    <value>Keyboard navigation:</value>
   </data>
   <data name="KeyboardControlsDescription" xml:space="preserve">
     <value>
-     - [Shift]+S to split currently focused zone.
-     - Ctrl+Tab to focus zones/resizers.
-     - Tab to cycle zones and resizers.
-     - Delete to remove the focused resizer.
-     - Arrows to move the focused resizer.</value>
+• Shift+S to split currently focused zone.
+• Ctrl+Tab to focus zones/resizers.
+• Tab to cycle zones and resizers.
+• Delete to remove the focused resizer.
+• Arrows to move the focused resizer.</value>
+  </data>
+  <data name="KeyboardControlsDescriptionCanvas" xml:space="preserve">
+    <value>
+• Ctrl+Tab to switch focus between dialog and zones.
+• Shift+Arrows to resize the focused zone by 10px (5px per edge).
+• Ctrl+Shift+Arrows to resize the focused zone by 2px (1px per edge).
+• Arrows to move the focused zone by 10px.
+• Ctrl+Arrows to move the focused zone by 1px.</value>
   </data>
   <data name="SplitterDescription" xml:space="preserve">
     <value>Hold Shift key for vertical split.</value>
@@ -407,5 +415,35 @@
   </data>
   <data name="Error_Parsing_Custom_Layouts_Message" xml:space="preserve">
     <value>An error occurred while parsing custom layouts.</value>
+  </data>
+  <data name="Custom_slider_announce" xml:space="preserve">
+    <value>{0} slider. Possible range is from {1} to {2}. Value is {3}.</value>
+  </data>
+  <data name="Pixel_Value" xml:space="preserve">
+    <value>{0} pixels</value>
+  </data>
+  <data name="Template_Zone_Count_Value" xml:space="preserve">
+    <value>{0} zones</value>
+  </data>
+  <data name="Zones" xml:space="preserve">
+    <value>zones</value>
+  </data>
+  <data name="Default_Layout_Horizontal" xml:space="preserve">
+    <value>Default layout for horizontal monitor orientation</value>
+  </data>
+  <data name="Set_Layout_As_Horizontal_Default" xml:space="preserve">
+    <value>Set layout as a default for horizontal monitor orientation</value>
+  </data>
+  <data name="Error_Parsing_Default_Layouts_Message" xml:space="preserve">
+    <value>An error occurred while parsing default layouts.</value>
+  </data>
+  <data name="Default_Layout_Vertical" xml:space="preserve">
+    <value>Default layout for vertical monitor orientation</value>
+  </data>
+  <data name="Set_Layout_As_Vertical_Default" xml:space="preserve">
+    <value>Set layout as a default for vertical monitor orientation</value>
+  </data>
+  <data name="Error_Parsing_Editor_Parameters_Message" xml:space="preserve">
+    <value>An error occurred while parsing editor parameters.</value>
   </data>
 </root>

@@ -8,6 +8,8 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 
+using FancyZonesEditorCommon.Data;
+
 namespace FancyZonesEditor.Models
 {
     // Base LayoutModel
@@ -18,6 +20,8 @@ namespace FancyZonesEditor.Models
         {
             _guid = Guid.NewGuid();
             Type = LayoutType.Custom;
+
+            MainWindowSettingsModel.DefaultLayouts.PropertyChanged += DefaultLayouts_PropertyChanged;
         }
 
         protected LayoutModel(string name)
@@ -144,6 +148,38 @@ namespace FancyZonesEditor.Models
 
         private bool _isApplied;
 
+        public bool IsHorizontalDefault
+        {
+            get
+            {
+                return MainWindowSettingsModel.DefaultLayouts.Layouts[(int)MonitorConfigurationType.Horizontal].Uuid == this.Uuid;
+            }
+        }
+
+        public bool CanBeSetAsHorizontalDefault
+        {
+            get
+            {
+                return MainWindowSettingsModel.DefaultLayouts.Layouts[(int)MonitorConfigurationType.Horizontal].Uuid != this.Uuid;
+            }
+        }
+
+        public bool IsVerticalDefault
+        {
+            get
+            {
+                return MainWindowSettingsModel.DefaultLayouts.Layouts[MonitorConfigurationType.Vertical].Uuid == this.Uuid;
+            }
+        }
+
+        public bool CanBeSetAsVerticalDefault
+        {
+            get
+            {
+                return MainWindowSettingsModel.DefaultLayouts.Layouts[MonitorConfigurationType.Vertical].Uuid != this.Uuid;
+            }
+        }
+
         public int SensitivityRadius
         {
             get
@@ -161,7 +197,23 @@ namespace FancyZonesEditor.Models
             }
         }
 
-        private int _sensitivityRadius = LayoutSettings.DefaultSensitivityRadius;
+        private int _sensitivityRadius = LayoutDefaultSettings.DefaultSensitivityRadius;
+
+        public int SensitivityRadiusMinimum
+        {
+            get
+            {
+                return 0;
+            }
+        }
+
+        public int SensitivityRadiusMaximum
+        {
+            get
+            {
+                return 1000;
+            }
+        }
 
         public List<string> QuickKeysAvailable
         {
@@ -238,13 +290,29 @@ namespace FancyZonesEditor.Models
             }
         }
 
-        private int _zoneCount = LayoutSettings.DefaultZoneCount;
+        public int TemplateZoneCountMinimum
+        {
+            get
+            {
+                return 1;
+            }
+        }
+
+        public int TemplateZoneCountMaximum
+        {
+            get
+            {
+                return 128;
+            }
+        }
+
+        private int _zoneCount = LayoutDefaultSettings.DefaultZoneCount;
 
         public bool IsZoneAddingAllowed
         {
             get
             {
-                return TemplateZoneCount < LayoutSettings.MaxZones;
+                return TemplateZoneCount < LayoutDefaultSettings.MaxZones;
             }
         }
 
@@ -271,6 +339,12 @@ namespace FancyZonesEditor.Models
             {
                 customModels.RemoveAt(i);
             }
+        }
+
+        public void RestoreTo(LayoutModel layout)
+        {
+            layout.SensitivityRadius = SensitivityRadius;
+            layout.TemplateZoneCount = TemplateZoneCount;
         }
 
         // Adds new custom Layout
@@ -305,6 +379,7 @@ namespace FancyZonesEditor.Models
         public void Persist()
         {
             PersistData();
+            FirePropertyChanged(nameof(PersistData));
         }
 
         public void LayoutHotkeys_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -317,6 +392,14 @@ namespace FancyZonesEditor.Models
                     break;
                 }
             }
+        }
+
+        public void DefaultLayouts_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            FirePropertyChanged(nameof(IsHorizontalDefault));
+            FirePropertyChanged(nameof(IsVerticalDefault));
+            FirePropertyChanged(nameof(CanBeSetAsHorizontalDefault));
+            FirePropertyChanged(nameof(CanBeSetAsVerticalDefault));
         }
     }
 }

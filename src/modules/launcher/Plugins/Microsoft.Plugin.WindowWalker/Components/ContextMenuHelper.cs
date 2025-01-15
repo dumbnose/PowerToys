@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Input;
+
 using Microsoft.Plugin.WindowWalker.Properties;
 using Wox.Plugin;
 using Wox.Plugin.Logger;
@@ -31,20 +32,18 @@ namespace Microsoft.Plugin.WindowWalker.Components
                 {
                     AcceleratorKey = Key.F4,
                     AcceleratorModifiers = ModifierKeys.Control,
-                    FontFamily = "Segoe MDL2 Assets",
+                    FontFamily = "Segoe Fluent Icons,Segoe MDL2 Assets",
                     Glyph = "\xE8BB",                       // E8B8 => Symbol: ChromeClose
                     Title = $"{Resources.wox_plugin_windowwalker_Close} (Ctrl+F4)",
                     Action = _ =>
                     {
                         if (!windowData.IsWindow)
                         {
-                            Log.Debug($"Can not close the window '{windowData.Title}' ({windowData.Hwnd}), because it doesn't exist.", typeof(ContextMenuHelper));
+                            Log.Debug($"Cannot close the window '{windowData.Title}' ({windowData.Hwnd}), because it doesn't exist.", typeof(ContextMenuHelper));
                             return false;
                         }
 
-                        // As a workaround to close PT Run after executing the context menu command, we switch to the window before closing it (Issue #16601).
-                        // We use the setting OpenAfterKillAndClose to detect if we have to switch.
-                        windowData.CloseThisWindow(!WindowWalkerSettings.Instance.OpenAfterKillAndClose);
+                        windowData.CloseThisWindow();
 
                         return !WindowWalkerSettings.Instance.OpenAfterKillAndClose;
                     },
@@ -53,14 +52,14 @@ namespace Microsoft.Plugin.WindowWalker.Components
 
             // Hide menu if Explorer.exe is the shell process or the process name is ApplicationFrameHost.exe
             // In the first case we would crash the windows ui and in the second case we would kill the generic process for uwp apps.
-            if (!windowData.Process.IsShellProcess && !(windowData.Process.IsUwpApp & windowData.Process.Name.ToLower(System.Globalization.CultureInfo.InvariantCulture) == "applicationframehost.exe")
-                && !(windowData.Process.IsFullAccessDenied & WindowWalkerSettings.Instance.HideKillProcessOnElevatedProcesses))
+            if (!windowData.Process.IsShellProcess && !(windowData.Process.IsUwpApp && string.Equals(windowData.Process.Name, "ApplicationFrameHost.exe", StringComparison.OrdinalIgnoreCase))
+                && !(windowData.Process.IsFullAccessDenied && WindowWalkerSettings.Instance.HideKillProcessOnElevatedProcesses))
             {
                 contextMenu.Add(new ContextMenuResult
                 {
                     AcceleratorKey = Key.Delete,
                     AcceleratorModifiers = ModifierKeys.Control,
-                    FontFamily = "Segoe MDL2 Assets",
+                    FontFamily = "Segoe Fluent Icons,Segoe MDL2 Assets",
                     Glyph = "\xE74D",                       // E74D => Symbol: Delete
                     Title = $"{Resources.wox_plugin_windowwalker_Kill} (Ctrl+Delete)",
                     Action = _ => KillProcessCommand(windowData),
@@ -78,9 +77,9 @@ namespace Microsoft.Plugin.WindowWalker.Components
         private static bool KillProcessCommand(Window window)
         {
             // Validate process
-            if (!window.IsWindow || !window.Process.DoesExist || !window.Process.Name.Equals(WindowProcess.GetProcessNameFromProcessID(window.Process.ProcessID), StringComparison.Ordinal) )
+            if (!window.IsWindow || !window.Process.DoesExist || !window.Process.Name.Equals(WindowProcess.GetProcessNameFromProcessID(window.Process.ProcessID), StringComparison.Ordinal))
             {
-                Log.Debug($"Can not kill process '{window.Process.Name}' ({window.Process.ProcessID}) of the window '{window.Title}' ({window.Hwnd}), because it doesn't exist.", typeof(ContextMenuHelper));
+                Log.Debug($"Cannot kill process '{window.Process.Name}' ({window.Process.ProcessID}) of the window '{window.Title}' ({window.Hwnd}), because it doesn't exist.", typeof(ContextMenuHelper));
                 return false;
             }
 
@@ -100,12 +99,6 @@ namespace Microsoft.Plugin.WindowWalker.Components
                 {
                     return false;
                 }
-            }
-
-            // As a workaround to close PT Run before executing the command, we switch to the window before killing it's process
-            if (!WindowWalkerSettings.Instance.OpenAfterKillAndClose)
-            {
-                window.SwitchToWindow();
             }
 
             // Kill process

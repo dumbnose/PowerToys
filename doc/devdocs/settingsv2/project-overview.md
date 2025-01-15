@@ -1,5 +1,5 @@
 # Overview
-`Settings` is Windows App Sdk WinUI3 .Net Unpackaged desktop application. More details about Windows App Sdk can be found [here](https://github.com/microsoft/WindowsAppSDK#windows-app-sdk---calling-all-windows-developers). More details about WinUI can be found [here](https://microsoft.github.io/microsoft-ui-xaml/about.html#what-is-it).
+`Settings` is Windows App Sdk WinUI3 .Net Unpackaged desktop application. More details about Windows App Sdk can be found in [Windows App SDK - Calling all Windows developers!](https://github.com/microsoft/WindowsAppSDK#windows-app-sdk---calling-all-windows-developers). More details about WinUI can be found in [Build apps with WinUI](https://developer.microsoft.com/en-us/windows/develop/).
 
 ## Settings V2 Project structure
 The Settings project .Net WinUI3 based project which
@@ -14,4 +14,4 @@ The Settings.UI.Library project contains the data that is to be rendered by the 
 #### [Settings Runner:](/src/settings-ui/Settings.UI)
 The function of the settings runner project is to communicate all changes that the user makes in the user interface, to the runner so that it can be dispatched and reflected in all the modules.
 
-[MVVM]: https://docs.microsoft.com/en-us/windows/uwp/data-binding/data-binding-and-mvvm
+[MVVM]: https://learn.microsoft.com/windows/uwp/data-binding/data-binding-and-mvvm

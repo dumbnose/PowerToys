@@ -8,7 +8,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+
 using Wox.Plugin.Common.VirtualDesktop.Helper;
 using Wox.Plugin.Common.Win32;
 using Wox.Plugin.Logger;
@@ -235,16 +237,20 @@ namespace Microsoft.Plugin.WindowWalker.Components
         }
 
         /// <summary>
+        /// Helper function to close the window
+        /// </summary>
+        internal void CloseThisWindowHelper()
+        {
+            _ = NativeMethods.SendMessageTimeout(Hwnd, Win32Constants.WM_SYSCOMMAND, Win32Constants.SC_CLOSE, 0, 0x0000, 5000, out _);
+        }
+
+        /// <summary>
         /// Closes the window
         /// </summary>
-        internal void CloseThisWindow(bool switchBeforeClose)
+        internal void CloseThisWindow()
         {
-            if (switchBeforeClose)
-            {
-                SwitchToWindow();
-            }
-
-            _ = NativeMethods.SendMessage(Hwnd, Win32Constants.WM_SYSCOMMAND, Win32Constants.SC_CLOSE);
+            Thread thread = new(new ThreadStart(CloseThisWindowHelper));
+            thread.Start();
         }
 
         /// <summary>
@@ -357,7 +363,7 @@ namespace Microsoft.Plugin.WindowWalker.Components
             {
                 if (_handlesToProcessCache.Count > 7000)
                 {
-                    Debug.Print("Clearing Process Cache because it's size is " + _handlesToProcessCache.Count);
+                    Debug.Print("Clearing Process Cache because its size is " + _handlesToProcessCache.Count);
                     _handlesToProcessCache.Clear();
                 }
 
@@ -375,7 +381,7 @@ namespace Microsoft.Plugin.WindowWalker.Components
                     }
                     else
                     {
-                        // For the dwm process we can not receive the name. This is no problem because the window isn't part of result list.
+                        // For the dwm process we cannot receive the name. This is no problem because the window isn't part of result list.
                         Log.Debug($"Invalid process {processId} ({processName}) for window handle {hWindow}.", typeof(Window));
                         _handlesToProcessCache.Add(hWindow, new WindowProcess(0, 0, string.Empty));
                     }
@@ -383,7 +389,7 @@ namespace Microsoft.Plugin.WindowWalker.Components
 
                 // Correct the process data if the window belongs to a uwp app hosted by 'ApplicationFrameHost.exe'
                 // (This only works if the window isn't minimized. For minimized windows the required child window isn't assigned.)
-                if (_handlesToProcessCache[hWindow].Name.ToUpperInvariant() == "APPLICATIONFRAMEHOST.EXE")
+                if (string.Equals(_handlesToProcessCache[hWindow].Name, "ApplicationFrameHost.exe", StringComparison.OrdinalIgnoreCase))
                 {
                     new Task(() =>
                     {

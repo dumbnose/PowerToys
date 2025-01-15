@@ -77,7 +77,7 @@ void TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::end()
 
 void TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::send_pipe_message(std::wstring message)
 {
-    // Adapted from https://docs.microsoft.com/en-us/windows/win32/ipc/named-pipe-client
+    // Adapted from https://learn.microsoft.com/windows/win32/ipc/named-pipe-client
     HANDLE output_pipe_handle;
     const wchar_t* message_send = message.c_str();
     BOOL fSuccess = FALSE;
@@ -161,7 +161,7 @@ void TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::consume_output_queue_thread
 
 BOOL TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::GetLogonSID(HANDLE hToken, PSID* ppsid)
 {
-    // From https://docs.microsoft.com/en-us/previous-versions/aa446670(v=vs.85)
+    // From https://learn.microsoft.com/previous-versions/aa446670(v=vs.85)
     BOOL bSuccess = FALSE;
     DWORD dwIndex;
     DWORD dwLength = 0;
@@ -176,7 +176,7 @@ BOOL TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::GetLogonSID(HANDLE hToken, 
     if (!GetTokenInformation(
             hToken, // handle to the access token
             TokenGroups, // get information about the token's groups
-            (LPVOID)ptg, // pointer to TOKEN_GROUPS buffer
+            static_cast<LPVOID>(ptg), // pointer to TOKEN_GROUPS buffer
             0, // size of buffer
             &dwLength // receives required buffer size
             ))
@@ -184,9 +184,9 @@ BOOL TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::GetLogonSID(HANDLE hToken, 
         if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
             goto Cleanup;
 
-        ptg = (PTOKEN_GROUPS)HeapAlloc(GetProcessHeap(),
+        ptg = static_cast<PTOKEN_GROUPS>(HeapAlloc(GetProcessHeap(),
                                        HEAP_ZERO_MEMORY,
-                                       dwLength);
+                                       dwLength));
 
         if (ptg == NULL)
             goto Cleanup;
@@ -197,7 +197,7 @@ BOOL TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::GetLogonSID(HANDLE hToken, 
     if (!GetTokenInformation(
             hToken, // handle to the access token
             TokenGroups, // get information about the token's groups
-            (LPVOID)ptg, // pointer to TOKEN_GROUPS buffer
+            static_cast<LPVOID>(ptg), // pointer to TOKEN_GROUPS buffer
             dwLength, // size of buffer
             &dwLength // receives required buffer size
             ))
@@ -213,14 +213,14 @@ BOOL TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::GetLogonSID(HANDLE hToken, 
             // Found the logon SID; make a copy of it.
 
             dwLength = GetLengthSid(ptg->Groups[dwIndex].Sid);
-            *ppsid = (PSID)HeapAlloc(GetProcessHeap(),
+            *ppsid = static_cast<PSID>(HeapAlloc(GetProcessHeap(),
                                      HEAP_ZERO_MEMORY,
-                                     dwLength);
+                                     dwLength));
             if (*ppsid == NULL)
                 goto Cleanup;
             if (!CopySid(dwLength, *ppsid, ptg->Groups[dwIndex].Sid))
             {
-                HeapFree(GetProcessHeap(), 0, (LPVOID)*ppsid);
+                HeapFree(GetProcessHeap(), 0, static_cast<LPVOID>(*ppsid));
                 goto Cleanup;
             }
             break;
@@ -233,15 +233,15 @@ Cleanup:
     // Free the buffer for the token groups.
 
     if (ptg != NULL)
-        HeapFree(GetProcessHeap(), 0, (LPVOID)ptg);
+        HeapFree(GetProcessHeap(), 0, static_cast<LPVOID>(ptg));
 
     return bSuccess;
 }
 
 VOID TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::FreeLogonSID(PSID* ppsid)
 {
-    // From https://docs.microsoft.com/en-us/previous-versions/aa446670(v=vs.85)
-    HeapFree(GetProcessHeap(), 0, (LPVOID)*ppsid);
+    // From https://learn.microsoft.com/previous-versions/aa446670(v=vs.85)
+    HeapFree(GetProcessHeap(), 0, static_cast<LPVOID>(*ppsid));
 }
 
 int TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::change_pipe_security_allow_restricted_token(HANDLE handle, HANDLE token)
@@ -279,7 +279,7 @@ int TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::change_pipe_security_allow_r
     ea.grfInheritance = NO_INHERITANCE;
     ea.Trustee.TrusteeForm = TRUSTEE_IS_SID;
     ea.Trustee.TrusteeType = TRUSTEE_IS_USER;
-    ea.Trustee.ptstrName = (LPTSTR)user_restricted;
+    ea.Trustee.ptstrName = static_cast<LPTSTR>(user_restricted);
 
     if (SetEntriesInAcl(1, &ea, old_dacl, &new_dacl))
     {
@@ -302,9 +302,9 @@ int TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::change_pipe_security_allow_r
     error = 0;
 
 Lclean_dacl:
-    LocalFree((HLOCAL)new_dacl);
+    LocalFree(static_cast<HLOCAL>(new_dacl));
 Lclean_sd:
-    LocalFree((HLOCAL)sd);
+    LocalFree(static_cast<HLOCAL>(sd));
 Lclean_sid:
     FreeLogonSID(&user_restricted);
 Ldone:
@@ -397,7 +397,7 @@ void TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::handle_pipe_connection(HAND
 
 void TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::start_named_pipe_server(HANDLE token)
 {
-    // Adapted from https://docs.microsoft.com/en-us/windows/win32/ipc/multithreaded-pipe-server
+    // Adapted from https://learn.microsoft.com/windows/win32/ipc/multithreaded-pipe-server
     const wchar_t* pipe_name = input_pipe_name.c_str();
     BOOL connected = FALSE;
     HANDLE connect_pipe_handle = INVALID_HANDLE_VALUE;
@@ -425,7 +425,7 @@ void TwoWayPipeMessageIPC::TwoWayPipeMessageIPCImpl::start_named_pipe_server(HAN
 
             if (token != NULL)
             {
-                int err = change_pipe_security_allow_restricted_token(connect_pipe_handle, token);
+                change_pipe_security_allow_restricted_token(connect_pipe_handle, token);
             }
             current_connect_pipe_handle = connect_pipe_handle;
         }

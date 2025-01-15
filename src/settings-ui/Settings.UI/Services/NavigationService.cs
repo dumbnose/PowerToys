@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -101,5 +102,13 @@ namespace Microsoft.PowerToys.Settings.UI.Services
         private static void Frame_NavigationFailed(object sender, NavigationFailedEventArgs e) => NavigationFailed?.Invoke(sender, e);
 
         private static void Frame_Navigated(object sender, NavigationEventArgs e) => Navigated?.Invoke(sender, e);
+
+        internal static void EnsurePageIsSelected(Type pageType)
+        {
+            if (Frame.Content == null)
+            {
+                Frame.Navigate(pageType);
+            }
+        }
     }
 }

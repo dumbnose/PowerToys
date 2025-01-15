@@ -277,12 +277,15 @@ namespace
             .monitorId = { .deviceId = MonitorUtils::Display::ConvertObsoleteDeviceId(deviceId->deviceName) },
             .virtualDesktopId = deviceId->virtualDesktopId
         };
-        data.zoneSetUuid = json.GetNamedString(NonLocalizable::ZoneSetUuidStr);
 
-        if (!FancyZonesUtils::IsValidGuid(data.zoneSetUuid))
+        std::wstring layoutIdStr = json.GetNamedString(NonLocalizable::ZoneSetUuidStr).c_str();
+        auto layoutIdOpt = FancyZonesUtils::GuidFromString(layoutIdStr);
+        if (!layoutIdOpt.has_value())
         {
             return std::nullopt;
         }
+
+        data.layoutId = layoutIdOpt.value();
 
         return data;
     }
@@ -383,7 +386,7 @@ namespace JSONHelpers
             json::JsonArray columnsPercentage = infoJson.GetNamedArray(NonLocalizable::ColumnsPercentageStr);
             json::JsonArray cellChildMap = infoJson.GetNamedArray(NonLocalizable::CellChildMapStr);
 
-            if (rowsPercentage.Size() != info.m_rows || columnsPercentage.Size() != info.m_columns || cellChildMap.Size() != info.m_rows)
+            if (static_cast<int>(rowsPercentage.Size()) != info.m_rows || static_cast<int>(columnsPercentage.Size()) != info.m_columns || static_cast<int>(cellChildMap.Size()) != info.m_rows)
             {
                 return std::nullopt;
             }
@@ -393,7 +396,7 @@ namespace JSONHelpers
             for (const auto& cellsRow : cellChildMap)
             {
                 const auto cellsArray = cellsRow.GetArray();
-                if (cellsArray.Size() != info.m_columns)
+                if (static_cast<int>(cellsArray.Size()) != info.m_columns)
                 {
                     return std::nullopt;
                 }
@@ -496,16 +499,6 @@ namespace JSONHelpers
         }
     }
 
-    json::JsonObject ZoneSetDataJSON::ToJson(const FancyZonesDataTypes::ZoneSetData& zoneSet)
-    {
-        json::JsonObject result{};
-
-        result.SetNamedValue(NonLocalizable::UuidStr, json::value(zoneSet.uuid));
-        result.SetNamedValue(NonLocalizable::TypeStr, json::value(TypeToString(zoneSet.type)));
-
-        return result;
-    }
-
     std::optional<FancyZonesDataTypes::ZoneSetData> ZoneSetDataJSON::FromJson(const json::JsonObject& zoneSet)
     {
         try
@@ -562,16 +555,6 @@ namespace JSONHelpers
         {
             return std::nullopt;
         }
-    }
-
-    json::JsonObject LayoutQuickKeyJSON::ToJson(const LayoutQuickKeyJSON& layoutQuickKey)
-    {
-        json::JsonObject result{};
-
-        result.SetNamedValue(NonLocalizable::QuickAccessUuid, json::value(layoutQuickKey.layoutUuid));
-        result.SetNamedValue(NonLocalizable::QuickAccessKey, json::value(layoutQuickKey.key));
-
-        return result;
     }
     
     std::optional<LayoutQuickKeyJSON> LayoutQuickKeyJSON::FromJson(const json::JsonObject& layoutQuickKey)
@@ -678,18 +661,6 @@ namespace JSONHelpers
 
         root.SetNamedValue(NonLocalizable::AppliedLayoutsIds::AppliedLayoutsArrayID, layoutsArray);
         json::to_file(AppliedLayouts::AppliedLayoutsFileName(), root);
-    }
-
-    json::JsonArray SerializeCustomZoneSets(const TCustomZoneSetsMap& customZoneSetsMap)
-    {
-        json::JsonArray customZoneSetsJSON{};
-
-        for (const auto& [zoneSetId, zoneSetData] : customZoneSetsMap)
-        {
-            customZoneSetsJSON.Append(CustomZoneSetJSON::ToJson(CustomZoneSetJSON{ zoneSetId, zoneSetData }));
-        }
-
-        return customZoneSetsJSON;
     }
     
     std::optional<TLayoutQuickKeysMap> ParseQuickKeys(const json::JsonObject& fancyZonesDataJSON)

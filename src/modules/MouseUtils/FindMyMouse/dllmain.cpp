@@ -3,6 +3,7 @@
 #include <common/SettingsAPI/settings_objects.h>
 #include "trace.h"
 #include "FindMyMouse.h"
+#include "WinHookEventIDs.h"
 #include <thread>
 #include <common/utils/logger_helper.h>
 #include <common/utils/color.h>
@@ -13,6 +14,7 @@ namespace
     const wchar_t JSON_KEY_PROPERTIES[] = L"properties";
     const wchar_t JSON_KEY_VALUE[] = L"value";
     const wchar_t JSON_KEY_ACTIVATION_METHOD[] = L"activation_method";
+    const wchar_t JSON_KEY_INCLUDE_WIN_KEY[] = L"include_win_key";
     const wchar_t JSON_KEY_DO_NOT_ACTIVATE_ON_GAME_MODE[] = L"do_not_activate_on_game_mode";
     const wchar_t JSON_KEY_BACKGROUND_COLOR[] = L"background_color";
     const wchar_t JSON_KEY_SPOTLIGHT_COLOR[] = L"spotlight_color";
@@ -22,6 +24,9 @@ namespace
     const wchar_t JSON_KEY_SPOTLIGHT_INITIAL_ZOOM[] = L"spotlight_initial_zoom";
     const wchar_t JSON_KEY_EXCLUDED_APPS[] = L"excluded_apps";
     const wchar_t JSON_KEY_SHAKING_MINIMUM_DISTANCE[] = L"shaking_minimum_distance";
+    const wchar_t JSON_KEY_SHAKING_INTERVAL_MS[] = L"shaking_interval_ms";
+    const wchar_t JSON_KEY_SHAKING_FACTOR[] = L"shaking_factor";
+    const wchar_t JSON_KEY_ACTIVATION_SHORTCUT[] = L"activation_shortcut";
 }
 
 extern "C" IMAGE_DOS_HEADER __ImageBase;
@@ -58,6 +63,9 @@ private:
     // The PowerToy state.
     bool m_enabled = false;
 
+    // Hotkey to invoke the module
+    HotkeyEx m_hotkey;
+
     // Find My Mouse specific settings
     FindMyMouseSettings m_findMyMouseSettings;
 
@@ -91,6 +99,12 @@ public:
     virtual const wchar_t* get_key() override
     {
         return MODULE_NAME;
+    }
+
+    // Return the configured status for the gpo policy for the module
+    virtual powertoys_gpo::gpo_rule_configured_t gpo_policy_enabled_configuration() override
+    {
+        return powertoys_gpo::getConfiguredFindMyMouseEnabledValue();
     }
 
     // Return JSON with the configuration options.
@@ -151,6 +165,27 @@ public:
     {
         return m_enabled;
     }
+
+    virtual std::optional<HotkeyEx> GetHotkeyEx() override
+    {
+        Logger::trace("GetHotkeyEx()");
+        if (m_findMyMouseSettings.activationMethod == FindMyMouseActivationMethod::Shortcut)
+        {
+            return m_hotkey;
+        }
+
+        return std::nullopt;
+    }
+
+    virtual void OnHotkeyEx() override
+    {
+        Logger::trace("OnHotkeyEx()");
+        HWND hwnd = GetSonarHwnd();
+        if (hwnd != nullptr)
+        {
+            PostMessageW(hwnd, WM_PRIV_SHORTCUT, NULL, NULL);
+        }
+    }
 };
 
 // Load the settings file.
@@ -179,11 +214,24 @@ void FindMyMouse::parse_settings(PowerToysSettings::PowerToyValues& settings)
         {
             // Parse Activation Method
             auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_ACTIVATION_METHOD);
-            UINT value = (UINT)jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE);
-            if (value < (int)FindMyMouseActivationMethod::EnumElements)
+            int value = static_cast<int>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+            if (value < static_cast<int>(FindMyMouseActivationMethod::EnumElements) && value >= 0)
             {
-                findMyMouseSettings.activationMethod = (FindMyMouseActivationMethod)value;
+                std::wstring version = (std::wstring)settingsObject.GetNamedString(L"version");
+                if (version == L"1.0" && value == 1)
+                {
+                    findMyMouseSettings.activationMethod = FindMyMouseActivationMethod::ShakeMouse;
+                }
+                else
+                {
+					findMyMouseSettings.activationMethod = static_cast<FindMyMouseActivationMethod>(value);
+				}
             }
+            else
+            {
+                throw std::runtime_error("Invalid Activation Method value");
+            }
+                
         }
         catch (...)
         {
@@ -191,8 +239,17 @@ void FindMyMouse::parse_settings(PowerToysSettings::PowerToyValues& settings)
         }
         try
         {
+            auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_INCLUDE_WIN_KEY);
+            findMyMouseSettings.includeWinKey = jsonPropertiesObject.GetNamedBoolean(JSON_KEY_VALUE);
+        }
+        catch (...)
+        {
+            Logger::warn("Failed to get 'include windows key with ctrl' setting");
+        }
+        try
+        {
             auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_DO_NOT_ACTIVATE_ON_GAME_MODE);
-            findMyMouseSettings.doNotActivateOnGameMode = (bool)jsonPropertiesObject.GetNamedBoolean(JSON_KEY_VALUE);
+            findMyMouseSettings.doNotActivateOnGameMode = jsonPropertiesObject.GetNamedBoolean(JSON_KEY_VALUE);
         }
         catch (...)
         {
@@ -240,7 +297,15 @@ void FindMyMouse::parse_settings(PowerToysSettings::PowerToyValues& settings)
         {
             // Parse Overlay Opacity
             auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_OVERLAY_OPACITY);
-            findMyMouseSettings.overlayOpacity = (UINT)jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE);
+            int value = static_cast<int>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+            if (value >= 0)
+            {
+                findMyMouseSettings.overlayOpacity = value;
+            }
+            else
+            {
+                throw std::runtime_error("Invalid Overlay Opacity value");
+            }
         }
         catch (...)
         {
@@ -250,7 +315,15 @@ void FindMyMouse::parse_settings(PowerToysSettings::PowerToyValues& settings)
         {
             // Parse Spotlight Radius
             auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_SPOTLIGHT_RADIUS);
-            findMyMouseSettings.spotlightRadius = (UINT)jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE);
+            int value = static_cast<int>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+            if (value >= 0)
+            {
+                findMyMouseSettings.spotlightRadius = value;
+            }
+            else
+            {
+                throw std::runtime_error("Invalid Spotlight Radius value");
+            }
         }
         catch (...)
         {
@@ -260,7 +333,15 @@ void FindMyMouse::parse_settings(PowerToysSettings::PowerToyValues& settings)
         {
             // Parse Animation Duration
             auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_ANIMATION_DURATION_MS);
-            findMyMouseSettings.animationDurationMs = (UINT)jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE);
+            int value = static_cast<int>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+            if (value >= 0)
+            {
+                findMyMouseSettings.animationDurationMs = value;
+            }
+            else
+            {
+                throw std::runtime_error("Invalid Animation Duration value");
+            }
         }
         catch (...)
         {
@@ -270,7 +351,15 @@ void FindMyMouse::parse_settings(PowerToysSettings::PowerToyValues& settings)
         {
             // Parse Spotlight Initial Zoom
             auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_SPOTLIGHT_INITIAL_ZOOM);
-            findMyMouseSettings.spotlightInitialZoom = (UINT)jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE);
+            int value = static_cast<int>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+            if (value >= 0)
+            {
+                findMyMouseSettings.spotlightInitialZoom = value;
+            }
+            else
+            {
+                throw std::runtime_error("Invalid Spotlight Initial Zoom value");
+            }
         }
         catch (...)
         {
@@ -283,7 +372,7 @@ void FindMyMouse::parse_settings(PowerToysSettings::PowerToyValues& settings)
             std::wstring apps = jsonPropertiesObject.GetNamedString(JSON_KEY_VALUE).c_str();
             std::vector<std::wstring> excludedApps;
             auto excludedUppercase = apps;
-            CharUpperBuffW(excludedUppercase.data(), (DWORD)excludedUppercase.length());
+            CharUpperBuffW(excludedUppercase.data(), static_cast<DWORD>(excludedUppercase.length()));
             std::wstring_view view(excludedUppercase);
             view = left_trim<wchar_t>(trim<wchar_t>(view));
 
@@ -305,11 +394,95 @@ void FindMyMouse::parse_settings(PowerToysSettings::PowerToyValues& settings)
         {
             // Parse Shaking Minimum Distance
             auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_SHAKING_MINIMUM_DISTANCE);
-            findMyMouseSettings.shakeMinimumDistance = (UINT)jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE);
+            int value = static_cast<int>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+            if (value >= 0)
+            {
+                findMyMouseSettings.shakeMinimumDistance = value;
+            }
+            else
+            {
+                throw std::runtime_error("Invalid Shaking Minimum Distance value");
+            }
         }
         catch (...)
         {
             Logger::warn("Failed to initialize Shaking Minimum Distance from settings. Will use default value");
+        }
+        try
+        {
+            // Parse Shaking Interval Milliseconds
+            auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_SHAKING_INTERVAL_MS);
+            int value = static_cast<int>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+            if (value >= 0)
+            {
+                findMyMouseSettings.shakeIntervalMs = value;
+            }
+            else
+            {
+                throw std::runtime_error("Invalid Shaking Interval Milliseconds value");
+            }
+        }
+        catch (...)
+        {
+            Logger::warn("Failed to initialize Shaking Interval Milliseconds from settings. Will use default value");
+        }
+        try
+        {
+            // Parse Shaking Factor
+            auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_SHAKING_FACTOR);
+            int value = static_cast<int>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+            if (value >= 0)
+            {
+                findMyMouseSettings.shakeFactor = value;
+            }
+            else
+            {
+                throw std::runtime_error("Invalid Shaking Factor value");
+            }
+        }
+        catch (...)
+        {
+            Logger::warn("Failed to initialize Shaking Factor from settings. Will use default value");
+        }
+
+        try
+        {
+            // Parse HotKey
+            auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_ACTIVATION_SHORTCUT);
+            auto hotkey = PowerToysSettings::HotkeyObject::from_json(jsonPropertiesObject);
+            m_hotkey = HotkeyEx();
+            if (hotkey.win_pressed())
+            {
+                m_hotkey.modifiersMask |= MOD_WIN;
+            }
+
+            if (hotkey.ctrl_pressed())
+            {
+                m_hotkey.modifiersMask |= MOD_CONTROL;
+            }
+
+            if (hotkey.shift_pressed())
+            {
+                m_hotkey.modifiersMask |= MOD_SHIFT;
+            }
+
+            if (hotkey.alt_pressed())
+            {
+                m_hotkey.modifiersMask |= MOD_ALT;
+            }
+
+            m_hotkey.vkCode = static_cast<WORD>(hotkey.get_code());
+        }
+        catch (...)
+        {
+            Logger::warn("Failed to initialize Activation Shortcut from settings. Will use default value");
+        }
+
+        if (!m_hotkey.modifiersMask)
+        {
+            Logger::info("Using default Activation Shortcut");
+            m_hotkey.modifiersMask = MOD_SHIFT | MOD_WIN;
+            m_hotkey.vkCode = 0x46; // F key
         }
     }
     else

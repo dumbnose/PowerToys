@@ -20,6 +20,7 @@ struct VideoConferenceSettings
 {
     PowerToysSettings::HotkeyObject cameraAndMicrophoneMuteHotkey = PowerToysSettings::HotkeyObject::from_settings(true, false, false, true, 81);
     PowerToysSettings::HotkeyObject microphoneMuteHotkey = PowerToysSettings::HotkeyObject::from_settings(true, false, false, true, 65);
+    PowerToysSettings::HotkeyObject microphonePushToTalkHotkey = PowerToysSettings::HotkeyObject::from_settings(true, false, false, true, 73);
     PowerToysSettings::HotkeyObject cameraMuteHotkey = PowerToysSettings::HotkeyObject::from_settings(true, false, false, true, 79);
 
     std::wstring toolbarPositionString;
@@ -28,6 +29,10 @@ struct VideoConferenceSettings
     std::wstring selectedCamera;
     std::wstring imageOverlayPath;
     std::wstring selectedMicrophone;
+
+    std::wstring startupAction;
+
+    bool pushToReverseEnabled = false;
 };
 
 class VideoConferenceModule : public PowertoyModuleIface
@@ -36,6 +41,8 @@ public:
     VideoConferenceModule();
     ~VideoConferenceModule();
     virtual const wchar_t* get_name() override;
+
+    virtual powertoys_gpo::gpo_rule_configured_t gpo_policy_enabled_configuration() override;
 
     virtual bool get_config(wchar_t* buffer, int* buffer_size) override;
 
@@ -53,6 +60,7 @@ public:
     void sendOverlayImageUpdate();
 
     static void unmuteAll();
+    static void muteAll();
     static void reverseMicrophoneMute();
     static bool getMicrophoneMuteState();
     static void reverseVirtualCameraMuteState();
@@ -85,9 +93,10 @@ private:
     std::optional<SerializedSharedMemory> _imageOverlayChannel;
     std::optional<SerializedSharedMemory> _settingsUpdateChannel;
 
-    FileWatcher _generalSettingsWatcher;
-    FileWatcher _moduleSettingsWatcher;
+    std::unique_ptr<FileWatcher> _generalSettingsWatcher;
+    std::unique_ptr<FileWatcher> _moduleSettingsWatcher;
 
     static VideoConferenceSettings settings;
     static Toolbar toolbar;
+    static bool pushToTalkPressed;
 };

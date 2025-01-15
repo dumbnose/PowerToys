@@ -58,9 +58,9 @@ namespace CentralizedKeyboardHook
     // Handle the pressed key proc
     void PressedKeyTimerProc(
         HWND hwnd,
-        UINT message,
+        UINT /*message*/,
         UINT_PTR idTimer,
-        DWORD dwTime)
+        DWORD /*dwTime*/)
     {
         std::multiset<PressedKeyDescriptor> copy;
         {
@@ -87,6 +87,12 @@ namespace CentralizedKeyboardHook
         }
 
         const auto& keyPressInfo = *reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
+
+        if (keyPressInfo.dwExtraInfo == PowertoyModuleIface::CENTRALIZED_KEYBOARD_HOOK_DONT_TRIGGER_FLAG)
+        {
+            // The new keystroke was generated from one of our actions. We should pass it along.
+            return CallNextHookEx(hHook, nCode, wParam, lParam);
+        }
 
         // Check if the keys are pressed.
         if (!pressedKeyDescriptors.empty())
@@ -144,6 +150,11 @@ namespace CentralizedKeyboardHook
             .alt = static_cast<bool>(GetAsyncKeyState(VK_MENU) & 0x8000),
             .key = static_cast<unsigned char>(keyPressInfo.vkCode)
         };
+
+        if (hotkey == Hotkey{})
+        {
+            return CallNextHookEx(hHook, nCode, wParam, lParam);
+        }
 
         std::function<bool()> action;
         {

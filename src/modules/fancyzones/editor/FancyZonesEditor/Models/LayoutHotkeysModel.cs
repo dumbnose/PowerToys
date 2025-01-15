@@ -43,12 +43,12 @@ namespace FancyZonesEditor.Models
 
         public bool SelectKey(string key, string uuid)
         {
-            if (!SelectedKeys.ContainsKey(key))
+            if (!SelectedKeys.TryGetValue(key, out string value))
             {
                 return false;
             }
 
-            if (SelectedKeys[key] == uuid)
+            if (value == uuid)
             {
                 return true;
             }
@@ -66,6 +66,19 @@ namespace FancyZonesEditor.Models
             SelectedKeys[key] = uuid;
             FirePropertyChanged();
             return true;
+        }
+
+        public string Key(string uuid)
+        {
+            foreach (var pair in SelectedKeys)
+            {
+                if (pair.Value == uuid)
+                {
+                    return pair.Key;
+                }
+            }
+
+            return Properties.Resources.Quick_Key_None;
         }
 
         public void CleanUp()

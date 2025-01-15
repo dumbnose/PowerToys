@@ -19,6 +19,7 @@ namespace Microsoft.PowerToys.Settings.UI.Library
             ErrorDownloading,
             ReadyToDownload,
             ReadyToInstall,
+            NetworkError,
         }
 
         // Gets or sets a value of the updating state
@@ -69,6 +70,11 @@ namespace Microsoft.PowerToys.Settings.UI.Library
             {
                 try
                 {
+                    if (LastCheckedDate == null)
+                    {
+                        return string.Empty;
+                    }
+
                     long seconds = long.Parse(LastCheckedDate, CultureInfo.CurrentCulture);
                     var date = DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime;
                     return date.ToLocalTime().ToString(CultureInfo.CurrentCulture);
@@ -96,7 +102,7 @@ namespace Microsoft.PowerToys.Settings.UI.Library
             {
                 try
                 {
-                    Stream inputStream = fileSystem.File.Open(file, FileMode.Open);
+                    FileSystemStream inputStream = fileSystem.File.Open(file, FileMode.Open);
                     StreamReader reader = new StreamReader(inputStream);
                     string data = reader.ReadToEnd();
                     inputStream.Close();

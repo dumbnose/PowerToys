@@ -11,7 +11,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using interop;
 
 // http://blogs.microsoft.co.il/arik/2010/05/28/wpf-single-instance-application/
 // modified to allow single instance restart
@@ -93,7 +92,7 @@ namespace PowerLauncher.Helper
         /// Gets command line args - for ClickOnce deployed applications, command line args may not be passed directly, they have to be retrieved.
         /// </summary>
         /// <returns>List of command line arg strings.</returns>
-        private static IList<string> GetCommandLineArgs(string uniqueApplicationName)
+        private static List<string> GetCommandLineArgs(string uniqueApplicationName)
         {
             string[] args = null;
 
@@ -117,7 +116,7 @@ namespace PowerLauncher.Helper
                 {
                     try
                     {
-                        using (TextReader reader = new StreamReader(cmdLinePath, Encoding.Unicode))
+                        using (StreamReader reader = new StreamReader(cmdLinePath, Encoding.Unicode))
                         {
                             args = NativeMethods.CommandLineToArgvW(reader.ReadToEnd());
                         }

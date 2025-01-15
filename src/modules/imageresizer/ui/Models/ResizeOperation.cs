@@ -1,6 +1,8 @@
-﻿// Copyright (c) Brice Lambson
+﻿#pragma warning disable IDE0073
+// Copyright (c) Brice Lambson
 // The Brice Lambson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.  Code forked from Brice Lambson's https://github.com/bricelam/ImageResizer/
+#pragma warning restore IDE0073
 
 using System;
 using System.Diagnostics;
@@ -11,10 +13,12 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+
 using ImageResizer.Extensions;
 using ImageResizer.Properties;
 using ImageResizer.Utilities;
 using Microsoft.VisualBasic.FileIO;
+
 using FileSystem = Microsoft.VisualBasic.FileIO.FileSystem;
 
 namespace ImageResizer.Models
@@ -27,7 +31,7 @@ namespace ImageResizer.Models
         private readonly string _destinationDirectory;
         private readonly Settings _settings;
 
-        // Filenames to avoid according to https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#file-and-directory-names
+        // Filenames to avoid according to https://learn.microsoft.com/windows/win32/fileio/naming-a-file#file-and-directory-names
         private static readonly string[] _avoidFilenames =
             {
                 "CON", "PRN", "AUX", "NUL",
@@ -85,10 +89,10 @@ namespace ImageResizer.Models
                     {
                         BitmapMetadata originalMetadata = (BitmapMetadata)originalFrame.Metadata;
 
-    #if DEBUG
+#if DEBUG
                         Debug.WriteLine($"### Processing metadata of file {_file}");
                         originalMetadata.PrintsAllMetadataToDebugOutput();
-    #endif
+#endif
 
                         var metadata = GetValidMetadata(originalMetadata, transformedBitmap, containerFormat);
 

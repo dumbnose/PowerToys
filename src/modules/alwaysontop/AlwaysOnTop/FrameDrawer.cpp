@@ -3,6 +3,8 @@
 
 #include <dwmapi.h>
 
+#include <ScalingUtils.h>
+
 namespace
 {
     size_t D2DRectUHash(D2D1_SIZE_U rect)
@@ -59,6 +61,8 @@ bool FrameDrawer::CreateRenderTargets(const RECT& clientRect)
     {
         return false;
     }
+
+    m_renderTarget->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     m_renderTargetSizeHash = rectHash;
 
     return true;
@@ -86,10 +90,10 @@ void FrameDrawer::Show()
     Render();
 }
 
-void FrameDrawer::SetBorderRect(RECT windowRect, COLORREF color, int thickness, int radius)
+void FrameDrawer::SetBorderRect(RECT windowRect, COLORREF rgb, float alpha, int thickness, float radius)
 {
     auto newSceneRect = DrawableRect{
-        .borderColor = ConvertColor(color),
+        .borderColor = ConvertColor(rgb, alpha),
         .thickness = thickness,
     };
 
@@ -171,23 +175,35 @@ IDWriteFactory* FrameDrawer::GetWriteFactory()
     return pDWriteFactory;
 }
 
-D2D1_COLOR_F FrameDrawer::ConvertColor(COLORREF color)
+D2D1_COLOR_F FrameDrawer::ConvertColor(COLORREF color, float alpha)
 {
     return D2D1::ColorF(GetRValue(color) / 255.f,
                         GetGValue(color) / 255.f,
                         GetBValue(color) / 255.f,
-                        1.f);
+                        alpha);
 }
 
-D2D1_ROUNDED_RECT FrameDrawer::ConvertRect(RECT rect, int thickness, int radius)
+D2D1_ROUNDED_RECT FrameDrawer::ConvertRect(RECT rect, int thickness, float radius)
 {
-    auto d2d1Rect = D2D1::RectF((float)rect.left + thickness, (float)rect.top + thickness, (float)rect.right - thickness, (float)rect.bottom - thickness);
-    return D2D1::RoundedRect(d2d1Rect, (float)radius, (float)radius);
+    float halfThickness = thickness / 2.0f;
+
+    // 1 is needed to eliminate the gap between border and window
+    auto d2d1Rect = D2D1::RectF(static_cast<float>(rect.left) + halfThickness + 1, 
+        static_cast<float>(rect.top) + halfThickness + 1, 
+        static_cast<float>(rect.right) - halfThickness - 1, 
+        static_cast<float>(rect.bottom) - halfThickness - 1);
+    return D2D1::RoundedRect(d2d1Rect, radius, radius);
 }
 
 D2D1_RECT_F FrameDrawer::ConvertRect(RECT rect, int thickness)
 {
-    return D2D1::RectF((float)rect.left + thickness, (float)rect.top + thickness, (float)rect.right - thickness, (float)rect.bottom - thickness);
+    float halfThickness = thickness / 2.0f;
+
+    // 1 is needed to eliminate the gap between border and window
+    return D2D1::RectF(static_cast<float>(rect.left) + halfThickness + 1,
+        static_cast<float>(rect.top) + halfThickness + 1,
+        static_cast<float>(rect.right) - halfThickness - 1,
+        static_cast<float>(rect.bottom) - halfThickness - 1);
 }
 
 void FrameDrawer::Render()
@@ -205,11 +221,11 @@ void FrameDrawer::Render()
 
     if (m_sceneRect.roundedRect)
     {
-        m_renderTarget->DrawRoundedRectangle(m_sceneRect.roundedRect.value(), m_borderBrush.get(), static_cast<float>(m_sceneRect.thickness * 2));
+        m_renderTarget->DrawRoundedRectangle(m_sceneRect.roundedRect.value(), m_borderBrush.get(), static_cast<float>(m_sceneRect.thickness));
     }
     else if (m_sceneRect.rect)
     {
-        m_renderTarget->DrawRectangle(m_sceneRect.rect.value(), m_borderBrush.get(), static_cast<float>(m_sceneRect.thickness * 2));
+        m_renderTarget->DrawRectangle(m_sceneRect.rect.value(), m_borderBrush.get(), static_cast<float>(m_sceneRect.thickness));
     }
     
     m_renderTarget->EndDraw();

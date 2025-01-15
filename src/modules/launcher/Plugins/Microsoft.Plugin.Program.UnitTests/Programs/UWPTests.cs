@@ -2,7 +2,9 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using System.Collections.Generic;
+
 using Castle.Core.Internal;
 using Microsoft.Plugin.Program.Programs;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -52,8 +54,8 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
 
             // Assert
             Assert.AreEqual(2, applications.Length);
-            Assert.IsTrue(applications.FindAll(x => x.Name == "DevelopmentApp").Length > 0);
-            Assert.IsTrue(applications.FindAll(x => x.Name == "PackagedApp").Length > 0);
+            Assert.IsTrue(Array.FindAll(applications, x => x.Name == "DevelopmentApp").Length > 0);
+            Assert.IsTrue(Array.FindAll(applications, x => x.Name == "PackagedApp").Length > 0);
         }
 
         [TestMethod]
@@ -71,7 +73,7 @@ namespace Microsoft.Plugin.Program.UnitTests.Programs
 
             // Assert
             Assert.AreEqual(1, applications.Length);
-            Assert.IsTrue(applications.FindAll(x => x.Name == "PackagedApp").Length > 0);
+            Assert.IsTrue(Array.FindAll(applications, x => x.Name == "PackagedApp").Length > 0);
         }
 
         [TestMethod]

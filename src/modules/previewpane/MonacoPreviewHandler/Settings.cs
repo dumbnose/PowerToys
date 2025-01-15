@@ -6,6 +6,7 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
+
 using Microsoft.PowerToys.Settings.UI.Library;
 
 namespace Microsoft.PowerToys.PreviewHandler.Monaco
@@ -38,11 +39,104 @@ namespace Microsoft.PowerToys.PreviewHandler.Monaco
         }
 
         /// <summary>
-        /// Max file size for displaying (in bytes).
+        /// Gets a value indicating whether to try formatting the file. Set by PT settings.
         /// </summary>
-        private readonly long _maxFileSize = 50000;
+        public bool TryFormat
+        {
+            get
+            {
+                try
+                {
+                    return moduleSettings.GetSettings<PowerPreviewSettings>(PowerPreviewSettings.ModuleName).Properties.MonacoPreviewTryFormat;
+                }
+                catch (FileNotFoundException)
+                {
+                    // Couldn't read the settings.
+                    // Assume default of false.
+                    return false;
+                }
+            }
+        }
 
-        public long MaxFileSize => _maxFileSize;
+        /// <summary>
+        /// Gets Max file size for displaying (in bytes).
+        /// </summary>
+        public double MaxFileSize
+        {
+            get
+            {
+                try
+                {
+                    return moduleSettings.GetSettings<PowerPreviewSettings>(PowerPreviewSettings.ModuleName).Properties.MonacoPreviewMaxFileSize.Value * 1000;
+                }
+                catch (FileNotFoundException)
+                {
+                    // Couldn't read the settings.
+                    // Assume default of 50000.
+                    return 50000;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets the font size for the previewer. Set by PT settings.
+        /// </summary>
+        public double FontSize
+        {
+            get
+            {
+                try
+                {
+                    return moduleSettings.GetSettings<PowerPreviewSettings>(PowerPreviewSettings.ModuleName).Properties.MonacoPreviewFontSize.Value;
+                }
+                catch (FileNotFoundException)
+                {
+                    // Couldn't read the settings.
+                    // Assume default of 14.
+                    return 14;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether sticky scroll should be enabled. Set by PT settings.
+        /// </summary>
+        public bool StickyScroll
+        {
+            get
+            {
+                try
+                {
+                    return moduleSettings.GetSettings<PowerPreviewSettings>(PowerPreviewSettings.ModuleName).Properties.MonacoPreviewStickyScroll;
+                }
+                catch (FileNotFoundException)
+                {
+                    // Couldn't read the settings.
+                    // Assume default of true.
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether the minimap should be enabled. Set by PT settings.
+        /// </summary>
+        public bool Minimap
+        {
+            get
+            {
+                try
+                {
+                    return moduleSettings.GetSettings<PowerPreviewSettings>(PowerPreviewSettings.ModuleName).Properties.MonacoPreviewMinimap;
+                }
+                catch (FileNotFoundException)
+                {
+                    // Couldn't read the settings
+                    // Assume default of false
+                    return false;
+                }
+            }
+        }
 
         /// <summary>
         /// Gets the color of the window background.
@@ -53,7 +147,7 @@ namespace Microsoft.PowerToys.PreviewHandler.Monaco
             {
                 if (GetTheme() == "dark")
                 {
-                    return Color.DimGray;
+                    return Color.FromArgb(30, 30, 30); // #1e1e1e
                 }
                 else
                 {

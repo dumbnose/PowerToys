@@ -6,6 +6,7 @@ using System;
 using System.IO.Abstractions.TestingHelpers;
 using System.Linq;
 using System.Text.Json;
+
 using Microsoft.PowerToys.Settings.UI.Library;
 using Microsoft.PowerToys.Settings.UI.Library.Interfaces;
 using Microsoft.PowerToys.Settings.UnitTest;
@@ -100,7 +101,7 @@ namespace CommonLibTest
               .Select(s => s[random.Next(s.Length)]).ToArray());
         }
 
-        private partial class TestClass : ISettingsConfig
+        private sealed partial class TestClass : ISettingsConfig
         {
             public int TestInt { get; set; } = 100;
 

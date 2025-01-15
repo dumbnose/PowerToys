@@ -88,7 +88,7 @@ namespace MonitorUtils
             // on a particular host computer.
             IWbemLocator* pLocator = 0;
 
-            hres = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID*)&pLocator);
+            hres = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, reinterpret_cast<LPVOID*>(&pLocator));
             if (FAILED(hres))
             {
                 Logger::error(L"Failed to create IWbemLocator object. {}", get_last_error_or_default(hres));
@@ -207,7 +207,7 @@ namespace MonitorUtils
             return { .id = str.substr(0, dividerPos), .instanceId = str.substr(dividerPos + 1) };
         }
 
-        inline bool not_digit(wchar_t ch)
+        constexpr inline bool not_digit(wchar_t ch)
         {
             return '0' <= ch && ch <= '9';
         }
@@ -219,11 +219,12 @@ namespace MonitorUtils
             return result;
         }
 
-        std::vector<FancyZonesDataTypes::MonitorId> GetDisplays()
+        std::pair<bool, std::vector<FancyZonesDataTypes::MonitorId>> GetDisplays()
         {
-            auto allMonitors = FancyZonesUtils::GetAllMonitorInfo<&MONITORINFOEX::rcWork>();
+            bool success = true;
             std::vector<FancyZonesDataTypes::MonitorId> result{};
-
+            
+            auto allMonitors = FancyZonesUtils::GetAllMonitorInfo<&MONITORINFOEX::rcWork>();
             for (auto& monitorData : allMonitors)
             {
                 auto monitorInfo = monitorData.second;
@@ -269,10 +270,12 @@ namespace MonitorUtils
                 }
                 else
                 {
-                    // Use the display name when no proper device was found.
+                    success = false;
+
+                    // Use the display name as a fallback value when no proper device was found.
                     monitorId.deviceId.id = monitorInfo.szDevice;
                     monitorId.deviceId.instanceId = L"";
-                    Logger::info(L"No active monitor found for {} : {}", monitorInfo.szDevice, get_last_error_or_default(GetLastError()));
+
                     try
                     {
                         std::wstring numberStr = monitorInfo.szDevice; // \\.\DISPLAY1
@@ -289,7 +292,7 @@ namespace MonitorUtils
                 result.push_back(std::move(monitorId));
             }
 
-            return result;
+            return {success, result};
         }
     }
 
@@ -357,7 +360,7 @@ namespace MonitorUtils
                 if (GetMonitorInfo(monitor, &destMi))
                 {
                     RECT newPosition = FitOnScreen(placement.rcNormalPosition, originMi.rcWork, destMi.rcWork);
-                    FancyZonesWindowUtils::SizeWindowToRect(window, newPosition);
+                    FancyZonesWindowUtils::SizeWindowToRect(window, newPosition, false);
                 }
             }
         }
@@ -367,12 +370,22 @@ namespace MonitorUtils
     {
         Logger::info(L"Identifying monitors");
 
-        auto displays = Display::GetDisplays();
+        auto displaysResult = Display::GetDisplays();
         auto monitors = WMI::GetHardwareMonitorIds();
-        
+
+        // retry 
+        int retryCounter = 0;
+        while (!displaysResult.first && retryCounter < 100)
+        {
+            Logger::info("Retry display identification");
+            std::this_thread::sleep_for(std::chrono::milliseconds(30));
+            displaysResult = Display::GetDisplays();
+            retryCounter++;
+        }
+
         for (const auto& monitor : monitors)
         {
-            for (auto& display : displays)
+            for (auto& display : displaysResult.second)
             {
                 if (monitor.deviceId.id == display.deviceId.id)
                 {
@@ -381,6 +394,21 @@ namespace MonitorUtils
             }
         }
         
-        return displays;
+        return displaysResult.second;
+    }
+
+    FancyZonesUtils::Rect GetWorkAreaRect(HMONITOR monitor)
+    {
+        if (monitor)
+        {
+            MONITORINFO mi{};
+            mi.cbSize = sizeof(mi);
+            if (GetMonitorInfoW(monitor, &mi))
+            {
+                return FancyZonesUtils::Rect(mi.rcWork);
+            }
+        }
+
+        return FancyZonesUtils::Rect{};
     }
 }

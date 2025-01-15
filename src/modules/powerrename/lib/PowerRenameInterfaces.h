@@ -17,7 +17,8 @@ enum PowerRenameFlags
     Uppercase = 0x200,
     Lowercase = 0x400,
     Titlecase = 0x800,
-    Capitalized = 0x1000
+    Capitalized = 0x1000,
+    RandomizeItems = 0x2000
 };
 
 enum PowerRenameFilters
@@ -26,6 +27,14 @@ enum PowerRenameFilters
     Selected = 2,
     FlagsApplicable = 3,
     ShouldRename = 4,
+};
+
+enum class PowerRenameItemRenameStatus {
+    Init = 0,
+    ShouldRename,
+    ItemNameTooLong,
+    ItemNameInvalidChar,
+    ItemNameAlreadyExists,
 };
 
 interface __declspec(uuid("3ECBA62B-E0F0-4472-AA2E-DEE7A1AA46B9")) IPowerRenameRegExEvents : public IUnknown
@@ -50,7 +59,7 @@ public:
     IFACEMETHOD(PutFlags)(_In_ DWORD flags) = 0;
     IFACEMETHOD(PutFileTime)(_In_ SYSTEMTIME fileTime) = 0;
     IFACEMETHOD(ResetFileTime)() = 0;
-    IFACEMETHOD(Replace)(_In_ PCWSTR source, _Outptr_ PWSTR* result) = 0;
+    IFACEMETHOD(Replace)(_In_ PCWSTR source, _Outptr_ PWSTR* result, unsigned long& enumIndex) = 0;
 };
 
 interface __declspec(uuid("C7F59201-4DE1-4855-A3A2-26FC3279C8A5")) IPowerRenameItem : public IUnknown
@@ -71,6 +80,8 @@ public:
     IFACEMETHOD(GetId)(_Out_ int *id) = 0;
     IFACEMETHOD(GetDepth)(_Out_ UINT* depth) = 0;
     IFACEMETHOD(PutDepth)(_In_ int depth) = 0;
+    IFACEMETHOD(GetStatus)(_Out_ PowerRenameItemRenameStatus* status) = 0;
+    IFACEMETHOD(PutStatus)(_In_ PowerRenameItemRenameStatus status) = 0;
     IFACEMETHOD(ShouldRenameItem)(_In_ DWORD flags, _Out_ bool* shouldRename) = 0;
     IFACEMETHOD(IsItemVisible)(_In_ DWORD filter, _In_ DWORD flags, _Out_ bool* isItemVisible) = 0;
     IFACEMETHOD(Reset)() = 0;
@@ -85,8 +96,6 @@ public:
 interface __declspec(uuid("87FC43F9-7634-43D9-99A5-20876AFCE4AD")) IPowerRenameManagerEvents : public IUnknown
 {
 public:
-    IFACEMETHOD(OnItemAdded)(_In_ IPowerRenameItem* renameItem) = 0;
-    IFACEMETHOD(OnUpdate)(_In_ IPowerRenameItem * renameItem) = 0;
     IFACEMETHOD(OnRename)(_In_ IPowerRenameItem * renameItem) = 0;
     IFACEMETHOD(OnError)(_In_ IPowerRenameItem * renameItem) = 0;
     IFACEMETHOD(OnRegExStarted)(_In_ DWORD threadId) = 0;
@@ -125,6 +134,7 @@ public:
     IFACEMETHOD(PutRenameRegEx)(_In_ IPowerRenameRegEx* pRegEx) = 0;
     IFACEMETHOD(GetRenameItemFactory)(_COM_Outptr_ IPowerRenameItemFactory** ppItemFactory) = 0;
     IFACEMETHOD(PutRenameItemFactory)(_In_ IPowerRenameItemFactory* pItemFactory) = 0;
+    virtual uint32_t GetVisibleItemRealIndex(const uint32_t index) const = 0;
 };
 
 interface __declspec(uuid("04AAFABE-B76E-4E13-993A-B5941F52B139")) IPowerRenameMRU : public IUnknown
@@ -140,4 +150,13 @@ public:
     IFACEMETHOD(Start)
     (_In_ IEnumShellItems * enumShellItems) = 0;
     IFACEMETHOD(Cancel)() = 0;
+};
+
+interface __declspec(uuid("FAB18E93-2E76-436B-8E26-B1240519AF12")) IPowerRenameRand : public IUnknown
+{
+public:
+    IFACEMETHOD(Start)
+    (_In_ IEnumShellItems * enumShellItems) = 0;
+    IFACEMETHOD(Cancel)
+    () = 0;
 };

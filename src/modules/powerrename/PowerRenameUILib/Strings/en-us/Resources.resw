@@ -150,6 +150,24 @@
   <data name="ReplaceBox.PlaceholderText" xml:space="preserve">
     <value>Replace with</value>
   </data>
+  <data name="CounterCheatSheet_Title.Text" xml:space="preserve">
+    <value>Replace using advanced counter syntax</value>
+  </data>
+  <data name="CounterCheatSheet_Simple" xml:space="preserve">
+    <value>A simple counter that you can use anywhere in a replace string.</value>
+  </data>
+  <data name="CounterCheatSheet_Start" xml:space="preserve">
+    <value>A counter with a customized start value.</value>
+  </data>
+  <data name="CounterCheatSheet_Increment" xml:space="preserve">
+    <value>A counter with a customized increment value.</value>
+  </data>
+  <data name="CounterCheatSheet_Padding" xml:space="preserve">
+    <value>A counter with a customized number of leading padding zeroes.</value>
+  </data>
+  <data name="CounterCheatSheet_Complex" xml:space="preserve">
+    <value>A counter showing multiple customized properties.</value>
+  </data>
   <data name="DateTimeCheatSheet_Title.Text" xml:space="preserve">
     <value>Replace using file creation date and time</value>
   </data>
@@ -277,10 +295,10 @@
     <value>Capitalize each word</value>
   </data>
   <data name="ToggleButton_EnumItems.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
-    <value>Enumerate items</value>
+    <value>Enumeration features</value>
   </data>
   <data name="ToggleButton_EnumItems.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>Enumerate items</value>
+    <value>Enumeration features</value>
   </data>
   <data name="SelectAllCheckBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
     <value>Select or deselect all</value>
@@ -325,11 +343,45 @@
     <value>RegEx help</value>
   </data>
   <data name="FileCreationButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>File creation date and time help</value>
+    <value>Replace terms help</value>
   </data>
   <data name="FileCreationButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
-    <value>File creation date and time help</value>
+    <value>Replace terms help</value>
   </data>
-
-
+  <data name="ErrorMessage_FileNameTooLong" xml:space="preserve">
+    <value>File name is too long</value>
+  </data>
+  <data name="ErrorMessage_InvalidChar" xml:space="preserve">
+    <value>File name contains invalid character(s):&#xD;&#xA; &gt; &lt; | " : ? * \ /</value>
+  </data>
+  <data name="RenameParts_FilenameAndExtension.Content" xml:space="preserve">
+    <value>Filename + extension</value>
+  </data>
+  <data name="RenameParts_FilenameOnly.Content" xml:space="preserve">
+    <value>Filename only</value>
+  </data>
+  <data name="RenameParts_ExtensionOnly.Content" xml:space="preserve">
+    <value>Extension only</value>
+  </data>
+  <data name="RandomizerCheatSheet_Alnum" xml:space="preserve">
+    <value>Random string with uppercase letters, lowercase letters and 0-9 digits, customized length.</value>
+  </data>
+  <data name="RandomizerCheatSheet_Alpha" xml:space="preserve">
+    <value>Random string with uppercase letters and lowercase letters, customized length.</value>
+  </data>
+  <data name="RandomizerCheatSheet_Digit" xml:space="preserve">
+    <value>Random string with 0-9 digits, customized length.</value>
+  </data>
+  <data name="RandomizerCheatSheet_Title.Text" xml:space="preserve">
+    <value>Replace using random values</value>
+  </data>
+  <data name="RandomizerCheatSheet_Uuid" xml:space="preserve">
+    <value>Random UUID according to v4 specification.</value>
+  </data>
+  <data name="ToggleButton_RandItems.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Random string features</value>
+  </data>
+  <data name="ToggleButton_RandItems.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Random string features</value>
+  </data>
 </root>

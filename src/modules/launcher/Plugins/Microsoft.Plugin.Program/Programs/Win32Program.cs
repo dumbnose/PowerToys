@@ -14,13 +14,15 @@ using System.Security;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Input;
+
 using Microsoft.Plugin.Program.Logger;
+using Microsoft.Plugin.Program.Utils;
 using Microsoft.Win32;
 using Wox.Infrastructure;
 using Wox.Infrastructure.FileSystemHelper;
 using Wox.Plugin;
-using Wox.Plugin.Common;
 using Wox.Plugin.Logger;
+
 using DirectoryWrapper = Wox.Infrastructure.FileSystemHelper.DirectoryWrapper;
 
 namespace Microsoft.Plugin.Program.Programs
@@ -37,24 +39,35 @@ namespace Microsoft.Plugin.Program.Programs
 
         public string Name { get; set; }
 
+        // Localized name based on windows display language
+        public string NameLocalized { get; set; } = string.Empty;
+
         public string UniqueIdentifier { get; set; }
 
         public string IcoPath { get; set; }
 
+        public string Description { get; set; } = string.Empty;
+
+        // Path of app executable or lnk target executable
         public string FullPath { get; set; }
 
-        public string LnkResolvedPath { get; set; }
-
-        public string LnkResolvedExecutableName { get; set; }
-
-        // Localized name based on windows display language
-        public string LocalizedName { get; set; } = string.Empty;
+        // Localized path based on windows display language
+        public string FullPathLocalized { get; set; } = string.Empty;
 
         public string ParentDirectory { get; set; }
 
         public string ExecutableName { get; set; }
 
-        public string Description { get; set; } = string.Empty;
+        // Localized executable name based on windows display language
+        public string ExecutableNameLocalized { get; set; } = string.Empty;
+
+        // Path to the lnk file on LnkProgram
+        public string LnkFilePath { get; set; }
+
+        public string LnkResolvedExecutableName { get; set; }
+
+        // Localized path based on windows display language
+        public string LnkResolvedExecutableNameLocalized { get; set; } = string.Empty;
 
         public bool Valid { get; set; }
 
@@ -80,7 +93,7 @@ namespace Microsoft.Plugin.Program.Programs
         private const string ShortcutExtension = "lnk";
         private const string ApplicationReferenceExtension = "appref-ms";
         private const string InternetShortcutExtension = "url";
-        private static readonly HashSet<string> ExecutableApplicationExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "exe", "bat", "bin", "com", "msc", "msi", "cmd", "ps1", "job", "msp", "mst", "sct", "ws", "wsh", "wsf" };
+        private static readonly HashSet<string> ExecutableApplicationExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "exe", "bat", "bin", "com", "cpl", "msc", "msi", "cmd", "ps1", "job", "msp", "mst", "sct", "ws", "wsh", "wsf" };
 
         private const string ProxyWebApp = "_proxy.exe";
         private const string AppIdArgument = "--app-id";
@@ -101,11 +114,13 @@ namespace Microsoft.Plugin.Program.Programs
         private int Score(string query)
         {
             var nameMatch = StringMatcher.FuzzySearch(query, Name);
-            var locNameMatch = StringMatcher.FuzzySearch(query, LocalizedName);
+            var locNameMatch = StringMatcher.FuzzySearch(query, NameLocalized);
             var descriptionMatch = StringMatcher.FuzzySearch(query, Description);
             var executableNameMatch = StringMatcher.FuzzySearch(query, ExecutableName);
+            var locExecutableNameMatch = StringMatcher.FuzzySearch(query, ExecutableNameLocalized);
             var lnkResolvedExecutableNameMatch = StringMatcher.FuzzySearch(query, LnkResolvedExecutableName);
-            var score = new[] { nameMatch.Score, locNameMatch.Score, descriptionMatch.Score / 2, executableNameMatch.Score, lnkResolvedExecutableNameMatch.Score }.Max();
+            var locLnkResolvedExecutableNameMatch = StringMatcher.FuzzySearch(query, LnkResolvedExecutableNameLocalized);
+            var score = new[] { nameMatch.Score, locNameMatch.Score, descriptionMatch.Score / 2, executableNameMatch.Score, locExecutableNameMatch.Score, lnkResolvedExecutableNameMatch.Score, locLnkResolvedExecutableNameMatch.Score }.Max();
             return score;
         }
 
@@ -192,10 +207,7 @@ namespace Microsoft.Plugin.Program.Programs
 
         public Result Result(string query, string queryArguments, IPublicAPI api)
         {
-            if (api == null)
-            {
-                throw new ArgumentNullException(nameof(api));
-            }
+            ArgumentNullException.ThrowIfNull(api);
 
             var score = Score(query);
             if (score <= 0)
@@ -226,7 +238,7 @@ namespace Microsoft.Plugin.Program.Programs
             var result = new Result
             {
                 // To set the title for the result to always be the name of the application
-                Title = !string.IsNullOrEmpty(LocalizedName) ? LocalizedName : Name,
+                Title = !string.IsNullOrEmpty(NameLocalized) ? NameLocalized : Name,
                 SubTitle = GetSubtitle(),
                 IcoPath = IcoPath,
                 Score = score,
@@ -242,11 +254,18 @@ namespace Microsoft.Plugin.Program.Programs
                 },
             };
 
+            // Adjust title of RunCommand result
+            if (AppType == ApplicationType.RunCommand)
+            {
+                result.Title = ExecutableName;
+            }
+
             result.TitleHighlightData = StringMatcher.FuzzySearch(query, result.Title).MatchData;
 
             // Using CurrentCulture since this is user facing
-            var toolTipTitle = string.Format(CultureInfo.CurrentCulture, "{0}: {1}", Properties.Resources.powertoys_run_plugin_program_file_name, result.Title);
-            var toolTipText = string.Format(CultureInfo.CurrentCulture, "{0}: {1}", Properties.Resources.powertoys_run_plugin_program_file_path, FullPath);
+            var toolTipTitle = result.Title;
+            string filePath = !string.IsNullOrEmpty(FullPathLocalized) ? FullPathLocalized : FullPath;
+            var toolTipText = filePath;
             result.ToolTipData = new ToolTipData(toolTipTitle, toolTipText);
 
             return result;
@@ -254,10 +273,7 @@ namespace Microsoft.Plugin.Program.Programs
 
         public List<ContextMenuResult> ContextMenus(string queryArguments, IPublicAPI api)
         {
-            if (api == null)
-            {
-                throw new ArgumentNullException(nameof(api));
-            }
+            ArgumentNullException.ThrowIfNull(api);
 
             var contextMenus = new List<ContextMenuResult>();
 
@@ -268,7 +284,7 @@ namespace Microsoft.Plugin.Program.Programs
                     PluginName = Assembly.GetExecutingAssembly().GetName().Name,
                     Title = Properties.Resources.wox_plugin_program_run_as_administrator,
                     Glyph = "\xE7EF",
-                    FontFamily = "Segoe MDL2 Assets",
+                    FontFamily = "Segoe Fluent Icons,Segoe MDL2 Assets",
                     AcceleratorKey = Key.Enter,
                     AcceleratorModifiers = ModifierKeys.Control | ModifierKeys.Shift,
                     Action = _ =>
@@ -285,7 +301,7 @@ namespace Microsoft.Plugin.Program.Programs
                     PluginName = Assembly.GetExecutingAssembly().GetName().Name,
                     Title = Properties.Resources.wox_plugin_program_run_as_user,
                     Glyph = "\xE7EE",
-                    FontFamily = "Segoe MDL2 Assets",
+                    FontFamily = "Segoe Fluent Icons,Segoe MDL2 Assets",
                     AcceleratorKey = Key.U,
                     AcceleratorModifiers = ModifierKeys.Control | ModifierKeys.Shift,
                     Action = _ =>
@@ -304,7 +320,7 @@ namespace Microsoft.Plugin.Program.Programs
                     PluginName = Assembly.GetExecutingAssembly().GetName().Name,
                     Title = Properties.Resources.wox_plugin_program_open_containing_folder,
                     Glyph = "\xE838",
-                    FontFamily = "Segoe MDL2 Assets",
+                    FontFamily = "Segoe Fluent Icons,Segoe MDL2 Assets",
                     AcceleratorKey = Key.E,
                     AcceleratorModifiers = ModifierKeys.Control | ModifierKeys.Shift,
                     Action = _ =>
@@ -320,7 +336,7 @@ namespace Microsoft.Plugin.Program.Programs
                     PluginName = Assembly.GetExecutingAssembly().GetName().Name,
                     Title = Properties.Resources.wox_plugin_program_open_in_console,
                     Glyph = "\xE756",
-                    FontFamily = "Segoe MDL2 Assets",
+                    FontFamily = "Segoe Fluent Icons,Segoe MDL2 Assets",
                     AcceleratorKey = Key.C,
                     AcceleratorModifiers = ModifierKeys.Control | ModifierKeys.Shift,
                     Action = (context) =>
@@ -345,7 +361,7 @@ namespace Microsoft.Plugin.Program.Programs
         {
             return new ProcessStartInfo
             {
-                FileName = LnkResolvedPath ?? FullPath,
+                FileName = LnkFilePath ?? FullPath,
                 WorkingDirectory = ParentDirectory,
                 UseShellExecute = true,
                 Arguments = programArguments,
@@ -375,17 +391,19 @@ namespace Microsoft.Plugin.Program.Programs
                     ExecutableName = Path.GetFileName(path),
                     IcoPath = path,
 
-                    // Localized name based on windows display language
-                    LocalizedName = ShellLocalization.GetLocalizedName(path),
-
                     // Using InvariantCulture since this is user facing
-                    FullPath = path.ToLowerInvariant(),
+                    FullPath = path,
                     UniqueIdentifier = path,
                     ParentDirectory = Directory.GetParent(path).FullName,
                     Description = string.Empty,
                     Valid = true,
                     Enabled = true,
                     AppType = ApplicationType.Win32Application,
+
+                    // Localized name, path and executable based on windows display language
+                    NameLocalized = Main.ShellLocalizationHelper.GetLocalizedName(path),
+                    FullPathLocalized = Main.ShellLocalizationHelper.GetLocalizedPath(path),
+                    ExecutableNameLocalized = Path.GetFileName(Main.ShellLocalizationHelper.GetLocalizedPath(path)),
                 };
             }
             catch (Exception e) when (e is SecurityException || e is UnauthorizedAccessException)
@@ -402,7 +420,7 @@ namespace Microsoft.Plugin.Program.Programs
             }
         }
 
-        private static readonly Regex InternetShortcutURLPrefixes = new Regex(@"^steam:\/\/(rungameid|run)\/|^com\.epicgames\.launcher:\/\/apps\/", RegexOptions.Compiled);
+        private static readonly Regex InternetShortcutURLPrefixes = new Regex(@"^steam:\/\/(rungameid|run|open)\/|^com\.epicgames\.launcher:\/\/apps\/", RegexOptions.Compiled);
 
         // This function filters Internet Shortcut programs
         private static Win32Program InternetShortcutProgram(string path)
@@ -461,7 +479,7 @@ namespace Microsoft.Plugin.Program.Programs
                         Name = Path.GetFileNameWithoutExtension(path),
                         ExecutableName = Path.GetFileName(path),
                         IcoPath = iconPath,
-                        FullPath = urlPath.ToLowerInvariant(),
+                        FullPath = urlPath,
                         UniqueIdentifier = path,
                         ParentDirectory = Directory.GetParent(path).FullName,
                         Valid = true,
@@ -499,11 +517,13 @@ namespace Microsoft.Plugin.Program.Programs
                         return InvalidProgram;
                     }
 
-                    program.LnkResolvedPath = program.FullPath;
+                    program.LnkFilePath = program.FullPath;
                     program.LnkResolvedExecutableName = Path.GetFileName(target);
+                    program.LnkResolvedExecutableNameLocalized = Path.GetFileName(Main.ShellLocalizationHelper.GetLocalizedPath(target));
 
                     // Using CurrentCulture since this is user facing
-                    program.FullPath = Path.GetFullPath(target).ToLowerInvariant();
+                    program.FullPath = Path.GetFullPath(target);
+                    program.FullPathLocalized = Main.ShellLocalizationHelper.GetLocalizedPath(target);
 
                     program.Arguments = ShellLinkHelper.Arguments;
 
@@ -581,10 +601,7 @@ namespace Microsoft.Plugin.Program.Programs
         // Function to get the application type, given the path to the application
         public static ApplicationType GetAppTypeFromPath(string path)
         {
-            if (path == null)
-            {
-                throw new ArgumentNullException(nameof(path));
-            }
+            ArgumentNullException.ThrowIfNull(path);
 
             string extension = Extension(path);
 
@@ -616,10 +633,7 @@ namespace Microsoft.Plugin.Program.Programs
         // Function to get the Win32 application, given the path to the application
         public static Win32Program GetAppFromPath(string path)
         {
-            if (path == null)
-            {
-                throw new ArgumentNullException(nameof(path));
-            }
+            ArgumentNullException.ThrowIfNull(path);
 
             Win32Program app;
             switch (GetAppTypeFromPath(path))
@@ -710,7 +724,7 @@ namespace Microsoft.Plugin.Program.Programs
 
                     foreach (var childDirectory in Directory.EnumerateDirectories(currentDirectory, "*", new EnumerationOptions()
                     {
-                        // https://docs.microsoft.com/en-us/dotnet/api/system.io.enumerationoptions?view=net-6.0
+                        // https://learn.microsoft.com/dotnet/api/system.io.enumerationoptions?view=net-6.0
                         // Exclude directories with the Reparse Point file attribute, to avoid loops due to symbolic links / directory junction / mount points.
                         AttributesToSkip = FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReparsePoint,
                         RecurseSubdirectories = false,
@@ -733,7 +747,6 @@ namespace Microsoft.Plugin.Program.Programs
             return files;
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Globalization", "CA1308:Normalize strings to uppercase", Justification = "User facing path needs to be shown in lowercase.")]
         private static string Extension(string path)
         {
             // Using InvariantCulture since this is user facing
@@ -750,7 +763,7 @@ namespace Microsoft.Plugin.Program.Programs
                 .ToList() ?? Enumerable.Empty<string>();
 
         // Function to obtain the list of applications, the locations of which have been added to the env variable PATH
-        private static IEnumerable<string> PathEnvironmentProgramPaths(IList<string> suffixes)
+        private static List<string> PathEnvironmentProgramPaths(IList<string> suffixes)
         {
             // To get all the locations stored in the PATH env variable
             var pathEnvVariable = Environment.GetEnvironmentVariable("PATH");
@@ -777,7 +790,7 @@ namespace Microsoft.Plugin.Program.Programs
                 .SelectMany(indexLocation => ProgramPaths(indexLocation, suffixes))
                 .ToList();
 
-        private static IEnumerable<string> StartMenuProgramPaths(IList<string> suffixes)
+        private static List<string> StartMenuProgramPaths(IList<string> suffixes)
         {
             var directory1 = Environment.GetFolderPath(Environment.SpecialFolder.StartMenu);
             var directory2 = Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu);
@@ -786,7 +799,7 @@ namespace Microsoft.Plugin.Program.Programs
             return IndexPath(suffixes, indexLocation);
         }
 
-        private static IEnumerable<string> DesktopProgramPaths(IList<string> suffixes)
+        private static List<string> DesktopProgramPaths(IList<string> suffixes)
         {
             var directory1 = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
             var directory2 = Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory);
@@ -796,9 +809,9 @@ namespace Microsoft.Plugin.Program.Programs
             return IndexPath(suffixes, indexLocation);
         }
 
-        private static IEnumerable<string> RegistryAppProgramPaths(IList<string> suffixes)
+        private static List<string> RegistryAppProgramPaths(IList<string> suffixes)
         {
-            // https://msdn.microsoft.com/en-us/library/windows/desktop/ee872121
+            // https://msdn.microsoft.com/library/windows/desktop/ee872121
             const string appPaths = @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths";
             var paths = new List<string>();
             using (var root = Registry.LocalMachine.OpenSubKey(appPaths))
@@ -917,19 +930,57 @@ namespace Microsoft.Plugin.Program.Programs
             }
         }
 
+        private static bool TryGetIcoPathForRunCommandProgram(Win32Program program, out string icoPath)
+        {
+            icoPath = null;
+
+            if (program.AppType != ApplicationType.RunCommand)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(program.FullPath))
+            {
+                return false;
+            }
+
+            // https://msdn.microsoft.com/library/windows/desktop/ee872121
+            try
+            {
+                var redirectionPath = ReparsePoint.GetTarget(program.FullPath);
+                if (string.IsNullOrEmpty(redirectionPath))
+                {
+                    return false;
+                }
+
+                icoPath = ExpandEnvironmentVariables(redirectionPath);
+                return true;
+            }
+            catch (IOException e)
+            {
+                ProgramLogger.Warn($"|Error whilst retrieving the redirection path from app execution alias {program.FullPath}", e, MethodBase.GetCurrentMethod().DeclaringType, program.FullPath);
+            }
+
+            icoPath = null;
+            return false;
+        }
+
         private static Win32Program GetRunCommandProgramFromPath(string path)
         {
             var program = GetProgramFromPath(path);
             program.AppType = ApplicationType.RunCommand;
+
+            if (TryGetIcoPathForRunCommandProgram(program, out var icoPath))
+            {
+                program.IcoPath = icoPath;
+            }
+
             return program;
         }
 
         public static IList<Win32Program> All(ProgramPluginSettings settings)
         {
-            if (settings == null)
-            {
-                throw new ArgumentNullException(nameof(settings));
-            }
+            ArgumentNullException.ThrowIfNull(settings);
 
             try
             {
@@ -952,7 +1003,7 @@ namespace Microsoft.Plugin.Program.Programs
                 // Run commands are always set as AppType "RunCommand"
                 var runCommandSources = new (bool IsEnabled, Func<IEnumerable<string>> GetPaths)[]
                 {
-                    (settings.EnablePathEnvironmentVariableSource, () => PathEnvironmentProgramPaths(settings.ProgramSuffixes)),
+                    (settings.EnablePathEnvironmentVariableSource, () => PathEnvironmentProgramPaths(settings.RunCommandSuffixes)),
                 };
 
                 var disabledProgramsList = settings.DisabledProgramSources;

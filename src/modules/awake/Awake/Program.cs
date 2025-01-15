@@ -3,11 +3,10 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
-using System.Collections.Generic;
 using System.CommandLine;
-using System.CommandLine.Invocation;
+using System.CommandLine.Parsing;
 using System.Diagnostics;
-using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reactive.Concurrency;
@@ -18,352 +17,449 @@ using System.Threading;
 using System.Threading.Tasks;
 using Awake.Core;
 using Awake.Core.Models;
-using interop;
+using Awake.Core.Native;
+using Awake.Properties;
 using ManagedCommon;
 using Microsoft.PowerToys.Settings.UI.Library;
-using NLog;
-
-#pragma warning disable CS8602 // Dereference of a possibly null reference.
-#pragma warning disable CS8603 // Possible null reference return.
+using Microsoft.PowerToys.Telemetry;
 
 namespace Awake
 {
-    internal class Program
+    internal sealed class Program
     {
-        // PowerToys Awake build code name. Used for exact logging
-        // that does not map to PowerToys broad version schema to pinpoint
-        // internal issues easier.
-        // Format of the build ID is: CODENAME_MMDDYYYY, where MMDDYYYY
-        // is representative of the date when the last change was made before
-        // the pull request is issued.
-        private static readonly string BuildId = "ARBITER_01312022";
+        private static readonly string[] _aliasesConfigOption = ["--use-pt-config", "-c"];
+        private static readonly string[] _aliasesDisplayOption = ["--display-on", "-d"];
+        private static readonly string[] _aliasesTimeOption = ["--time-limit", "-t"];
+        private static readonly string[] _aliasesPidOption = ["--pid", "-p"];
+        private static readonly string[] _aliasesExpireAtOption = ["--expire-at", "-e"];
+        private static readonly string[] _aliasesParentPidOption = ["--use-parent-pid", "-u"];
 
-        private static Mutex? _mutex;
+        private static readonly JsonSerializerOptions _serializerOptions = new() { IncludeFields = true };
+        private static readonly ETWTrace _etwTrace = new();
+
         private static FileSystemWatcher? _watcher;
         private static SettingsUtils? _settingsUtils;
 
-        public static Mutex LockMutex { get => _mutex; set => _mutex = value; }
+        private static bool _startedFromPowerToys;
 
-        private static Logger? _log;
+        public static Mutex? LockMutex { get; set; }
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
         private static ConsoleEventHandler _handler;
         private static SystemPowerCapabilities _powerCapabilities;
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
-        private static ManualResetEvent _exitSignal = new ManualResetEvent(false);
-
-        private static int Main(string[] args)
+        private static async Task<int> Main(string[] args)
         {
-            // Log initialization needs to always happen before we test whether
-            // only one instance of Awake is running.
-            _log = LogManager.GetCurrentClassLogger();
+            _settingsUtils = new SettingsUtils();
 
-            LockMutex = new Mutex(true, InternalConstants.AppName, out bool instantiated);
+            LockMutex = new Mutex(true, Core.Constants.AppName, out bool instantiated);
+
+            Logger.InitializeLogger(Path.Combine("\\", Core.Constants.AppName, "Logs"));
+
+            try
+            {
+                string appLanguage = LanguageHelper.LoadLanguage();
+                if (!string.IsNullOrEmpty(appLanguage))
+                {
+                    Thread.CurrentThread.CurrentUICulture = new CultureInfo(appLanguage);
+                }
+            }
+            catch (CultureNotFoundException ex)
+            {
+                Logger.LogError("CultureNotFoundException: " + ex.Message);
+            }
+
+            await TrayHelper.InitializeTray(TrayHelper.DefaultAwakeIcon, Core.Constants.FullAppName);
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => TrayHelper.RunOnMainThread(() => LockMutex?.ReleaseMutex());
+            AppDomain.CurrentDomain.UnhandledException += AwakeUnhandledExceptionCatcher;
 
             if (!instantiated)
             {
-                Exit(InternalConstants.AppName + " is already running! Exiting the application.", 1, true);
+                // Awake is already running - there is no need for us to process
+                // anything further
+                Exit(Core.Constants.AppName + " is already running! Exiting the application.", 1);
+                return 1;
             }
-
-            _settingsUtils = new SettingsUtils();
-
-            _log.Info($"Launching {InternalConstants.AppName}...");
-            _log.Info(FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion);
-            _log.Info($"Build: {BuildId}");
-            _log.Info($"OS: {Environment.OSVersion}");
-            _log.Info($"OS Build: {APIHelper.GetOperatingSystemBuild()}");
-
-            TaskScheduler.UnobservedTaskException += (sender, args) =>
+            else
             {
-                Trace.WriteLine($"Task scheduler error: {args.Exception.Message}"); // somebody forgot to check!
-                args.SetObserved();
-            };
-
-            // To make it easier to diagnose future issues, let's get the
-            // system power capabilities and aggregate them in the log.
-            NativeMethods.GetPwrCapabilities(out _powerCapabilities);
-            _log.Info(JsonSerializer.Serialize(_powerCapabilities));
-
-            _log.Info("Parsing parameters...");
-
-            Option<bool>? configOption = new (
-                    aliases: new[] { "--use-pt-config", "-c" },
-                    getDefaultValue: () => false,
-                    description: $"Specifies whether {InternalConstants.AppName} will be using the PowerToys configuration file for managing the state.")
-            {
-                Argument = new Argument<bool>(() => false)
+                if (PowerToys.GPOWrapper.GPOWrapper.GetConfiguredAwakeEnabledValue() == PowerToys.GPOWrapper.GpoRuleConfigured.Disabled)
                 {
-                    Arity = ArgumentArity.ZeroOrOne,
-                },
-            };
-
-            configOption.Required = false;
-
-            Option<bool>? displayOption = new (
-                    aliases: new[] { "--display-on", "-d" },
-                    getDefaultValue: () => true,
-                    description: "Determines whether the display should be kept awake.")
-            {
-                Argument = new Argument<bool>(() => false)
+                    Exit("PowerToys.Awake tried to start with a group policy setting that disables the tool. Please contact your system administrator.", 1);
+                    return 1;
+                }
+                else
                 {
-                    Arity = ArgumentArity.ZeroOrOne,
-                },
-            };
+                    Logger.LogInfo($"Launching {Core.Constants.AppName}...");
+                    Logger.LogInfo(FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion);
+                    Logger.LogInfo($"Build: {Core.Constants.BuildId}");
+                    Logger.LogInfo($"OS: {Environment.OSVersion}");
+                    Logger.LogInfo($"OS Build: {Manager.GetOperatingSystemBuild()}");
 
-            displayOption.Required = false;
+                    TaskScheduler.UnobservedTaskException += (sender, args) =>
+                    {
+                        Trace.WriteLine($"Task scheduler error: {args.Exception.Message}"); // somebody forgot to check!
+                        args.SetObserved();
+                    };
 
-            Option<uint>? timeOption = new (
-                    aliases: new[] { "--time-limit", "-t" },
-                    getDefaultValue: () => 0,
-                    description: "Determines the interval, in seconds, during which the computer is kept awake.")
+                    // To make it easier to diagnose future issues, let's get the
+                    // system power capabilities and aggregate them in the log.
+                    Bridge.GetPwrCapabilities(out _powerCapabilities);
+                    Logger.LogInfo(JsonSerializer.Serialize(_powerCapabilities, _serializerOptions));
+
+                    Logger.LogInfo("Parsing parameters...");
+
+                    Option<bool> configOption = new(_aliasesConfigOption, () => false, Resources.AWAKE_CMD_HELP_CONFIG_OPTION)
+                    {
+                        Arity = ArgumentArity.ZeroOrOne,
+                        IsRequired = false,
+                    };
+
+                    Option<bool> displayOption = new(_aliasesDisplayOption, () => true, Resources.AWAKE_CMD_HELP_DISPLAY_OPTION)
+                    {
+                        Arity = ArgumentArity.ZeroOrOne,
+                        IsRequired = false,
+                    };
+
+                    Option<uint> timeOption = new(_aliasesTimeOption, () => 0, Resources.AWAKE_CMD_HELP_TIME_OPTION)
+                    {
+                        Arity = ArgumentArity.ExactlyOne,
+                        IsRequired = false,
+                    };
+
+                    Option<int> pidOption = new(_aliasesPidOption, () => 0, Resources.AWAKE_CMD_HELP_PID_OPTION)
+                    {
+                        Arity = ArgumentArity.ZeroOrOne,
+                        IsRequired = false,
+                    };
+
+                    Option<string> expireAtOption = new(_aliasesExpireAtOption, () => string.Empty, Resources.AWAKE_CMD_HELP_EXPIRE_AT_OPTION)
+                    {
+                        Arity = ArgumentArity.ZeroOrOne,
+                        IsRequired = false,
+                    };
+
+                    Option<bool> parentPidOption = new(_aliasesParentPidOption, () => false, Resources.AWAKE_CMD_PARENT_PID_OPTION)
+                    {
+                        Arity = ArgumentArity.ZeroOrOne,
+                        IsRequired = false,
+                    };
+
+                    timeOption.AddValidator(result =>
+                    {
+                        if (result.Tokens.Count != 0 && !uint.TryParse(result.Tokens[0].Value, out _))
+                        {
+                            string errorMessage = $"Interval in --time-limit could not be parsed correctly. Check that the value is valid and doesn't exceed 4,294,967,295. Value used: {result.Tokens[0].Value}.";
+                            Logger.LogError(errorMessage);
+                            result.ErrorMessage = errorMessage;
+                        }
+                    });
+
+                    pidOption.AddValidator(result =>
+                    {
+                        if (result.Tokens.Count != 0 && !int.TryParse(result.Tokens[0].Value, out _))
+                        {
+                            string errorMessage = $"PID value in --pid could not be parsed correctly. Check that the value is valid and falls within the boundaries of Windows PID process limits. Value used: {result.Tokens[0].Value}.";
+                            Logger.LogError(errorMessage);
+                            result.ErrorMessage = errorMessage;
+                        }
+                    });
+
+                    expireAtOption.AddValidator(result =>
+                    {
+                        if (result.Tokens.Count != 0 && !DateTimeOffset.TryParse(result.Tokens[0].Value, out _))
+                        {
+                            string errorMessage = $"Date and time value in --expire-at could not be parsed correctly. Check that the value is valid date and time. Refer to https://aka.ms/powertoys/awake for format examples. Value used: {result.Tokens[0].Value}.";
+                            Logger.LogError(errorMessage);
+                            result.ErrorMessage = errorMessage;
+                        }
+                    });
+
+                    RootCommand? rootCommand =
+                    [
+                        configOption,
+                        displayOption,
+                        timeOption,
+                        pidOption,
+                        expireAtOption,
+                        parentPidOption,
+                    ];
+
+                    rootCommand.Description = Core.Constants.AppName;
+                    rootCommand.SetHandler(HandleCommandLineArguments, configOption, displayOption, timeOption, pidOption, expireAtOption, parentPidOption);
+
+                    return rootCommand.InvokeAsync(args).Result;
+                }
+            }
+        }
+
+        private static void AwakeUnhandledExceptionCatcher(object sender, UnhandledExceptionEventArgs e)
+        {
+            if (e.ExceptionObject is Exception exception)
             {
-                Argument = new Argument<uint>(() => 0)
-                {
-                    Arity = ArgumentArity.ExactlyOne,
-                },
-            };
-
-            timeOption.Required = false;
-
-            Option<int>? pidOption = new (
-                    aliases: new[] { "--pid", "-p" },
-                    getDefaultValue: () => 0,
-                    description: $"Bind the execution of {InternalConstants.AppName} to another process.")
-            {
-                Argument = new Argument<int>(() => 0)
-                {
-                    Arity = ArgumentArity.ZeroOrOne,
-                },
-            };
-
-            pidOption.Required = false;
-
-            RootCommand? rootCommand = new RootCommand
-            {
-                configOption,
-                displayOption,
-                timeOption,
-                pidOption,
-            };
-
-            rootCommand.Description = InternalConstants.AppName;
-
-            rootCommand.Handler = CommandHandler.Create<bool, bool, uint, int>(HandleCommandLineArguments);
-
-            _log.Info("Parameter setup complete. Proceeding to the rest of the app initiation...");
-
-            return rootCommand.InvokeAsync(args).Result;
+                Logger.LogError(exception.ToString());
+                Logger.LogError(exception.StackTrace);
+            }
         }
 
         private static bool ExitHandler(ControlType ctrlType)
         {
-            _log.Info($"Exited through handler with control type: {ctrlType}");
-            Exit("Exiting from the internal termination handler.", Environment.ExitCode);
+            Logger.LogInfo($"Exited through handler with control type: {ctrlType}");
+            Exit(Resources.AWAKE_EXIT_MESSAGE, Environment.ExitCode);
             return false;
         }
 
-        private static void Exit(string message, int exitCode, bool force = false)
+        private static void Exit(string message, int exitCode)
         {
-            _log.Info(message);
-
-            APIHelper.CompleteExit(exitCode, force);
+            _etwTrace?.Dispose();
+            Logger.LogInfo(message);
+            Manager.CompleteExit(exitCode);
         }
 
-        private static void HandleCommandLineArguments(bool usePtConfig, bool displayOn, uint timeLimit, int pid)
+        private static void HandleCommandLineArguments(bool usePtConfig, bool displayOn, uint timeLimit, int pid, string expireAt, bool useParentPid)
         {
-            _handler += new ConsoleEventHandler(ExitHandler);
-            APIHelper.SetConsoleControlHandler(_handler, true);
-
-            if (pid == 0)
+            if (pid == 0 && !useParentPid)
             {
-                _log.Info("No PID specified. Allocating console...");
-                APIHelper.AllocateConsole();
+                Logger.LogInfo("No PID specified. Allocating console...");
+                AllocateLocalConsole();
+            }
+            else
+            {
+                Logger.LogInfo("Starting with PID binding.");
+                _startedFromPowerToys = true;
             }
 
-            _log.Info($"The value for --use-pt-config is: {usePtConfig}");
-            _log.Info($"The value for --display-on is: {displayOn}");
-            _log.Info($"The value for --time-limit is: {timeLimit}");
-            _log.Info($"The value for --pid is: {pid}");
+            Logger.LogInfo($"The value for --use-pt-config is: {usePtConfig}");
+            Logger.LogInfo($"The value for --display-on is: {displayOn}");
+            Logger.LogInfo($"The value for --time-limit is: {timeLimit}");
+            Logger.LogInfo($"The value for --pid is: {pid}");
+            Logger.LogInfo($"The value for --expire-at is: {expireAt}");
+            Logger.LogInfo($"The value for --use-parent-pid is: {useParentPid}");
+
+            // Start the monitor thread that will be used to track the current state.
+            Manager.StartMonitor();
+
+            EventWaitHandle eventHandle = new(false, EventResetMode.ManualReset, PowerToys.Interop.Constants.AwakeExitEvent());
+            new Thread(() =>
+            {
+                WaitHandle.WaitAny([eventHandle]);
+                Exit(Resources.AWAKE_EXIT_SIGNAL_MESSAGE, 0);
+            }).Start();
 
             if (usePtConfig)
             {
                 // Configuration file is used, therefore we disregard any other command-line parameter
-                // and instead watch for changes in the file.
+                // and instead watch for changes in the file. This is used as a priority against all other arguments,
+                // so if --use-pt-config is applied the rest of the arguments are irrelevant.
+                Manager.IsUsingPowerToysConfig = true;
+
                 try
                 {
-                    new Thread(() =>
+                    string? settingsPath = _settingsUtils!.GetSettingsFilePath(Core.Constants.AppName);
+
+                    Logger.LogInfo($"Reading configuration file: {settingsPath}");
+
+                    if (!File.Exists(settingsPath))
                     {
-                        EventWaitHandle? eventHandle = new EventWaitHandle(false, EventResetMode.AutoReset, Constants.AwakeExitEvent());
-                        if (eventHandle.WaitOne())
+                        Logger.LogError("The settings file does not exist. Scaffolding default configuration...");
+
+                        AwakeSettings scaffoldSettings = new();
+                        _settingsUtils.SaveSettings(JsonSerializer.Serialize(scaffoldSettings), Core.Constants.AppName);
+                    }
+
+                    ScaffoldConfiguration(settingsPath);
+
+                    if (pid != 0)
+                    {
+                        Logger.LogInfo($"Bound to target process while also using PowerToys settings: {pid}");
+
+                        RunnerHelper.WaitForPowerToysRunner(pid, () =>
                         {
-                            Exit("Received a signal to end the process. Making sure we quit...", 0, true);
-                        }
-                    }).Start();
-
-                    TrayHelper.InitializeTray(InternalConstants.FullAppName, new Icon("modules/awake/images/awake.ico"));
-
-                    string? settingsPath = _settingsUtils.GetSettingsFilePath(InternalConstants.AppName);
-                    _log.Info($"Reading configuration file: {settingsPath}");
-
-                    _watcher = new FileSystemWatcher
-                    {
-#pragma warning disable CS8601 // Possible null reference assignment.
-                        Path = Path.GetDirectoryName(settingsPath),
-#pragma warning restore CS8601 // Possible null reference assignment.
-                        EnableRaisingEvents = true,
-                        NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime,
-                        Filter = Path.GetFileName(settingsPath),
-                    };
-
-                    IObservable<System.Reactive.EventPattern<FileSystemEventArgs>>? changedObservable = Observable.FromEventPattern<FileSystemEventHandler, FileSystemEventArgs>(
-                            h => _watcher.Changed += h,
-                            h => _watcher.Changed -= h);
-
-                    IObservable<System.Reactive.EventPattern<FileSystemEventArgs>>? createdObservable = Observable.FromEventPattern<FileSystemEventHandler, FileSystemEventArgs>(
-                            cre => _watcher.Created += cre,
-                            cre => _watcher.Created -= cre);
-
-                    IObservable<System.Reactive.EventPattern<FileSystemEventArgs>>? mergedObservable = Observable.Merge(changedObservable, createdObservable);
-
-                    mergedObservable.Throttle(TimeSpan.FromMilliseconds(25))
-                        .SubscribeOn(TaskPoolScheduler.Default)
-                        .Select(e => e.EventArgs)
-                        .Subscribe(HandleAwakeConfigChange);
-
-                    TrayHelper.SetTray(InternalConstants.FullAppName, new AwakeSettings());
-
-                    // Initially the file might not be updated, so we need to start processing
-                    // settings right away.
-                    ProcessSettings();
+                            Logger.LogInfo($"Triggered PID-based exit handler for PID {pid}.");
+                            Exit(Resources.AWAKE_EXIT_BINDING_HOOK_MESSAGE, 0);
+                        });
+                    }
                 }
                 catch (Exception ex)
                 {
-                    string? errorString = $"There was a problem with the configuration file. Make sure it exists.\n{ex.Message}";
-                    _log.Info(errorString);
-                    _log.Debug(errorString);
+                    Logger.LogError($"There was a problem with the configuration file. Make sure it exists. {ex.Message}");
+                }
+            }
+            else if (pid != 0 || useParentPid)
+            {
+                // Second, we snap to process-based execution. Because this is something that
+                // is snapped to a running entity, we only want to enable the ability to set
+                // indefinite keep-awake with the display settings that the user wants to set.
+                // In this context, manual (explicit) PID takes precedence over parent PID.
+                int targetPid = pid != 0 ? pid : useParentPid ? Manager.GetParentProcess()?.Id ?? 0 : 0;
+
+                if (targetPid != 0)
+                {
+                    Logger.LogInfo($"Bound to target process: {targetPid}");
+
+                    Manager.SetIndefiniteKeepAwake(displayOn, targetPid);
+
+                    RunnerHelper.WaitForPowerToysRunner(targetPid, () =>
+                    {
+                        Logger.LogInfo($"Triggered PID-based exit handler for PID {targetPid}.");
+                        Exit(Resources.AWAKE_EXIT_BINDING_HOOK_MESSAGE, 0);
+                    });
+                }
+                else
+                {
+                    Logger.LogError("Not binding to any process.");
                 }
             }
             else
             {
-                AwakeMode mode = timeLimit <= 0 ? AwakeMode.INDEFINITE : AwakeMode.TIMED;
-
-                if (mode == AwakeMode.INDEFINITE)
+                // Date-based binding takes precedence over timed configuration, so we want to
+                // check for that first.
+                if (!string.IsNullOrWhiteSpace(expireAt))
                 {
-                    SetupIndefiniteKeepAwake(displayOn);
+                    try
+                    {
+                        DateTimeOffset expirationDateTime = DateTimeOffset.Parse(expireAt, CultureInfo.CurrentCulture);
+                        Logger.LogInfo($"Operating in thread ID {Environment.CurrentManagedThreadId}.");
+                        Manager.SetExpirableKeepAwake(expirationDateTime, displayOn);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError($"Could not parse date string {expireAt} into a DateTimeOffset object.");
+                        Logger.LogError(ex.Message);
+                    }
                 }
                 else
                 {
-                    SetupTimedKeepAwake(timeLimit, displayOn);
+                    AwakeMode mode = timeLimit <= 0 ? AwakeMode.INDEFINITE : AwakeMode.TIMED;
+
+                    if (mode == AwakeMode.INDEFINITE)
+                    {
+                        Manager.SetIndefiniteKeepAwake(displayOn);
+                    }
+                    else
+                    {
+                        Manager.SetTimedKeepAwake(timeLimit, displayOn);
+                    }
                 }
             }
-
-            if (pid != 0)
-            {
-                RunnerHelper.WaitForPowerToysRunner(pid, () =>
-                {
-                    _log.Info($"Triggered PID-based exit handler for PID {pid}.");
-                    Exit("Terminating from process binding hook.", 0, true);
-                });
-            }
-
-            _exitSignal.WaitOne();
         }
 
-        private static void SetupIndefiniteKeepAwake(bool displayOn)
+        private static void AllocateLocalConsole()
         {
-            APIHelper.SetIndefiniteKeepAwake(LogCompletedKeepAwakeThread, LogUnexpectedOrCancelledKeepAwakeThreadCompletion, displayOn);
+            Manager.AllocateConsole();
+
+            _handler += new ConsoleEventHandler(ExitHandler);
+            Manager.SetConsoleControlHandler(_handler, true);
+
+            Trace.Listeners.Add(new ConsoleTraceListener());
+        }
+
+        private static void ScaffoldConfiguration(string settingsPath)
+        {
+            try
+            {
+                SetupFileSystemWatcher(settingsPath);
+                InitializeSettings();
+                ProcessSettings();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"An error occurred scaffolding the configuration. Error details: {ex.Message}");
+            }
+        }
+
+        private static void SetupFileSystemWatcher(string settingsPath)
+        {
+            string directory = Path.GetDirectoryName(settingsPath)!;
+            string fileName = Path.GetFileName(settingsPath);
+
+            _watcher = new FileSystemWatcher
+            {
+                Path = directory,
+                EnableRaisingEvents = true,
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime,
+                Filter = fileName,
+            };
+
+            Observable.Merge(
+                Observable.FromEventPattern<FileSystemEventHandler, FileSystemEventArgs>(
+                    h => _watcher.Changed += h,
+                    h => _watcher.Changed -= h),
+                Observable.FromEventPattern<FileSystemEventHandler, FileSystemEventArgs>(
+                    h => _watcher.Created += h,
+                    h => _watcher.Created -= h))
+            .Throttle(TimeSpan.FromMilliseconds(25))
+            .SubscribeOn(TaskPoolScheduler.Default)
+            .Select(e => e.EventArgs)
+            .Subscribe(HandleAwakeConfigChange);
+        }
+
+        private static void InitializeSettings()
+        {
+            AwakeSettings settings = Manager.ModuleSettings?.GetSettings<AwakeSettings>(Core.Constants.AppName) ?? new AwakeSettings();
+            TrayHelper.SetTray(settings, _startedFromPowerToys);
         }
 
         private static void HandleAwakeConfigChange(FileSystemEventArgs fileEvent)
         {
-            _log.Info("Detected a settings file change. Updating configuration...");
-            _log.Info("Resetting keep-awake to normal state due to settings change.");
-            ProcessSettings();
+            try
+            {
+                Logger.LogInfo("Detected a settings file change. Updating configuration...");
+                ProcessSettings();
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"Could not handle Awake configuration change. Error: {e.Message}");
+            }
         }
 
         private static void ProcessSettings()
         {
             try
             {
-                AwakeSettings settings = _settingsUtils.GetSettings<AwakeSettings>(InternalConstants.AppName);
+                AwakeSettings settings = _settingsUtils!.GetSettings<AwakeSettings>(Core.Constants.AppName)
+                    ?? throw new InvalidOperationException("Settings are null.");
 
-                if (settings != null)
+                Logger.LogInfo($"Identified custom time shortcuts for the tray: {settings.Properties.CustomTrayTimes.Count}");
+
+                switch (settings.Properties.Mode)
                 {
-                    _log.Info($"Identified custom time shortcuts for the tray: {settings.Properties.TrayTimeShortcuts.Count}");
+                    case AwakeMode.PASSIVE:
+                        Manager.SetPassiveKeepAwake();
+                        break;
 
-                    switch (settings.Properties.Mode)
-                    {
-                        case AwakeMode.PASSIVE:
-                            {
-                                SetupNoKeepAwake();
-                                break;
-                            }
+                    case AwakeMode.INDEFINITE:
+                        Manager.SetIndefiniteKeepAwake(settings.Properties.KeepDisplayOn);
+                        break;
 
-                        case AwakeMode.INDEFINITE:
-                            {
-                                SetupIndefiniteKeepAwake(settings.Properties.KeepDisplayOn);
-                                break;
-                            }
+                    case AwakeMode.TIMED:
+                        uint computedTime = (settings.Properties.IntervalHours * 3600) + (settings.Properties.IntervalMinutes * 60);
+                        Manager.SetTimedKeepAwake(computedTime, settings.Properties.KeepDisplayOn);
+                        break;
 
-                        case AwakeMode.TIMED:
-                            {
-                                uint computedTime = (settings.Properties.Hours * 60 * 60) + (settings.Properties.Minutes * 60);
-                                SetupTimedKeepAwake(computedTime, settings.Properties.KeepDisplayOn);
+                    case AwakeMode.EXPIRABLE:
+                        // When we are loading from the settings file, let's make sure that we never
+                        // get users in a state where the expirable keep-awake is in the past.
+                        if (settings.Properties.ExpirationDateTime <= DateTimeOffset.Now)
+                        {
+                            settings.Properties.ExpirationDateTime = DateTimeOffset.Now.AddMinutes(5);
+                            _settingsUtils.SaveSettings(JsonSerializer.Serialize(settings), Core.Constants.AppName);
+                        }
 
-                                break;
-                            }
+                        Manager.SetExpirableKeepAwake(settings.Properties.ExpirationDateTime, settings.Properties.KeepDisplayOn);
+                        break;
 
-                        default:
-                            {
-                                string? errorMessage = "Unknown mode of operation. Check config file.";
-                                _log.Info(errorMessage);
-                                _log.Debug(errorMessage);
-                                break;
-                            }
-                    }
-
-                    TrayHelper.SetTray(InternalConstants.FullAppName, settings);
+                    default:
+                        Logger.LogError("Unknown mode of operation. Check config file.");
+                        break;
                 }
-                else
-                {
-                    string? errorMessage = "Settings are null.";
-                    _log.Info(errorMessage);
-                    _log.Debug(errorMessage);
-                }
+
+                TrayHelper.SetTray(settings, _startedFromPowerToys);
             }
             catch (Exception ex)
             {
-                string? errorMessage = $"There was a problem reading the configuration file. Error: {ex.GetType()} {ex.Message}";
-                _log.Info(errorMessage);
-                _log.Debug(errorMessage);
+                Logger.LogError($"There was a problem reading the configuration file. Error: {ex.GetType()} {ex.Message}");
             }
-        }
-
-        private static void SetupNoKeepAwake()
-        {
-            _log.Info($"Operating in passive mode (computer's standard power plan). No custom keep awake settings enabled.");
-
-            APIHelper.SetNoKeepAwake();
-        }
-
-        private static void SetupTimedKeepAwake(uint time, bool displayOn)
-        {
-            _log.Info($"Timed keep-awake. Expected runtime: {time} seconds with display on setting set to {displayOn}.");
-
-            APIHelper.SetTimedKeepAwake(time, LogCompletedKeepAwakeThread, LogUnexpectedOrCancelledKeepAwakeThreadCompletion, displayOn);
-        }
-
-        private static void LogUnexpectedOrCancelledKeepAwakeThreadCompletion()
-        {
-            string? errorMessage = "The keep-awake thread was terminated early.";
-            _log.Info(errorMessage);
-            _log.Debug(errorMessage);
-        }
-
-        private static void LogCompletedKeepAwakeThread(bool result)
-        {
-            _log.Info($"Exited keep-awake thread successfully: {result}");
         }
     }
 }

@@ -4,6 +4,7 @@
 
 using System;
 using System.Linq;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Wox.Infrastructure;
@@ -27,7 +28,8 @@ namespace Microsoft.PowerToys.Run.Plugin.System.UnitTests
         [DataRow("lock", "Lock computer")]
         [DataRow("sleep", "Put computer to sleep")]
         [DataRow("hibernate", "Hibernate computer")]
-        [DataRow("empty recycle", "Empty Recycle Bin")]
+        [DataRow("recycle b", "Open the Recycle Bin")]
+        [DataRow("empty recycle", "Open the Recycle Bin")]
         public void EnvironmentIndependentQueryResults(string typedString, string expectedResult)
         {
             // Setup

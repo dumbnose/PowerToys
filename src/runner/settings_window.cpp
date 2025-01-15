@@ -6,17 +6,20 @@
 
 #include "powertoy_module.h"
 #include <common/interop/two_way_pipe_message_ipc.h>
+#include <common/interop/shared_constants.h>
 #include "tray_icon.h"
 #include "general_settings.h"
 #include "restart_elevated.h"
 #include "UpdateUtils.h"
 #include "centralized_kb_hook.h"
+#include "Generated files/resource.h"
 
 #include <common/utils/json.h>
 #include <common/SettingsAPI/settings_helpers.cpp>
 #include <common/version/version.h>
 #include <common/version/helper.h>
 #include <common/logger/logger.h>
+#include <common/utils/resources.h>
 #include <common/utils/elevation.h>
 #include <common/utils/process_path.h>
 #include <common/utils/timeutil.h>
@@ -24,11 +27,15 @@
 #include <common/updating/updateState.h>
 #include <common/themes/windows_colors.h>
 #include "settings_window.h"
+#include "bug_report.h"
 
 #define BUFSIZE 1024
 
 TwoWayPipeMessageIPC* current_settings_ipc = NULL;
+std::mutex ipc_mutex;
 std::atomic_bool g_isLaunchInProgress = false;
+std::atomic_bool isUpdateCheckThreadRunning = false;
+HANDLE g_terminateSettingsEvent = CreateEventW(nullptr, false, false, CommonSharedConstants::TERMINATE_SETTINGS_SHARED_EVENT);
 
 json::JsonObject get_power_toys_settings()
 {
@@ -83,9 +90,34 @@ std::optional<std::wstring> dispatch_json_action_to_module(const json::JsonObjec
                         PostQuitMessage(0);
                     }
                 }
+                else if (action == L"restart_maintain_elevation")
+                {
+                    // this was added to restart and maintain elevation, which is needed after settings are change from outside the normal process.
+                    // since a normal PostQuitMessage(0) would usually cause this process to save its in memory settings to disk, we need to
+                    // send a PostQuitMessage(1) and check for that on exit, and skip the settings-flush.
+                    auto loaded = PTSettingsHelper::load_general_settings();
+
+                    if (is_process_elevated())
+                    {
+                        schedule_restart_as_elevated(true);
+                        PostQuitMessage(1);
+                    }
+                    else
+                    {
+                        schedule_restart_as_non_elevated(true);
+                        PostQuitMessage(1);
+                    }
+                }
                 else if (action == L"check_for_updates")
                 {
-                    CheckForUpdatesCallback();
+                    bool expected_isUpdateCheckThreadRunning = false;
+                    if (isUpdateCheckThreadRunning.compare_exchange_strong(expected_isUpdateCheckThreadRunning, true))
+                    {
+                        std::thread([]() {
+                            CheckForUpdatesCallback();
+                            isUpdateCheckThreadRunning.store(false);
+                        }).detach();
+                    }
                 }
                 else if (action == L"request_update_state_date")
                 {
@@ -147,11 +179,6 @@ void dispatch_received_json(const std::wstring& json_to_parse)
 
     for (const auto& base_element : j)
     {
-        if (!current_settings_ipc)
-        {
-            continue;
-        }
-
         const auto name = base_element.Key();
         const auto value = base_element.Value();
 
@@ -159,26 +186,60 @@ void dispatch_received_json(const std::wstring& json_to_parse)
         {
             apply_general_settings(value.GetObjectW());
             const std::wstring settings_string{ get_all_settings().Stringify().c_str() };
-            current_settings_ipc->send(settings_string);
+            {
+                std::unique_lock lock{ ipc_mutex };
+                if (current_settings_ipc)
+                    current_settings_ipc->send(settings_string);
+            }
         }
         else if (name == L"powertoys")
         {
             dispatch_json_config_to_modules(value.GetObjectW());
             const std::wstring settings_string{ get_all_settings().Stringify().c_str() };
-            current_settings_ipc->send(settings_string);
+            {
+                std::unique_lock lock{ ipc_mutex };
+                if (current_settings_ipc)
+                    current_settings_ipc->send(settings_string);
+            }
         }
         else if (name == L"refresh")
         {
             const std::wstring settings_string{ get_all_settings().Stringify().c_str() };
-            current_settings_ipc->send(settings_string);
+            {
+                std::unique_lock lock{ ipc_mutex };
+                if (current_settings_ipc)
+                    current_settings_ipc->send(settings_string);
+            }
         }
         else if (name == L"action")
         {
             auto result = dispatch_json_action_to_module(value.GetObjectW());
             if (result.has_value())
             {
-                current_settings_ipc->send(result.value());
+                {
+                    std::unique_lock lock{ ipc_mutex };
+                    if (current_settings_ipc)
+                        current_settings_ipc->send(result.value());
+                }
             }
+        }
+        else if (name == L"bugreport")
+        {
+            launch_bug_report();
+        }
+        else if (name == L"killrunner")
+        {
+            const auto pt_main_window = FindWindowW(pt_tray_icon_window_class, nullptr);
+            if (pt_main_window != nullptr)
+            {
+                SendMessageW(pt_main_window, WM_CLOSE, 0, 0);
+            }
+        }
+        else if (name == L"language")
+        {
+            constexpr const wchar_t* language_filename = L"\\language.json";
+            const std::wstring save_file_location = PTSettingsHelper::get_root_save_folder_location() + language_filename;
+            json::to_file(save_file_location, j);
         }
     }
     return;
@@ -186,7 +247,7 @@ void dispatch_received_json(const std::wstring& json_to_parse)
 
 void dispatch_received_json_callback(PVOID data)
 {
-    std::wstring* msg = (std::wstring*)data;
+    std::wstring* msg = static_cast<std::wstring*>(data);
     dispatch_received_json(*msg);
     delete msg;
 }
@@ -260,7 +321,7 @@ BOOL run_settings_non_elevated(LPCWSTR executable_path, LPWSTR executable_args, 
 
 DWORD g_settings_process_id = 0;
 
-void run_settings_window(bool show_oobe_window, bool show_scoobe_window, std::optional<std::wstring> settings_window)
+void run_settings_window(bool show_oobe_window, bool show_scoobe_window, std::optional<std::wstring> settings_window, bool show_flyout = false, const std::optional<POINT>& flyout_position = std::nullopt)
 {
     g_isLaunchInProgress = true;
 
@@ -277,7 +338,7 @@ void run_settings_window(bool show_oobe_window, bool show_scoobe_window, std::op
     // Arg 1: executable path.
     std::wstring executable_path = get_module_folderpath();
 
-    executable_path.append(L"\\Settings\\PowerToys.Settings.exe");
+    executable_path.append(L"\\WinUI3Apps\\PowerToys.Settings.exe");
 
     // Args 2,3: pipe server. Generate unique names for the pipes, if getting a UUID is possible.
     std::wstring powertoys_pipe_name(L"\\\\.\\pipe\\powertoys_runner_");
@@ -287,41 +348,41 @@ void run_settings_window(bool show_oobe_window, bool show_scoobe_window, std::op
     if (UuidCreate(&temp_uuid) == RPC_S_UUID_NO_ADDRESS)
     {
         auto val = get_last_error_message(GetLastError());
-        Logger::warn(L"UuidCreate can not create guid. {}", val.has_value() ? val.value() : L"");
+        Logger::warn(L"UuidCreate cannot create guid. {}", val.has_value() ? val.value() : L"");
     }
-    else if (UuidToString(&temp_uuid, (RPC_WSTR*)&uuid_chars) != RPC_S_OK)
+    else if (UuidToString(&temp_uuid, reinterpret_cast<RPC_WSTR*>(&uuid_chars)) != RPC_S_OK)
     {
         auto val = get_last_error_message(GetLastError());
-        Logger::warn(L"UuidToString can not convert to string. {}", val.has_value() ? val.value() : L"");
+        Logger::warn(L"UuidToString cannot convert to string. {}", val.has_value() ? val.value() : L"");
     }
 
     if (uuid_chars != nullptr)
     {
         powertoys_pipe_name += std::wstring(uuid_chars);
         settings_pipe_name += std::wstring(uuid_chars);
-        RpcStringFree((RPC_WSTR*)&uuid_chars);
+        RpcStringFree(reinterpret_cast<RPC_WSTR*>(&uuid_chars));
         uuid_chars = nullptr;
     }
 
     // Arg 4: process pid.
     DWORD powertoys_pid = GetCurrentProcessId();
 
+    GeneralSettings save_settings = get_general_settings();
+
     // Arg 5: settings theme.
-    const std::wstring settings_theme_setting{ get_general_settings().theme };
+    const std::wstring settings_theme_setting{ save_settings.theme };
     std::wstring settings_theme = L"system";
     if (settings_theme_setting == L"dark" || (settings_theme_setting == L"system" && WindowsColors::is_dark_mode()))
     {
         settings_theme = L"dark";
     }
 
-    GeneralSettings save_settings = get_general_settings();
-
     // Arg 6: elevated status
-    bool isElevated{ get_general_settings().isElevated };
+    bool isElevated{ save_settings.isElevated };
     std::wstring settings_elevatedStatus = isElevated ? L"true" : L"false";
 
     // Arg 7: is user an admin
-    bool isAdmin{ get_general_settings().isAdmin };
+    bool isAdmin{ save_settings.isAdmin };
     std::wstring settings_isUserAnAdmin = isAdmin ? L"true" : L"false";
 
     // Arg 8: should oobe window be shown
@@ -330,11 +391,22 @@ void run_settings_window(bool show_oobe_window, bool show_scoobe_window, std::op
     // Arg 9: should scoobe window be shown
     std::wstring settings_showScoobe = show_scoobe_window ? L"true" : L"false";
 
+    // Arg 10: should flyout be shown
+    std::wstring settings_showFlyout = show_flyout ? L"true" : L"false";
+
+    // Arg 11: contains if there's a settings window argument. If true, will add one extra argument with the value to the call.
+    std::wstring settings_containsSettingsWindow = settings_window.has_value() ? L"true" : L"false";
+
+    // Arg 12: contains if there's flyout coordinates. If true, will add two extra arguments to the call containing the x and y coordinates.
+    std::wstring settings_containsFlyoutPosition = flyout_position.has_value() ? L"true" : L"false";
+
+    // Args 13, .... : Optional arguments depending on the options presented before. All by the same value.
+
     // create general settings file to initialize the settings file with installation configurations like :
     // 1. Run on start up.
     PTSettingsHelper::save_general_settings(save_settings.to_json());
 
-    std::wstring executable_args = fmt::format(L"\"{}\" {} {} {} {} {} {} {} {}",
+    std::wstring executable_args = fmt::format(L"\"{}\" {} {} {} {} {} {} {} {} {} {} {}",
                                                executable_path,
                                                powertoys_pipe_name,
                                                settings_pipe_name,
@@ -343,7 +415,10 @@ void run_settings_window(bool show_oobe_window, bool show_scoobe_window, std::op
                                                settings_elevatedStatus,
                                                settings_isUserAnAdmin,
                                                settings_showOobe,
-                                               settings_showScoobe);
+                                               settings_showScoobe,
+                                               settings_showFlyout,
+                                               settings_containsSettingsWindow,
+                                               settings_containsFlyoutPosition);
 
     if (settings_window.has_value())
     {
@@ -351,19 +426,32 @@ void run_settings_window(bool show_oobe_window, bool show_scoobe_window, std::op
         executable_args.append(settings_window.value());
     }
 
+    if (flyout_position)
+    {
+        executable_args.append(L" ");
+        executable_args.append(std::to_wstring(flyout_position.value().x));
+        executable_args.append(L" ");
+        executable_args.append(std::to_wstring(flyout_position.value().y));
+    }
+
     BOOL process_created = false;
 
-    if (is_process_elevated())
-    {
-        auto res = RunNonElevatedFailsafe(executable_path, executable_args, get_module_folderpath());
-        process_created = res.has_value();
-        if (process_created)
-        {
-            process_info.dwProcessId = res->processID;
-            process_info.hProcess = res->processHandle.release();
-            g_isLaunchInProgress = false;
-        }
-    }
+    // Commented out to fix #22659
+    // Running settings non-elevated and modules elevated when PowerToys is running elevated results
+    // in settings making changes in one file (non-elevated user dir) and modules are reading settings
+    // from different (elevated user) dir
+    //if (is_process_elevated())
+    //{
+
+    //    auto res = RunNonElevatedFailsafe(executable_path, executable_args, get_module_folderpath());
+    //    process_created = res.has_value();
+    //    if (process_created)
+    //    {
+    //        process_info.dwProcessId = res->processID;
+    //        process_info.hProcess = res->processHandle.release();
+    //        g_isLaunchInProgress = false;
+    //    }
+    //}
 
     if (FALSE == process_created)
     {
@@ -396,8 +484,11 @@ void run_settings_window(bool show_oobe_window, bool show_scoobe_window, std::op
         goto LExit;
     }
 
-    current_settings_ipc = new TwoWayPipeMessageIPC(powertoys_pipe_name, settings_pipe_name, receive_json_send_to_main_thread);
-    current_settings_ipc->start(hToken);
+    {
+        std::unique_lock lock{ ipc_mutex };
+        current_settings_ipc = new TwoWayPipeMessageIPC(powertoys_pipe_name, settings_pipe_name, receive_json_send_to_main_thread);
+        current_settings_ipc->start(hToken);
+    }
     g_settings_process_id = process_info.dwProcessId;
 
     if (process_info.hProcess)
@@ -425,12 +516,14 @@ LExit:
     {
         CloseHandle(process_info.hThread);
     }
-
-    if (current_settings_ipc)
     {
-        current_settings_ipc->end();
-        delete current_settings_ipc;
-        current_settings_ipc = nullptr;
+        std::unique_lock lock{ ipc_mutex };
+        if (current_settings_ipc)
+        {
+            current_settings_ipc->end();
+            delete current_settings_ipc;
+            current_settings_ipc = nullptr;
+        }
     }
 
     if (hToken)
@@ -444,7 +537,7 @@ LExit:
 #define MAX_TITLE_LENGTH 100
 void bring_settings_to_front()
 {
-    auto callback = [](HWND hwnd, LPARAM data) -> BOOL {
+    auto callback = [](HWND hwnd, LPARAM /*data*/) -> BOOL {
         DWORD processId;
         if (GetWindowThreadProcessId(hwnd, &processId) && processId == g_settings_process_id)
         {
@@ -480,18 +573,48 @@ void bring_settings_to_front()
     EnumWindows(callback, 0);
 }
 
-void open_settings_window(std::optional<std::wstring> settings_window)
+void open_settings_window(std::optional<std::wstring> settings_window, bool show_flyout = false, const std::optional<POINT>& flyout_position)
 {
     if (g_settings_process_id != 0)
     {
-        bring_settings_to_front();
+        if (show_flyout)
+        {
+            if (current_settings_ipc)
+            {
+                if (!flyout_position.has_value())
+                {
+                    current_settings_ipc->send(L"{\"ShowYourself\":\"flyout\"}");
+                }
+                else
+                {
+                    current_settings_ipc->send(fmt::format(L"{{\"ShowYourself\":\"flyout\", \"x_position\":{}, \"y_position\":{} }}", std::to_wstring(flyout_position.value().x), std::to_wstring(flyout_position.value().y)));
+                }
+            }
+        }
+        else
+        {
+            // nl instead of showing the window, send message to it (flyout might need to be hidden, main setting window activated)
+            // bring_settings_to_front();
+            if (current_settings_ipc)
+            {
+                if (settings_window.has_value())
+                {
+                    std::wstring msg = L"{\"ShowYourself\":\"" + settings_window.value() + L"\"}";
+                    current_settings_ipc->send(msg);
+                }
+                else
+                {
+                    current_settings_ipc->send(L"{\"ShowYourself\":\"Dashboard\"}");
+                }
+            }
+        }
     }
     else
     {
         if (!g_isLaunchInProgress)
         {
-            std::thread([settings_window]() {
-                run_settings_window(false, false, settings_window);
+            std::thread([settings_window, show_flyout, flyout_position]() {
+                run_settings_window(false, false, settings_window, show_flyout, flyout_position);
             }).detach();
         }
     }
@@ -501,10 +624,12 @@ void close_settings_window()
 {
     if (g_settings_process_id != 0)
     {
-        HANDLE proc = OpenProcess(PROCESS_TERMINATE, false, g_settings_process_id);
-        if (proc != INVALID_HANDLE_VALUE)
+        SetEvent(g_terminateSettingsEvent);
+        wil::unique_handle proc{ OpenProcess(PROCESS_ALL_ACCESS, false, g_settings_process_id) };
+        if (proc)
         {
-            TerminateProcess(proc, 0);
+            WaitForSingleObject(proc.get(), 1500);
+            TerminateProcess(proc.get(), 0);
         }
     }
 }
@@ -551,6 +676,26 @@ std::string ESettingsWindowNames_to_string(ESettingsWindowNames value)
         return "ShortcutGuide";
     case ESettingsWindowNames::VideoConference:
         return "VideoConference";
+    case ESettingsWindowNames::Hosts:
+        return "Hosts";
+    case ESettingsWindowNames::MeasureTool:
+        return "MeasureTool";
+    case ESettingsWindowNames::PowerOCR:
+        return "PowerOcr";
+    case ESettingsWindowNames::Workspaces:
+        return "Workspaces";
+    case ESettingsWindowNames::RegistryPreview:
+        return "RegistryPreview";
+    case ESettingsWindowNames::CropAndLock:
+        return "CropAndLock";
+    case ESettingsWindowNames::EnvironmentVariables:
+        return "EnvironmentVariables";
+    case ESettingsWindowNames::Dashboard:
+        return "Dashboard";
+    case ESettingsWindowNames::AdvancedPaste:
+        return "AdvancedPaste";
+    case ESettingsWindowNames::NewPlus:
+        return "NewPlus";
     default:
     {
         Logger::error(L"Can't convert ESettingsWindowNames value={} to string", static_cast<int>(value));
@@ -610,11 +755,51 @@ ESettingsWindowNames ESettingsWindowNames_from_string(std::string value)
     {
         return ESettingsWindowNames::VideoConference;
     }
+    else if (value == "Hosts")
+    {
+        return ESettingsWindowNames::Hosts;
+    }
+    else if (value == "MeasureTool")
+    {
+        return ESettingsWindowNames::MeasureTool;
+    }
+    else if (value == "PowerOcr")
+    {
+        return ESettingsWindowNames::PowerOCR;
+    }
+    else if (value == "Workspaces")
+    {
+        return ESettingsWindowNames::Workspaces;
+    }
+    else if (value == "RegistryPreview")
+    {
+        return ESettingsWindowNames::RegistryPreview;
+    }
+    else if (value == "CropAndLock")
+    {
+        return ESettingsWindowNames::CropAndLock;
+    }
+    else if (value == "EnvironmentVariables")
+    {
+        return ESettingsWindowNames::EnvironmentVariables;
+    }
+    else if (value == "Dashboard")
+    {
+        return ESettingsWindowNames::Dashboard;
+    }
+    else if (value == "AdvancedPaste")
+    {
+        return ESettingsWindowNames::AdvancedPaste;
+    }
+    else if (value == "NewPlus")
+    {
+        return ESettingsWindowNames::NewPlus;
+    }
     else
     {
         Logger::error(L"Can't convert string value={} to ESettingsWindowNames", winrt::to_hstring(value));
         assert(false);
     }
 
-    return ESettingsWindowNames::Overview;
+    return ESettingsWindowNames::Dashboard;
 }

@@ -5,6 +5,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+
 using FancyZonesEditor.Models;
 
 namespace FancyZonesEditor
@@ -19,12 +20,13 @@ namespace FancyZonesEditor
 
         private CanvasLayoutModel _model;
 
-        public CanvasEditor()
+        public CanvasEditor(CanvasLayoutModel layout)
         {
             InitializeComponent();
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
             KeyDown += CanvasEditor_KeyDown;
+            _model = layout;
         }
 
         private void CanvasEditor_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -47,18 +49,8 @@ namespace FancyZonesEditor
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            CanvasLayoutModel model = (CanvasLayoutModel)DataContext;
-            if (model != null)
-            {
-                _model = model;
-
-                var workArea = App.Overlay.WorkArea;
-                _model.ScaleLayout(workAreaWidth: workArea.Width, workAreaHeight: workArea.Height);
-
-                UpdateZoneRects();
-
-                _model.PropertyChanged += OnModelChanged;
-            }
+            UpdateZoneRects();
+            _model.PropertyChanged += OnModelChanged;
         }
 
         private void OnUnloaded(object sender, RoutedEventArgs e)

@@ -10,13 +10,16 @@ namespace Microsoft.PowerToys.Settings.UI.Library
 {
     public class ImageResizerSizes
     {
+        private static readonly JsonSerializerOptions _serializerOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+        };
+
         // Suppressing this warning because removing the setter breaks
         // deserialization with System.Text.Json. This affects the UI display.
         // See: https://github.com/dotnet/runtime/issues/30258
         [JsonPropertyName("value")]
-#pragma warning disable CA2227 // Collection properties should be read only
         public ObservableCollection<ImageSize> Value { get; set; }
-#pragma warning restore CA2227 // Collection properties should be read only
 
         public ImageResizerSizes()
         {
@@ -30,10 +33,7 @@ namespace Microsoft.PowerToys.Settings.UI.Library
 
         public string ToJsonString()
         {
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-            };
+            var options = _serializerOptions;
             return JsonSerializer.Serialize(this, options);
         }
     }

@@ -13,14 +13,13 @@
 #include <common/utils/logger_helper.h>
 #include <common/utils/winapi_error.h>
 
-BOOL APIENTRY DllMain(HMODULE hModule,
-                      DWORD ul_reason_for_call,
-                      LPVOID lpReserved)
+BOOL APIENTRY DllMain(HMODULE /*hModule*/, DWORD ul_reason_for_call, LPVOID /*lpReserved*/)
 {
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
         Trace::RegisterProvider();
+        [[fallthrough]];
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
         break;
@@ -67,6 +66,8 @@ private:
 
     // Handle to event used to invoke ColorPicker
     HANDLE m_hInvokeEvent;
+
+    HANDLE m_hAppTerminateEvent;
 
     void parse_hotkey(PowerToysSettings::PowerToyValues& settings)
     {
@@ -118,7 +119,7 @@ private:
 
         SHELLEXECUTEINFOW sei{ sizeof(sei) };
         sei.fMask = { SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI };
-        sei.lpFile = L"modules\\ColorPicker\\PowerToys.ColorPickerUI.exe";
+        sei.lpFile = L"PowerToys.ColorPickerUI.exe";
         sei.nShow = SW_SHOWNORMAL;
         sei.lpParameters = executable_args.data();
         if (ShellExecuteExW(&sei))
@@ -127,7 +128,7 @@ private:
         }
         else
         {
-            Logger::error( L"ColorPicker failed to start. {}", get_last_error_or_default(GetLastError()));
+            Logger::error(L"ColorPicker failed to start. {}", get_last_error_or_default(GetLastError()));
         }
 
         m_hProcess = sei.hProcess;
@@ -144,7 +145,7 @@ private:
 
             parse_hotkey(settings);
         }
-        catch (std::exception ex)
+        catch (std::exception&)
         {
             Logger::warn(L"An exception occurred while loading the settings file");
             // Error while loading from the settings file. Let default values stay as they are.
@@ -159,6 +160,7 @@ public:
         LoggerHelpers::init_logger(app_key, L"ModuleInterface", "ColorPicker");
         send_telemetry_event = CreateDefaultEvent(CommonSharedConstants::COLOR_PICKER_SEND_SETTINGS_TELEMETRY_EVENT);
         m_hInvokeEvent = CreateDefaultEvent(CommonSharedConstants::SHOW_COLOR_PICKER_SHARED_EVENT);
+        m_hAppTerminateEvent = CreateDefaultEvent(CommonSharedConstants::TERMINATE_COLOR_PICKER_SHARED_EVENT);
         init_settings();
     }
 
@@ -189,6 +191,12 @@ public:
         return app_key.c_str();
     }
 
+    // Return the configured status for the gpo policy for the module
+    virtual powertoys_gpo::gpo_rule_configured_t gpo_policy_enabled_configuration() override
+    {
+        return powertoys_gpo::getConfiguredColorPickerEnabledValue();
+    }
+
     virtual bool get_config(wchar_t* buffer, int* buffer_size) override
     {
         HINSTANCE hinstance = reinterpret_cast<HINSTANCE>(&__ImageBase);
@@ -202,7 +210,7 @@ public:
         return settings.serialize_to_buffer(buffer, buffer_size);
     }
 
-    virtual void call_custom_action(const wchar_t* action) override
+    virtual void call_custom_action(const wchar_t* /*action*/) override
     {
     }
 
@@ -221,7 +229,7 @@ public:
             // Otherwise call a custom function to process the settings before saving them to disk:
             // save_settings();
         }
-        catch (std::exception ex)
+        catch (std::exception&)
         {
             // Improper JSON.
         }
@@ -234,6 +242,7 @@ public:
         ResetEvent(m_hInvokeEvent);
         launch_process();
         m_enabled = true;
+        Trace::EnableColorPicker(true);
     };
 
     virtual void disable()
@@ -243,13 +252,18 @@ public:
         {
             ResetEvent(send_telemetry_event);
             ResetEvent(m_hInvokeEvent);
+
+            SetEvent(m_hAppTerminateEvent);
+            WaitForSingleObject(m_hProcess, 1500);
+
             TerminateProcess(m_hProcess, 1);
         }
 
         m_enabled = false;
+        Trace::EnableColorPicker(false);
     }
 
-    virtual bool on_hotkey(size_t hotkeyId) override
+    virtual bool on_hotkey(size_t /*hotkeyId*/) override
     {
         if (m_enabled)
         {
@@ -263,7 +277,7 @@ public:
             return true;
         }
 
-        return false;      
+        return false;
     }
 
     virtual size_t get_hotkeys(Hotkey* hotkeys, size_t buffer_size) override

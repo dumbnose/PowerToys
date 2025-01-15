@@ -19,7 +19,7 @@ namespace ImageResizer.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resources {
@@ -88,6 +88,15 @@ namespace ImageResizer.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Image sizes.
+        /// </summary>
+        public static string Image_Sizes {
+            get {
+                return ResourceManager.GetString("Image_Sizes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Image Resizer.
         /// </summary>
         public static string ImageResizer {
@@ -133,7 +142,7 @@ namespace ImageResizer.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Ign_ore the orientation of pictures.
+        ///   Looks up a localized string similar to Ignore the _orientation of pictures.
         /// </summary>
         public static string Input_IgnoreOrientation {
             get {
@@ -142,7 +151,7 @@ namespace ImageResizer.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Remove metadata that doesn&apos;t affect rendering.
+        ///   Looks up a localized string similar to Remove meta_data that doesn&apos;t affect rendering.
         /// </summary>
         public static string Input_RemoveMetadata {
             get {
@@ -151,7 +160,7 @@ namespace ImageResizer.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to R_esize the original pictures (don&apos;t create copies).
+        ///   Looks up a localized string similar to Ov_erwrite files.
         /// </summary>
         public static string Input_Replace {
             get {
@@ -174,6 +183,15 @@ namespace ImageResizer.Properties {
         public static string Input_ShrinkOnly {
             get {
                 return ResourceManager.GetString("Input_ShrinkOnly", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to _Make pictures smaller but not larger.
+        /// </summary>
+        public static string Input_ShrinkOnly_Content {
+            get {
+                return ResourceManager.GetString("Input_ShrinkOnly.Content", resourceCulture);
             }
         }
         
@@ -214,7 +232,7 @@ namespace ImageResizer.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Open settings.
+        ///   Looks up a localized string similar to Settings.
         /// </summary>
         public static string Open_settings {
             get {
@@ -277,7 +295,7 @@ namespace ImageResizer.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to _Stop.
+        ///   Looks up a localized string similar to Stop.
         /// </summary>
         public static string Progress_Stop {
             get {
@@ -507,15 +525,6 @@ namespace ImageResizer.Properties {
         public static string Small {
             get {
                 return ResourceManager.GetString("Small", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Times Symbol.
-        /// </summary>
-        public static string Times_Symbol {
-            get {
-                return ResourceManager.GetString("Times_Symbol", resourceCulture);
             }
         }
         

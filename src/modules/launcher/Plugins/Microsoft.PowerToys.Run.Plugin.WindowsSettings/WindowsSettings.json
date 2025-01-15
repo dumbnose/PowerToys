@@ -183,10 +183,26 @@
       "Command": "ms-settings:autoplay"
     },
     {
-      "Name": "Bluetooth",
+      "Name": "BluetoothAndDevices10",
       "Areas": [ "AreaDevices" ],
       "Type": "AppSettingsApp",
-      "Command": "ms-settings:bluetooth"
+      "Command": "ms-settings:bluetooth",
+      "DeprecatedInBuild": 22000
+    },
+    {
+      "Name": "Devices",
+      "Areas": [ "AreaBluetoothAndDevices11" ],
+      "Type": "AppSettingsApp",
+      "Command": "ms-settings:bluetooth",
+      "AltNames": ["ManageDevices", "AddDevices", "BluetoothDevices"],
+      "IntroducedInBuild": 22000
+    },
+    {
+      "Name": "AreaBluetoothAndDevices11",
+      "Type": "AppSettingsApp",
+      "Command": "ms-settings:devices",
+      "AltNames": ["Devices", "BluetoothDevices", "PrintersAndScanners", "PhoneLink", "Camera", "Mouse", "Touchpad", "PenAndWindowsInk", "AutoPlay", "Usb"],
+      "IntroducedInBuild": 22000
     },
     {
       "Name": "ConnectedDevices",
@@ -1224,7 +1240,15 @@
       "Name": "WindowsUpdateCheckForUpdates",
       "Areas": [ "AreaUpdateAndSecurity" ],
       "Type": "AppSettingsApp",
-      "Command": "ms-settings:windowsupdate-action"
+      "Command": "ms-settings:windowsupdate-action",
+      "DeprecatedInBuild": 22000
+    },
+    {
+      "Name": "WindowsUpdateCheckForUpdates",
+      "Areas": [ "AreaUpdateAndSecurity" ],
+      "Type": "AppSettingsApp",
+      "Command": "ms-settings:windowsupdate",
+      "IntroducedInBuild": 22000
     },
     {
       "Name": "WindowsUpdateAdvancedOptions",
@@ -1284,6 +1308,7 @@
       "Name": "ActionCenter",
       "Areas": [ "AreaSystemAndSecurity" ],
       "Type": "AppControlPanel",
+      "AltNames": [ "wscui.cpl" ],
       "Command": "control /name Microsoft.ActionCenter"
     },
     {
@@ -1331,9 +1356,9 @@
     },
     {
       "Name": "BluetoothDevices",
-      "Areas": [ "AreaHardwareAndSound" ],
+      "Areas": [ "AreaHardwareAndSound", "bthprops.cpl" ],
       "Type": "AppControlPanel",
-      "Command": "control /name Microsoft.BluetoothDevices"
+      "Command": "control /bthprops.cpl"
     },
     {
       "Name": "ColorManagement",
@@ -1378,13 +1403,22 @@
       "Name": "DeviceManager",
       "Areas": [ "AreaHardwareAndSound" ],
       "Type": "AppControlPanel",
+      "AltNames": [ "hdwwiz.cpl" ],
       "Command": "control /name Microsoft.DeviceManager"
     },
     {
       "Name": "DevicesAndPrinters",
       "Areas": [ "AreaHardwareAndSound" ],
       "Type": "AppControlPanel",
-      "Command": "control /name Microsoft.DevicesAndPrinters"
+      "Command": "control /name Microsoft.DevicesAndPrinters",
+      "DeprecatedInBuild": 22000
+    },
+    {
+      "Name": "DevicesAndPrinters",
+      "Areas": [ "AreaHardwareAndSound" ],
+      "Type": "AppControlPanel",
+      "Command": "explorer.exe shell:::{A8A91A66-3A7D-4424-8D24-04E180695C7A}",
+      "IntroducedInBuild": 22000
     },
     {
       "Name": "EaseOfAccessCenter",
@@ -1437,6 +1471,7 @@
       "Name": "Infrared",
       "Areas": [ "AreaHardwareAndSound" ],
       "Type": "AppControlPanel",
+      "AltNames": [ "irprops.cpl" ],
       "Command": "control /name Microsoft.Infrared"
     },
     {
@@ -1469,6 +1504,7 @@
       "Name": "NetworkConnection",
       "Areas": [ "AreaNetworkAndInternet" ],
       "Type": "AppControlPanel",
+      "AltNames": [ "ncpa.cpl" ],
       "Command": "control netconnections"
     },
     {
@@ -1531,13 +1567,14 @@
       "Name": "PhoneAndModemOptions",
       "Areas": [ "AreaNetworkAndInternet" ],
       "Type": "AppControlPanel",
+      "AltNames": [ "modem.cpl", "telephon.cpl" ],
       "Command": "control /name Microsoft.PhoneAndModemOptions"
     },
     {
       "Name": "PhoneAndModem",
       "Areas": [ "AreaNetworkAndInternet" ],
       "Type": "AppControlPanel",
-      "AltNames": [ "modem.cpl" ],
+      "AltNames": [ "modem.cpl", "telephon.cpl" ],
       "Command": "control /name Microsoft.PhoneAndModem"
     },
     {
@@ -1632,6 +1669,7 @@
       "Name": "TabletPcSettings",
       "Areas": [ "AreaSystemAndSecurity" ],
       "Type": "AppControlPanel",
+      "AltNames": [ "TabletPC.cpl" ],
       "Command": "control /name Microsoft.TabletPCSettings"
     },
     {
@@ -1672,7 +1710,7 @@
     },
     {
       "Name": "WindowsFirewall",
-      "Areas": [ "AreaSystemAndSecurity" ],
+      "Areas": [ "AreaSystemAndSecurity", "Firewall.cpl" ],
       "Type": "AppControlPanel",
       "Command": "control /name Microsoft.WindowsFirewall"
     },
@@ -1794,6 +1832,154 @@
       "Type": "AppSettingsApp",
       "AltNames": [ "ConnectPanel", "ConnectableDevices", "ConnectWirelessAudio", "DeviceDiscovery" ],
       "Command": "ms-settings-connectabledevices:devicediscovery"
+    },
+    {
+      "Name": "AppMMC",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe" ],
+      "Command": "mmc.exe",
+      "ShowAsFirstResult" : true
+    },
+    {
+      "Name": "AuthorizationManager",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_azman" ],
+      "Command": "azman.msc"
+    },
+    {
+      "Name": "CertificatesCurrentUser",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_certmgr" ],
+      "Command": "certmgr.msc"
+    },
+    {
+      "Name": "CertificatesLocalComputer",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_certlm" ],
+      "Command": "certlm.msc"
+    },
+    {
+      "Name": "ComponentServices",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_comexp", "ComObjects" ],
+      "Command": "comexp.msc"
+    },
+    {
+      "Name": "ComputerManagement",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_compmgmt", "SystemTools", "TaskScheduler", "EventViewer", "SharedFolders", "NetworkSessions", "SMB", "LocalUsersAndGroups", "PerformanceMonitor", "DeviceManager", "PnpDevice", "Storage", "DiskManagement", "CreateAndFormatHardDiskPartitions", "GPT", "MBR", "ServicesSnapIn", "WmiControl", "WindowsManagementInstrumentation" ],
+      "Command": "compmgmt.msc"
+    },
+    {
+      "Name": "DeviceManager",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_devmgmt", "PnpDevice" ],
+      "Command": "devmgmt.msc"
+    },
+    {
+      "Name": "DiskManagement",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_diskmgmt", "Storage", "CreateAndFormatHardDiskPartitions", "GPT", "MBR" ],
+      "Command": "diskmgmt.msc"
+    },
+    {
+      "Name": "EventViewer",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_eventvwr" ],
+      "Command": "eventvwr.msc"
+    },
+    {
+      "Name": "LocalGroupPolicy",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_gpedit", "GroupPolicy" ],
+      "Command": "gpedit.msc"
+    },
+    {
+      "Name": "IpSecurityMonitor",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe" ],
+      "Command": "mmc.exe",
+      "Note": "NoteNoMscFileExist"
+    },
+    {
+      "Name": "IpSecurityPoliciesOnLocalComputer",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe" ],
+      "Command": "mmc.exe",
+      "Note": "NoteNoMscFileExist"
+    },
+    {
+      "Name": "LocalUsersAndGroups",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_lusrmgr" ],
+      "Command": "lusrmgr.msc"
+    },
+    {
+      "Name": "PerformanceMonitor",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_perfmon" ],
+      "Command": "perfmon.msc"
+    },
+    {
+      "Name": "PrintManagement",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_printmanagement", "PrinterSpooler" ],
+      "Command": "printmanagement.msc"
+    },
+    {
+      "Name": "ResultantSetOfPolicy",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_rsop" ],
+      "Command": "rsop.msc"
+    },
+    {
+      "Name": "SecurityConfigurationAndAnalysis",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_secpol" ],
+      "Command": "secpol.msc"
+    },
+    {
+      "Name": "SecurityTemplates",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe" ],
+      "Command": "mmc.exe",
+      "Note": "NoteNoMscFileExist"
+    },
+    {
+      "Name": "ServicesSnapIn",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_services" ],
+      "Command": "services.msc"
+    },
+    {
+      "Name": "SharedFolders",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_fsmgmt", "NetworkSessions" ],
+      "Command": "fsmgmt.msc"
+    },
+    {
+      "Name": "TaskScheduler",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_taskschd" ],
+      "Command": "taskschd.msc"
+    },
+    {
+      "Name": "TpmManagement",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_tpm" ],
+      "Command": "tpm.msc"
+    },
+    {
+      "Name": "DefenderFirewallAdvancedSecurity",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_wf" ],
+      "Command": "wf.msc"
+    },
+    {
+      "Name": "WmiControl",
+      "Type": "AppMMC",
+      "AltNames": [ "MMC_mmcexe", "MMC_wmimgmt", "WindowsManagementInstrumentation" ],
+      "Command": "wmimgmt.msc"
     }
   ]
 }

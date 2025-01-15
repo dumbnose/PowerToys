@@ -7,13 +7,15 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Principal;
+
 using Wox.Plugin.Logger;
+
 using Stopwatch = Wox.Infrastructure.Stopwatch;
 
 namespace PowerLauncher.Helper
 {
     /// <Note>
-    /// On Windows operating system the name of environment variables is case insensitive. This means if we have a user and machine variable with differences in their name casing (eg. test vs Test), the name casing from machine level is used and won't be overwritten by the user var.
+    /// On Windows operating system the name of environment variables is case-insensitive. This means if we have a user and machine variable with differences in their name casing (eg. test vs Test), the name casing from machine level is used and won't be overwritten by the user var.
     /// Example for Window's behavior: test=ValueMachine (Machine level) + TEST=ValueUser (User level) => test=ValueUser (merged)
     /// To get the same behavior we use "StringComparer.OrdinalIgnoreCase" as compare property for the HashSet and Dictionaries where we merge machine and user variable names.
     /// </Note>
@@ -50,9 +52,9 @@ namespace PowerLauncher.Helper
                     string pVarKey = (string)pVar.Key;
                     string pVarValue = (string)pVar.Value;
 
-                    if (machineAndUserVars.ContainsKey(pVarKey))
+                    if (machineAndUserVars.TryGetValue(pVarKey, out string value))
                     {
-                        if (machineAndUserVars[pVarKey] != pVarValue)
+                        if (value != pVarValue)
                         {
                             // Variable value for this process differs form merged machine/user value.
                             _protectedProcessVariables.Add(pVarKey);
@@ -68,12 +70,24 @@ namespace PowerLauncher.Helper
         }
 
         /// <summary>
-        /// This method updates the environment of PT Run's process when called. It is called when we receive a special WindowMessage.
+        /// This method is used as a function wrapper to do the update twice. It is called when we receive a special WindowMessage.
         /// </summary>
         internal static void UpdateEnvironment()
         {
             Stopwatch.Normal("EnvironmentHelper.UpdateEnvironment - Duration cost", () =>
             {
+                // We have to do the update twice to get a correct variable set, if some variables reference other variables in their value (e.g. PATH contains %JAVA_HOME%). [https://github.com/microsoft/PowerToys/issues/26864]
+                // The cause of this is a bug in .Net which reads the variables from the Registry (HKLM/HKCU), but expands the REG_EXPAND_SZ values against the current process environment when reading the Registry value.
+                ExecuteEnvironmentUpdate();
+                ExecuteEnvironmentUpdate();
+            });
+        }
+
+        /// <summary>
+        /// This method updates the environment of PT Run's process when called.
+        /// </summary>
+        private static void ExecuteEnvironmentUpdate()
+        {
                 // Caching existing process environment and getting updated environment variables
                 IDictionary oldProcessEnvironment = GetEnvironmentVariablesWithErrorLog(EnvironmentVariableTarget.Process);
                 var newEnvironment = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -82,7 +96,7 @@ namespace PowerLauncher.Helper
                 // Determine deleted variables and add them with a "string.Empty" value as marker to the dictionary
                 foreach (DictionaryEntry pVar in oldProcessEnvironment)
                 {
-                    // We must compare case insensitive (see dictionary assignment) to avoid false positives when the variable name has changed (Example: "path" -> "Path")
+                    // We must compare case-insensitive (see dictionary assignment) to avoid false positives when the variable name has changed (Example: "path" -> "Path")
                     if (!newEnvironment.ContainsKey((string)pVar.Key) & !_protectedProcessVariables.Contains((string)pVar.Key))
                     {
                         newEnvironment.Add((string)pVar.Key, string.Empty);
@@ -93,7 +107,7 @@ namespace PowerLauncher.Helper
                 // Later we only like to recreate the changed ones
                 foreach (string varName in newEnvironment.Keys.ToList())
                 {
-                    // To be able to detect changed names correctly we have to compare case sensitive
+                    // To be able to detect changed names correctly we have to compare case-sensitive
                     if (oldProcessEnvironment.Contains(varName))
                     {
                         if (oldProcessEnvironment[varName].Equals(newEnvironment[varName]))
@@ -141,7 +155,7 @@ namespace PowerLauncher.Helper
                         }
                         catch (Exception ex)
                         {
-                            // The dotnet method "System.Environment.SetEnvironmentVariable" has it's own internal method to check the input parameters. Here we catch the exceptions that we don't check before updating the environment variable and log it to avoid crashes of PT Run.
+                            // The dotnet method "System.Environment.SetEnvironmentVariable" has its own internal method to check the input parameters. Here we catch the exceptions that we don't check before updating the environment variable and log it to avoid crashes of PT Run.
                             Log.Exception($"Unhandled exception while updating the environment variable [{kv.Key}] for the PT Run process. (The variable value has a length of [{varValueLength}].)", ex, typeof(PowerLauncher.Helper.EnvironmentHelper));
                         }
                     }
@@ -151,7 +165,6 @@ namespace PowerLauncher.Helper
                         Log.Error($"Failed to update the environment variable [{kv.Key}] for the PT Run process. Their name is null or empty. (The variable value has a length of [{varValueLength}].)", typeof(PowerLauncher.Helper.EnvironmentHelper));
                     }
                 }
-            });
         }
 
         /// <summary>
@@ -176,7 +189,7 @@ namespace PowerLauncher.Helper
                     string uVarKey = (string)uVar.Key;
                     string uVarValue = (string)uVar.Value;
 
-                    // The variable name of the path variable can be upper case, lower case ore mixed case. So we have to compare case insensitive.
+                    // The variable name of the path variable can be upper case, lower case ore mixed case. So we have to compare case-insensitive.
                     if (!uVarKey.Equals(PathVariableName, StringComparison.OrdinalIgnoreCase))
                     {
                         environment[uVarKey] = uVarValue;
@@ -203,7 +216,7 @@ namespace PowerLauncher.Helper
         }
 
         /// <summary>
-        /// Returns the variables for the specified target. Errors that occurs will be catched and logged.
+        /// Returns the variables for the specified target. Errors that occurs will be caught and logged.
         /// </summary>
         /// <param name="target">The target variable source of the type <see cref="EnvironmentVariableTarget"/> </param>
         /// <returns>A dictionary with the variable or an empty dictionary on errors.</returns>

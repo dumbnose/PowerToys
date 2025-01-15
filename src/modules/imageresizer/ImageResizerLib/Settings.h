@@ -1,5 +1,8 @@
 #pragma once
 
+#include "pch.h"
+#include <common/utils/gpo.h>
+
 class CSettings
 {
 public:
@@ -7,14 +10,13 @@ public:
 
     inline bool GetEnabled()
     {
-        Reload();
+        auto gpoSetting = powertoys_gpo::getConfiguredImageResizerEnabledValue();
+        if (gpoSetting == powertoys_gpo::gpo_rule_configured_enabled)
+            return true;
+        if (gpoSetting == powertoys_gpo::gpo_rule_configured_disabled)
+            return false;
+        RefreshEnabledState();
         return settings.enabled;
-    }
-
-    inline void SetEnabled(bool enabled)
-    {
-        settings.enabled = enabled;
-        Save();
     }
 
     void Save();
@@ -26,13 +28,16 @@ private:
         bool enabled{ true };
     };
 
+    void RefreshEnabledState();
     void Reload();
     void MigrateFromRegistry();
     void ParseJson();
 
     Settings settings;
     std::wstring jsonFilePath;
+    std::wstring generalJsonFilePath;
     FILETIME lastLoadedTime;
+    FILETIME lastLoadedGeneralSettingsTime{};
 };
 
 CSettings& CSettingsInstance();

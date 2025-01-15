@@ -16,31 +16,44 @@ namespace FancyZonesUnitTests
 
         TEST_METHOD_INITIALIZE(Init)
         {
-            m_hInst = (HINSTANCE)GetModuleHandleW(nullptr);
+            m_hInst = static_cast<HINSTANCE>(GetModuleHandleW(nullptr));
         }
 
     public:
         TEST_METHOD(TestCreateZone)
         {
-            winrt::com_ptr<IZone> zone = MakeZone(m_zoneRect, 1);
-            Assert::IsNotNull(&zone);
-            CustomAssert::AreEqual(m_zoneRect, zone->GetZoneRect());
+            Zone zone(m_zoneRect, 1);
+            Assert::IsTrue(zone.IsValid());
+            CustomAssert::AreEqual(m_zoneRect, zone.GetZoneRect());
         }
 
         TEST_METHOD(TestCreateZoneZeroRect)
         {
             RECT zoneRect{ 0, 0, 0, 0 };
-            winrt::com_ptr<IZone> zone = MakeZone(zoneRect, 1);
-            Assert::IsNotNull(&zone);
-            CustomAssert::AreEqual(zoneRect, zone->GetZoneRect());
+            Zone zone(zoneRect, 1);
+            Assert::IsTrue(zone.IsValid());
+            CustomAssert::AreEqual(zoneRect, zone.GetZoneRect());
         }
 
         TEST_METHOD(GetSetId)
         {
             constexpr ZoneIndex zoneId = 123;
-            winrt::com_ptr<IZone> zone = MakeZone(m_zoneRect, zoneId);
+            Zone zone(m_zoneRect, zoneId);
 
-            Assert::AreEqual(zone->Id(), zoneId);
+            Assert::IsTrue(zone.IsValid());
+            Assert::AreEqual(zone.Id(), zoneId);
+        }
+
+        TEST_METHOD(InvalidId)
+        {
+            Zone zone(m_zoneRect, -1);
+            Assert::IsFalse(zone.IsValid());
+        }
+
+        TEST_METHOD (InvalidRect)
+        {
+            Zone zone({ 100, 100, 99, 101 }, 1);
+            Assert::IsFalse(zone.IsValid());
         }
     };
 }

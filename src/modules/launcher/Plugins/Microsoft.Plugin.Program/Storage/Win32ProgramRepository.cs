@@ -9,8 +9,10 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.IO.Abstractions;
 using System.Threading.Tasks;
+
 using Wox.Infrastructure.Storage;
 using Wox.Plugin.Logger;
+
 using Win32Program = Microsoft.Plugin.Program.Programs.Win32Program;
 
 namespace Microsoft.Plugin.Program.Storage
@@ -150,7 +152,7 @@ namespace Microsoft.Plugin.Program.Storage
                 // Using OrdinalIgnoreCase since this is used internally
                 if (extension.Equals(LnkExtension, StringComparison.OrdinalIgnoreCase))
                 {
-                    app = GetAppWithSameLnkResolvedPath(path);
+                    app = GetAppWithSameLnkFilePath(path);
                     if (app == null)
                     {
                         // Cancelled links won't have a resolved path.
@@ -195,12 +197,12 @@ namespace Microsoft.Plugin.Program.Storage
 
         // To mitigate the issue faced (as stated above) when a shortcut application is renamed, the Exe FullPath and executable name must be obtained.
         // Unlike the rename event args, since we do not have a newPath, we iterate through all the programs and find the one with the same LnkResolved path.
-        private Programs.Win32Program GetAppWithSameLnkResolvedPath(string lnkResolvedPath)
+        private Programs.Win32Program GetAppWithSameLnkFilePath(string lnkFilePath)
         {
             foreach (Programs.Win32Program app in Items)
             {
                 // Using Invariant / OrdinalIgnoreCase since we're comparing paths
-                if (lnkResolvedPath.ToUpperInvariant().Equals(app.LnkResolvedPath, StringComparison.OrdinalIgnoreCase))
+                if (lnkFilePath.ToUpperInvariant().Equals(app.LnkFilePath, StringComparison.OrdinalIgnoreCase))
                 {
                     return app;
                 }

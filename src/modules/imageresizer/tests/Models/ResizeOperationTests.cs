@@ -1,12 +1,15 @@
+#pragma warning disable IDE0073
 // Copyright (c) Brice Lambson
 // The Brice Lambson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.  Code forked from Brice Lambson's https://github.com/bricelam/ImageResizer/
+#pragma warning restore IDE0073
 
 using System;
 using System.IO;
 using System.Linq;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+
 using ImageResizer.Extensions;
 using ImageResizer.Properties;
 using ImageResizer.Test;
@@ -550,8 +553,6 @@ namespace ImageResizer.Models
                     _directory.Dispose();
                 }
 
-                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                // TODO: set large fields to null
                 disposedValue = true;
             }
         }

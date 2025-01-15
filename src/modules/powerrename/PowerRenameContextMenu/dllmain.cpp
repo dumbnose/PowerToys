@@ -16,8 +16,12 @@
 #include <wrl/implements.h>
 #include <wrl/client.h>
 
+#include "Generated Files/resource.h"
+
+#include <common/telemetry/EtwTrace/EtwTrace.h>
 #include <common/utils/elevation.h>
 #include <common/utils/process_path.h>
+#include <common/utils/resources.h>
 #include <Helpers.h>
 #include <Settings.h>
 #include <trace.h>
@@ -29,6 +33,7 @@
 using namespace Microsoft::WRL;
 
 HINSTANCE g_hInst = 0;
+Shared::Trace::ETWTrace trace(L"PowerRenameContextMenu");
 
 #define BUFSIZE 4096 * 4
 
@@ -60,7 +65,7 @@ public:
     // IExplorerCommand
     IFACEMETHODIMP GetTitle(_In_opt_ IShellItemArray* items, _Outptr_result_nullonfailure_ PWSTR* name)
     {
-        return SHStrDup(app_name.c_str(), name);
+        return SHStrDup(context_menu_caption.c_str(), name);
     }
 
     IFACEMETHODIMP GetIcon(_In_opt_ IShellItemArray*, _Outptr_result_nullonfailure_ PWSTR* icon)
@@ -72,7 +77,7 @@ public:
         }
 
         std::wstring iconResourcePath = get_module_folderpath(g_hInst);
-        iconResourcePath += L"\\";
+        iconResourcePath += L"\\Assets\\PowerRename\\";
         iconResourcePath += L"PowerRenameUI.ico";
         return SHStrDup(iconResourcePath.c_str(), icon);
     }
@@ -103,6 +108,12 @@ public:
         if (CSettingsInstance().GetExtendedContextMenuOnly())
         {
             *cmdState = ECS_HIDDEN;
+            return S_OK;
+        }
+
+        // When right clicking directory background, selection is empty. This prevents checking if there
+        // are renamable items, but internal PowerRename logic will prevent renaming non-renamable items anyway.
+        if (nullptr == selection) {
             return S_OK;
         }
 
@@ -194,6 +205,8 @@ private:
     {
         if (CSettingsInstance().GetEnabled())
         {
+            trace.UpdateState(true);
+
             Trace::Invoked();
             // Set the application path based on the location of the dll
             std::wstring path = get_module_folderpath(g_hInst);
@@ -205,18 +218,18 @@ private:
             if (UuidCreate(&temp_uuid) == RPC_S_UUID_NO_ADDRESS)
             {
                 auto val = get_last_error_message(GetLastError());
-                Logger::warn(L"UuidCreate can not create guid. {}", val.has_value() ? val.value() : L"");
+                Logger::warn(L"UuidCreate cannot create guid. {}", val.has_value() ? val.value() : L"");
             }
-            else if (UuidToString(&temp_uuid, (RPC_WSTR*)&uuid_chars) != RPC_S_OK)
+            else if (UuidToString(&temp_uuid, reinterpret_cast<RPC_WSTR*>(& uuid_chars)) != RPC_S_OK)
             {
                 auto val = get_last_error_message(GetLastError());
-                Logger::warn(L"UuidToString can not convert to string. {}", val.has_value() ? val.value() : L"");
+                Logger::warn(L"UuidToString cannot convert to string. {}", val.has_value() ? val.value() : L"");
             }
 
             if (uuid_chars != nullptr)
             {
                 pipe_name += std::wstring(uuid_chars);
-                RpcStringFree((RPC_WSTR*)&uuid_chars);
+                RpcStringFree(reinterpret_cast<RPC_WSTR*>(&uuid_chars));
                 uuid_chars = nullptr;
             }
             create_pipe_thread = std::thread(&PowerRenameContextMenuCommand::StartNamedPipeServerAndSendData, this, pipe_name);
@@ -249,13 +262,16 @@ private:
         }
         Trace::InvokedRet(S_OK);
 
+        trace.Flush();
+        trace.UpdateState(false);
+
         return S_OK;
     }
 
 
     std::thread create_pipe_thread;
     HANDLE hPipe = INVALID_HANDLE_VALUE;
-    std::wstring app_name = L"PowerRename";
+    std::wstring context_menu_caption = GET_RESOURCE_STRING_FALLBACK(IDS_POWERRENAME_CONTEXT_MENU_ENTRY, L"Rename with PowerRename");
 };
 
 CoCreatableClass(PowerRenameContextMenuCommand)

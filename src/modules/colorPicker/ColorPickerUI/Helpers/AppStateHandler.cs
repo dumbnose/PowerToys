@@ -4,12 +4,16 @@
 
 using System;
 using System.ComponentModel.Composition;
+using System.Threading;
 using System.Windows;
 using System.Windows.Interop;
+
 using ColorPicker.Settings;
 using ColorPicker.ViewModelContracts;
 using Common.UI;
 using Microsoft.PowerToys.Settings.UI.Library.Enumerations;
+
+using static ColorPicker.Helpers.NativeMethodsHelper;
 
 namespace ColorPicker.Helpers
 {
@@ -20,7 +24,7 @@ namespace ColorPicker.Helpers
         private readonly IUserSettings _userSettings;
         private ColorEditorWindow _colorEditorWindow;
         private bool _colorPickerShown;
-        private object _colorPickerVisibilityLock = new object();
+        private Lock _colorPickerVisibilityLock = new Lock();
 
         private HwndSource _hwndSource;
         private const int _globalHotKeyId = 0x0001;
@@ -42,6 +46,12 @@ namespace ColorPicker.Helpers
 
         public event EventHandler AppClosed;
 
+        public event EventHandler EnterPressed;
+
+        public event EventHandler UserSessionStarted;
+
+        public event EventHandler UserSessionEnded;
+
         public void StartUserSession()
         {
             EndUserSession(); // Ends current user session if there's an active one.
@@ -61,10 +71,9 @@ namespace ColorPicker.Helpers
                     ShowColorPicker();
                 }
 
-                // Handle the escape key to close Color Picker locally when being spawn from PowerToys, since Keyboard Hooks from the KeyboardMonitor are heavy.
                 if (!(System.Windows.Application.Current as ColorPickerUI.App).IsRunningDetachedFromPowerToys())
                 {
-                    SetupEscapeGlobalKeyShortcut();
+                    UserSessionStarted?.Invoke(this, EventArgs.Empty);
                 }
             }
         }
@@ -84,10 +93,9 @@ namespace ColorPicker.Helpers
                         HideColorPicker();
                     }
 
-                    // Handle the escape key to close Color Picker locally when being spawn from PowerToys, since Keyboard Hooks from the KeyboardMonitor are heavy.
                     if (!(System.Windows.Application.Current as ColorPickerUI.App).IsRunningDetachedFromPowerToys())
                     {
-                        ClearEscapeGlobalKeyShortcut();
+                        UserSessionEnded?.Invoke(this, EventArgs.Empty);
                     }
 
                     SessionEventHelper.End();
@@ -130,6 +138,14 @@ namespace ColorPicker.Helpers
                 Application.Current.MainWindow.Opacity = 0;
                 Application.Current.MainWindow.Visibility = Visibility.Visible;
                 _colorPickerShown = true;
+
+                // HACK: WPF UI theme watcher removes the composition target background color, among other weird stuff.
+                // https://github.com/lepoco/wpfui/blob/303f0aefcd59a142bc681415dc4360a34a15f33d/src/Wpf.Ui/Controls/Window/WindowBackdrop.cs#L280
+                // So we set it back with https://github.com/lepoco/wpfui/blob/303f0aefcd59a142bc681415dc4360a34a15f33d/src/Wpf.Ui/Controls/Window/WindowBackdrop.cs#L191
+                // And also reapply the intended backdrop.
+                // This hack fixes: https://github.com/microsoft/PowerToys/issues/31725
+                Wpf.Ui.Controls.WindowBackdrop.RemoveBackground(Application.Current.MainWindow);
+                Wpf.Ui.Controls.WindowBackdrop.ApplyBackdrop(Application.Current.MainWindow, Wpf.Ui.Controls.WindowBackdropType.None);
             }
         }
 
@@ -149,7 +165,7 @@ namespace ColorPicker.Helpers
             if (_colorEditorWindow == null)
             {
                 _colorEditorWindow = new ColorEditorWindow(this);
-                _colorEditorWindow.Content = _colorEditorViewModel;
+                _colorEditorWindow.contentPresenter.Content = _colorEditorViewModel;
                 _colorEditorViewModel.OpenColorPickerRequested += ColorEditorViewModel_OpenColorPickerRequested;
                 _colorEditorViewModel.OpenSettingsRequested += ColorEditorViewModel_OpenSettingsRequested;
                 _colorEditorViewModel.OpenColorPickerRequested += (object sender, EventArgs e) =>
@@ -204,7 +220,7 @@ namespace ColorPicker.Helpers
 
         private void ColorEditorViewModel_OpenSettingsRequested(object sender, EventArgs e)
         {
-            SettingsDeepLink.OpenSettings(SettingsDeepLink.SettingsWindow.ColorPicker);
+            SettingsDeepLink.OpenSettings(SettingsDeepLink.SettingsWindow.ColorPicker, false);
         }
 
         internal void RegisterWindowHandle(System.Windows.Interop.HwndSource hwndSource)
@@ -212,61 +228,36 @@ namespace ColorPicker.Helpers
             _hwndSource = hwndSource;
         }
 
-#pragma warning disable CA1801 // Review unused parameters
-        public IntPtr ProcessWindowMessages(IntPtr hwnd, int msg, IntPtr wparam, IntPtr lparam, ref bool handled)
-#pragma warning restore CA1801 // Review unused parameters
+        public bool HandleEnterPressed()
         {
-            switch (msg)
+            if (!IsColorPickerVisible())
             {
-                case NativeMethods.WM_HOTKEY:
-                    if (!BlockEscapeKeyClosingColorPickerEditor)
-                    {
-                        handled = EndUserSession();
-                    }
-                    else
-                    {
-                        // If escape key is blocked it means a submenu is open.
-                        // Send the escape key to the Window to close that submenu.
-                        // Description for LPARAM in https://docs.microsoft.com/en-us/windows/win32/inputdev/wm-keyup#parameters
-                        // It's basically some modifiers + scancode for escape (1) + number of repetitions (1)
-                        handled = true;
-                        handled &= NativeMethods.PostMessage(_hwndSource.Handle, NativeMethods.WM_KEYDOWN, (IntPtr)NativeMethods.VK_ESCAPE, (IntPtr)0x00010001);
-                        handled &= NativeMethods.PostMessage(_hwndSource.Handle, NativeMethods.WM_KEYUP, (IntPtr)NativeMethods.VK_ESCAPE, (IntPtr)0xC0010001);
-                    }
-
-                    break;
+                return false;
             }
 
-            return IntPtr.Zero;
+            EnterPressed?.Invoke(this, EventArgs.Empty);
+            return true;
         }
 
-        public void SetupEscapeGlobalKeyShortcut()
+        public bool HandleEscPressed()
         {
-            if (_hwndSource == null)
+            if (!BlockEscapeKeyClosingColorPickerEditor)
             {
-                return;
+                return EndUserSession();
             }
-
-            _hwndSource.AddHook(ProcessWindowMessages);
-            if (!NativeMethods.RegisterHotKey(_hwndSource.Handle, _globalHotKeyId, NativeMethods.MOD_NOREPEAT, NativeMethods.VK_ESCAPE))
+            else
             {
-                Logger.LogWarning("Couldn't register the hotkey for Esc.");
+                return false;
             }
         }
 
-        public void ClearEscapeGlobalKeyShortcut()
+        internal void MoveCursor(int xOffset, int yOffset)
         {
-            if (_hwndSource == null)
-            {
-                return;
-            }
-
-            if (!NativeMethods.UnregisterHotKey(_hwndSource.Handle, _globalHotKeyId))
-            {
-                Logger.LogWarning("Couldn't unregister the hotkey for Esc.");
-            }
-
-            _hwndSource.RemoveHook(ProcessWindowMessages);
+            POINT lpPoint;
+            GetCursorPos(out lpPoint);
+            lpPoint.X += xOffset;
+            lpPoint.Y += yOffset;
+            SetCursorPos(lpPoint.X, lpPoint.Y);
         }
     }
 }

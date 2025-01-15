@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text.RegularExpressions;
+
 using Mages.Core;
 
 namespace Microsoft.PowerToys.Run.Plugin.Calculator
@@ -34,11 +36,21 @@ namespace Microsoft.PowerToys.Run.Plugin.Calculator
                 return default;
             }
 
+            // check for division by zero
+            // We check if the string contains a slash followed by space (optional) and zero. Whereas the zero must not be followed by a dot, comma, 'b', 'o' or 'x' as these indicate a number with decimal digits or a binary/octal/hexadecimal value respectively. The zero must also not be followed by other digits.
+            if (new Regex("\\/\\s*0(?!(?:[,\\.0-9]|[box]0*[1-9a-f]))", RegexOptions.IgnoreCase).Match(input).Success)
+            {
+                error = Properties.Resources.wox_plugin_calculator_division_by_zero;
+                return default;
+            }
+
             // mages has quirky log representation
             // mage has log == ln vs log10
             input = input.
                         Replace("log(", "log10(", true, CultureInfo.CurrentCulture).
                         Replace("ln(", "log(", true, CultureInfo.CurrentCulture);
+
+            input = CalculateHelper.FixHumanMultiplicationExpressions(input);
 
             var result = _magesEngine.Interpret(input);
 

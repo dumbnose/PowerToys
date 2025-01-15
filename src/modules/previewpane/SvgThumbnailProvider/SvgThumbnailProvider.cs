@@ -1,18 +1,14 @@
 ﻿// Copyright (c) Microsoft Corporation
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
-using System;
-using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
-using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
-using System.Windows.Forms;
-using Common.ComInterlop;
+using System.Threading;
+
 using Common.Utilities;
+using ManagedCommon;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -21,15 +17,33 @@ namespace Microsoft.PowerToys.ThumbnailHandler.Svg
     /// <summary>
     /// SVG Thumbnail Provider.
     /// </summary>
-    [Guid("36B27788-A8BB-4698-A756-DF9F11F64F84")]
-    [ClassInterface(ClassInterfaceType.None)]
-    [ComVisible(true)]
-    public class SvgThumbnailProvider : IInitializeWithStream, IThumbnailProvider, IDisposable
+    public class SvgThumbnailProvider : IDisposable
     {
+        public SvgThumbnailProvider(string filePath)
+        {
+            FilePath = filePath;
+            if (FilePath != null && File.Exists(FilePath))
+            {
+                Stream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            }
+        }
+
+        /// <summary>
+        /// Gets the file path to the file creating thumbnail for.
+        /// </summary>
+        public string FilePath { get; private set; }
+
         /// <summary>
         /// Gets the stream object to access file.
         /// </summary>
-        public IStream Stream { get; private set; }
+        public Stream Stream { get; private set; }
+
+        /// <summary>
+        /// Gets or sets signalled when the main thread can use preprocessed svg contents.
+        /// </summary>
+        public ManualResetEventSlim SvgContentsReady { get; set; } = new ManualResetEventSlim(false);
+
+        public string SvgContents { get; set; } = string.Empty;
 
         /// <summary>
         ///  The maximum dimension (width or height) thumbnail we will generate.
@@ -50,6 +64,11 @@ namespace Microsoft.PowerToys.ThumbnailHandler.Svg
         /// Name of the virtual host
         /// </summary>
         private const string VirtualHostName = "PowerToysLocalSvgThumbnail";
+
+        /// <summary>
+        /// URI of the local file saved with the contents
+        /// </summary>
+        private Uri _localFileURI;
 
         /// <summary>
         /// Gets the path of the current assembly.
@@ -78,20 +97,19 @@ namespace Microsoft.PowerToys.ThumbnailHandler.Svg
         /// Render SVG using WebView2 control, capture the WebView2
         /// preview and create Bitmap out of it.
         /// </summary>
-        /// <param name="content">The content to render.</param>
         /// <param name="cx">The maximum thumbnail size, in pixels.</param>
-        public Bitmap GetThumbnail(string content, uint cx)
+        public Bitmap GetThumbnailImpl(uint cx)
         {
             CleanupWebView2UserDataFolder();
 
-            if (cx == 0 || cx > MaxThumbnailSize || string.IsNullOrEmpty(content) || !content.Contains("svg"))
+            if (cx == 0 || cx > MaxThumbnailSize)
             {
                 return null;
             }
 
             Bitmap thumbnail = null;
-            bool thumbnailDone = false;
-            string wrappedContent = WrapSVGInHTML(content);
+
+            var thumbnailDone = new ManualResetEventSlim(false);
 
             _browser = new WebView2();
             _browser.Dock = DockStyle.Fill;
@@ -123,43 +141,72 @@ namespace Microsoft.PowerToys.ThumbnailHandler.Svg
                     thumbnail = ResizeImage(thumbnail, scaleWidth, scaleHeight);
                 }
 
-                thumbnailDone = true;
+                thumbnailDone.Set();
             };
 
+            var webView2Options = new CoreWebView2EnvironmentOptions("--block-new-web-contents");
             ConfiguredTaskAwaitable<CoreWebView2Environment>.ConfiguredTaskAwaiter
                webView2EnvironmentAwaiter = CoreWebView2Environment
-                   .CreateAsync(userDataFolder: _webView2UserDataFolder)
+                   .CreateAsync(userDataFolder: _webView2UserDataFolder, options: webView2Options)
                    .ConfigureAwait(true).GetAwaiter();
+
             webView2EnvironmentAwaiter.OnCompleted(async () =>
             {
                 try
                 {
                     _webView2Environment = webView2EnvironmentAwaiter.GetResult();
                     await _browser.EnsureCoreWebView2Async(_webView2Environment).ConfigureAwait(true);
-                    await _browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync("window.addEventListener('contextmenu', window => {window.preventDefault();});");
-                    _browser.CoreWebView2.SetVirtualHostNameToFolderMapping(VirtualHostName, AssemblyDirectory, CoreWebView2HostResourceAccessKind.Allow);
+                    _browser.CoreWebView2.SetVirtualHostNameToFolderMapping(VirtualHostName, AssemblyDirectory, CoreWebView2HostResourceAccessKind.Deny);
                     _browser.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = false;
+                    _browser.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                    _browser.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                    _browser.CoreWebView2.Settings.AreHostObjectsAllowed = false;
+                    _browser.CoreWebView2.Settings.IsGeneralAutofillEnabled = false;
+                    _browser.CoreWebView2.Settings.IsPasswordAutosaveEnabled = false;
+                    _browser.CoreWebView2.Settings.IsScriptEnabled = false;
+                    _browser.CoreWebView2.Settings.IsWebMessageEnabled = false;
+
+                    // Don't load any resources.
+                    _browser.CoreWebView2.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
+                    _browser.CoreWebView2.WebResourceRequested += (object sender, CoreWebView2WebResourceRequestedEventArgs e) =>
+                    {
+                        // Show local file we've saved with the svg contents. Block all else.
+                        if (new Uri(e.Request.Uri) != _localFileURI)
+                        {
+                            e.Response = _browser.CoreWebView2.Environment.CreateWebResourceResponse(null, 403, "Forbidden", null);
+                        }
+                    };
 
                     // WebView2.NavigateToString() limitation
-                    // See https://docs.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.navigatetostring?view=webview2-dotnet-1.0.864.35#remarks
+                    // See https://learn.microsoft.com/dotnet/api/microsoft.web.webview2.core.corewebview2.navigatetostring?view=webview2-dotnet-1.0.864.35#remarks
                     // While testing the limit, it turned out it is ~1.5MB, so to be on a safe side we go for 1.5m bytes
-                    if (wrappedContent.Length > 1_500_000)
+                    SvgContentsReady.Wait();
+                    if (string.IsNullOrEmpty(SvgContents) || !SvgContents.Contains("svg"))
+                    {
+                        thumbnailDone.Set();
+                        return;
+                    }
+
+                    if (SvgContents.Length > 1_500_000)
                     {
                         string filename = _webView2UserDataFolder + "\\" + Guid.NewGuid().ToString() + ".html";
-                        File.WriteAllText(filename, wrappedContent);
-                        _browser.Source = new Uri(filename);
+                        File.WriteAllText(filename, SvgContents);
+                        _localFileURI = new Uri(filename);
+                        _browser.Source = _localFileURI;
                     }
                     else
                     {
-                        _browser.NavigateToString(wrappedContent);
+                        _browser.NavigateToString(SvgContents);
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    Logger.LogError($"Failed running webView2Environment completed for {FilePath} : ", ex);
+                    thumbnailDone.Set();
                 }
             });
 
-            while (thumbnailDone == false)
+            while (!thumbnailDone.Wait(75))
             {
                 Application.DoEvents();
             }
@@ -230,55 +277,63 @@ namespace Microsoft.PowerToys.ThumbnailHandler.Svg
             return destImage;
         }
 
-        /// <inheritdoc/>
-        public void Initialize(IStream pstream, uint grfMode)
+        /// <summary>
+        /// Generate thumbnail bitmap for provided Gcode file/stream.
+        /// </summary>
+        /// <param name="cx">Maximum thumbnail size, in pixels.</param>
+        /// <returns>Generated bitmap</returns>
+        public Bitmap GetThumbnail(uint cx)
         {
-            // Ignore the grfMode always use read mode to access the file.
-            this.Stream = pstream;
-        }
-
-        /// <inheritdoc/>
-        public void GetThumbnail(uint cx, out IntPtr phbmp, out WTS_ALPHATYPE pdwAlpha)
-        {
-            phbmp = IntPtr.Zero;
-            pdwAlpha = WTS_ALPHATYPE.WTSAT_UNKNOWN;
-
             if (cx == 0 || cx > MaxThumbnailSize)
             {
-                return;
+                return null;
             }
 
-            string svgData = null;
-            using (var stream = new ReadonlyStream(this.Stream as IStream))
+            if (global::PowerToys.GPOWrapper.GPOWrapper.GetConfiguredSvgThumbnailsEnabledValue() == global::PowerToys.GPOWrapper.GpoRuleConfigured.Disabled)
             {
-                using (var reader = new StreamReader(stream))
+                // GPO is disabling this utility.
+                return null;
+            }
+
+            if (Stream != null)
+            {
+                new Thread(() =>
                 {
-                    svgData = reader.ReadToEnd();
-                    try
+                    string svgData = null;
+                    using (var reader = new StreamReader(Stream))
                     {
-                        // Fixes #17527 - Inkscape v1.1 swapped order of default and svg namespaces in svg file (default first, svg after).
-                        // That resulted in parser being unable to parse it correctly and instead of svg, text was previewed.
-                        // MS Edge and Firefox also couldn't preview svg files with mentioned order of namespaces definitions.
-                        svgData = SvgPreviewHandlerHelper.SwapNamespaces(svgData);
-                        svgData = SvgPreviewHandlerHelper.AddStyleSVG(svgData);
+                        svgData = reader.ReadToEnd();
+                        try
+                        {
+                            // Fixes #17527 - Inkscape v1.1 swapped order of default and svg namespaces in svg file (default first, svg after).
+                            // That resulted in parser being unable to parse it correctly and instead of svg, text was previewed.
+                            // MS Edge and Firefox also couldn't preview svg files with mentioned order of namespaces definitions.
+                            svgData = SvgPreviewHandlerHelper.SwapNamespaces(svgData);
+                            svgData = SvgPreviewHandlerHelper.AddStyleSVG(svgData);
+                            SvgContents = WrapSVGInHTML(svgData);
+                            SvgContentsReady.Set();
+                        }
+                        catch (Exception)
+                        {
+                            SvgContentsReady.Set();
+                        }
                     }
-                    catch (Exception)
-                    {
-                    }
+                }).Start();
+            }
+            else
+            {
+                SvgContentsReady.Set();
+            }
+
+            using (Bitmap thumbnail = GetThumbnailImpl(cx))
+            {
+                if (thumbnail != null && thumbnail.Size.Width > 0 && thumbnail.Size.Height > 0)
+                {
+                    return (Bitmap)thumbnail.Clone();
                 }
             }
 
-            if (svgData != null)
-            {
-                using (Bitmap thumbnail = GetThumbnail(svgData, cx))
-                {
-                    if (thumbnail != null && thumbnail.Size.Width > 0 && thumbnail.Size.Height > 0)
-                    {
-                        phbmp = thumbnail.GetHbitmap();
-                        pdwAlpha = WTS_ALPHATYPE.WTSAT_RGB;
-                    }
-                }
-            }
+            return null;
         }
 
         public void Dispose()

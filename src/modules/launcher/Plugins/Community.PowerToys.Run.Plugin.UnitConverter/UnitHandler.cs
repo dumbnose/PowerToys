@@ -4,31 +4,28 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
+
 using UnitsNet;
 
 namespace Community.PowerToys.Run.Plugin.UnitConverter
 {
     public static class UnitHandler
     {
-        private static readonly int _roundingFractionalDigits = 4;
-
-        private static readonly QuantityType[] _included = new QuantityType[]
+        private static readonly QuantityInfo[] _included = new QuantityInfo[]
         {
-            QuantityType.Acceleration,
-            QuantityType.Angle,
-            QuantityType.Area,
-            QuantityType.Duration,
-            QuantityType.Energy,
-            QuantityType.Information,
-            QuantityType.Length,
-            QuantityType.Mass,
-            QuantityType.Power,
-            QuantityType.Pressure,
-            QuantityType.Speed,
-            QuantityType.Temperature,
-            QuantityType.Volume,
+            Acceleration.Info,
+            Angle.Info,
+            Area.Info,
+            Duration.Info,
+            Energy.Info,
+            Information.Info,
+            Length.Info,
+            Mass.Info,
+            Power.Info,
+            Pressure.Info,
+            Speed.Info,
+            Temperature.Info,
+            Volume.Info,
         };
 
         /// <summary>
@@ -37,47 +34,37 @@ namespace Community.PowerToys.Run.Plugin.UnitConverter
         /// <returns>Corresponding enum or null.</returns>
         private static Enum GetUnitEnum(string unit, QuantityInfo unitInfo)
         {
-            UnitInfo first = Array.Find(unitInfo.UnitInfos, info => info.Name.ToLowerInvariant() == unit.ToLowerInvariant());
+            UnitInfo first = Array.Find(unitInfo.UnitInfos, info =>
+                string.Equals(unit, info.Name, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(unit, info.PluralName, StringComparison.OrdinalIgnoreCase));
+
             if (first != null)
             {
                 return first.Value;
             }
 
-            if (UnitParser.Default.TryParse(unit, unitInfo.UnitType, out Enum enum_unit))
+            if (UnitsNetSetup.Default.UnitParser.TryParse(unit, unitInfo.UnitType, out Enum enum_unit))
             {
                 return enum_unit;
+            }
+
+            var cultureInfoEnglish = new System.Globalization.CultureInfo("en-US");
+            if (UnitsNetSetup.Default.UnitParser.TryParse(unit, unitInfo.UnitType, cultureInfoEnglish, out Enum enum_unit_en))
+            {
+                return enum_unit_en;
             }
 
             return null;
         }
 
         /// <summary>
-        /// Rounds the value to the predefined number of significant digits.
-        /// </summary>
-        /// <param name="value">Value to be rounded</param>
-        public static double Round(double value)
-        {
-            if (value == 0.0D)
-            {
-                return 0;
-            }
-
-            var power = Math.Floor(Math.Log10(Math.Abs(value)));
-            var exponent = Math.Pow(10, power);
-            var rounded = Math.Round(value / exponent, _roundingFractionalDigits) * exponent;
-            return rounded;
-        }
-
-        /// <summary>
         /// Given parsed ConvertModel, computes result. (E.g "1 foot in cm").
         /// </summary>
         /// <returns>The converted value as a double.</returns>
-        public static double ConvertInput(ConvertModel convertModel, QuantityType quantityType)
+        public static double ConvertInput(ConvertModel convertModel, QuantityInfo quantityInfo)
         {
-            QuantityInfo unitInfo = Quantity.GetInfo(quantityType);
-
-            var fromUnit = GetUnitEnum(convertModel.FromUnit, unitInfo);
-            var toUnit = GetUnitEnum(convertModel.ToUnit, unitInfo);
+            var fromUnit = GetUnitEnum(convertModel.FromUnit, quantityInfo);
+            var toUnit = GetUnitEnum(convertModel.ToUnit, quantityInfo);
 
             if (fromUnit != null && toUnit != null)
             {
@@ -94,13 +81,13 @@ namespace Community.PowerToys.Run.Plugin.UnitConverter
         public static IEnumerable<UnitConversionResult> Convert(ConvertModel convertModel)
         {
             var results = new List<UnitConversionResult>();
-            foreach (QuantityType quantityType in _included)
+            foreach (var quantityInfo in _included)
             {
-                double convertedValue = UnitHandler.ConvertInput(convertModel, quantityType);
+                double convertedValue = UnitHandler.ConvertInput(convertModel, quantityInfo);
 
                 if (!double.IsNaN(convertedValue))
                 {
-                    UnitConversionResult result = new UnitConversionResult(Round(convertedValue), convertModel.ToUnit, quantityType);
+                    UnitConversionResult result = new UnitConversionResult(convertedValue, convertModel.ToUnit, quantityInfo);
                     results.Add(result);
                 }
             }

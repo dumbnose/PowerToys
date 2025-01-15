@@ -9,7 +9,7 @@ using System.Windows.Interop;
 
 namespace FancyZonesEditor.Utils
 {
-    internal class NativeMethods
+    internal sealed class NativeMethods
     {
         [DllImport("user32.dll", SetLastError = true)]
         private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
@@ -17,11 +17,9 @@ namespace FancyZonesEditor.Utils
         [DllImport("user32.dll")]
         private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
-#pragma warning disable SA1310 // Field names should not contain underscore
         private const int GWL_EX_STYLE = -20;
         private const int WS_EX_APPWINDOW = 0x00040000;
         private const int WS_EX_TOOLWINDOW = 0x00000080;
-#pragma warning restore SA1310 // Field names should not contain underscore
 
         public static void SetWindowStyleToolWindow(Window hwnd)
         {

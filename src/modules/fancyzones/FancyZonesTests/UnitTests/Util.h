@@ -1,5 +1,8 @@
 #pragma once
-
+// disable warning 4505 -'function' : unreferenced local function has been removed
+// as not all functions from Util.h are used in this test
+#pragma warning(push)
+#pragma warning(disable : 4505)
 #include "FancyZonesLib/FancyZonesDataTypes.h"
 
 namespace CustomAssert
@@ -120,7 +123,8 @@ namespace Mocks
         return reinterpret_cast<HINSTANCE>(++s_nextInstance);
     }
 
-    HWND WindowCreate(HINSTANCE hInst);
+    HWND WindowCreate(HINSTANCE hInst, const std::wstring& title = L"", const std::wstring& className = L""
+        , DWORD exStyle = 0, DWORD style = 0, HWND parentWindow = nullptr);
 }
 
 namespace Helpers
@@ -145,3 +149,5 @@ std::wstring Microsoft::VisualStudio::CppUnitTestFramework::ToString(const std::
     str += L"}";
     return str;
 }
+
+#pragma warning(pop)

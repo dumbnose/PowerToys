@@ -5,7 +5,6 @@
 using System;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 
 namespace Microsoft.PowerToys.PreviewHandler.Monaco
@@ -22,21 +21,19 @@ namespace Microsoft.PowerToys.PreviewHandler.Monaco
             fileExtension = fileExtension.ToLower(CultureInfo.CurrentCulture);
             try
             {
-                JsonDocument languageListDocument;
-                using (StreamReader jsonFileReader = new StreamReader(new FileStream(Settings.AssemblyDirectory + "\\monaco_languages.json", FileMode.Open, FileAccess.Read, FileShare.ReadWrite)))
-                {
-                    languageListDocument = JsonDocument.Parse(jsonFileReader.ReadToEnd());
-                    jsonFileReader.Close();
-                }
+                var languageListDocument = FilePreviewCommon.MonacoHelper.GetLanguages();
 
                 JsonElement languageList = languageListDocument.RootElement.GetProperty("list");
                 foreach (JsonElement e in languageList.EnumerateArray())
                 {
-                    for (int j = 0; j < e.GetProperty("extensions").GetArrayLength(); j++)
+                    if (e.TryGetProperty("extensions", out var extensions))
                     {
-                        if (e.GetProperty("extensions")[j].ToString() == fileExtension)
+                        for (int j = 0; j < extensions.GetArrayLength(); j++)
                         {
-                            return e.GetProperty("id").ToString();
+                            if (extensions[j].ToString() == fileExtension)
+                            {
+                                return e.GetProperty("id").ToString();
+                            }
                         }
                     }
                 }

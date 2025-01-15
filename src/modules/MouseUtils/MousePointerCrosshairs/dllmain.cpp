@@ -17,6 +17,10 @@ namespace
     const wchar_t JSON_KEY_CROSSHAIRS_THICKNESS[] = L"crosshairs_thickness";
     const wchar_t JSON_KEY_CROSSHAIRS_BORDER_COLOR[] = L"crosshairs_border_color";
     const wchar_t JSON_KEY_CROSSHAIRS_BORDER_SIZE[] = L"crosshairs_border_size";
+    const wchar_t JSON_KEY_CROSSHAIRS_AUTO_HIDE[] = L"crosshairs_auto_hide";
+    const wchar_t JSON_KEY_CROSSHAIRS_IS_FIXED_LENGTH_ENABLED[] = L"crosshairs_is_fixed_length_enabled";
+    const wchar_t JSON_KEY_CROSSHAIRS_FIXED_LENGTH[] = L"crosshairs_fixed_length";
+    const wchar_t JSON_KEY_AUTO_ACTIVATE[] = L"auto_activate";
 }
 
 extern "C" IMAGE_DOS_HEADER __ImageBase;
@@ -83,6 +87,12 @@ public:
     virtual const wchar_t* get_key() override
     {
         return MODULE_NAME;
+    }
+
+    // Return the configured status for the gpo policy for the module
+    virtual powertoys_gpo::gpo_rule_configured_t gpo_policy_enabled_configuration() override
+    {
+        return powertoys_gpo::getConfiguredMousePointerCrosshairsEnabledValue();
     }
 
     // Return JSON with the configuration options.
@@ -216,7 +226,15 @@ public:
             {
                 // Parse Opacity
                 auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_CROSSHAIRS_OPACITY);
-                inclusiveCrosshairsSettings.crosshairsOpacity = (uint8_t)jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE);
+                int value = static_cast<uint8_t>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+                if (value >= 0)
+                {
+                    inclusiveCrosshairsSettings.crosshairsOpacity = value;
+                }
+                else
+                {
+                    throw std::runtime_error("Invalid Opacity value");
+                }
             }
             catch (...)
             {
@@ -245,7 +263,16 @@ public:
             {
                 // Parse Radius
                 auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_CROSSHAIRS_RADIUS);
-                inclusiveCrosshairsSettings.crosshairsRadius = (UINT)jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE);
+                int value = static_cast<int>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+                if (value >= 0)
+                {
+                    inclusiveCrosshairsSettings.crosshairsRadius = value;
+                }
+                else
+                {
+                    throw std::runtime_error("Invalid Radius value");
+                }
+                
             }
             catch (...)
             {
@@ -255,7 +282,16 @@ public:
             {
                 // Parse Thickness
                 auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_CROSSHAIRS_THICKNESS);
-                inclusiveCrosshairsSettings.crosshairsThickness = (UINT)jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE);
+                int value = static_cast<int>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+                if (value >= 0)
+                {
+                    inclusiveCrosshairsSettings.crosshairsThickness = value;
+                }
+                else
+                {
+                    throw std::runtime_error("Invalid Thickness value");
+                }
+                
             }
             catch (...)
             {
@@ -284,11 +320,68 @@ public:
             {
                 // Parse border size
                 auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_CROSSHAIRS_BORDER_SIZE);
-                inclusiveCrosshairsSettings.crosshairsBorderSize = (UINT)jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE);
+                int value = static_cast <int>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+                if (value >= 0)
+                {
+                    inclusiveCrosshairsSettings.crosshairsBorderSize = value;
+                }
+                else
+                {
+                    throw std::runtime_error("Invalid Border Color value");
+                }
             }
             catch (...)
             {
                 Logger::warn("Failed to initialize border color from settings. Will use default value");
+            }
+            try
+            {
+                // Parse auto hide
+                auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_CROSSHAIRS_AUTO_HIDE);
+                inclusiveCrosshairsSettings.crosshairsAutoHide = jsonPropertiesObject.GetNamedBoolean(JSON_KEY_VALUE);
+            }
+            catch (...)
+            {
+                Logger::warn("Failed to initialize auto hide from settings. Will use default value");
+            }
+            try
+            {
+                // Parse whether the fixed length is enabled
+                auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_CROSSHAIRS_IS_FIXED_LENGTH_ENABLED);
+                bool value = jsonPropertiesObject.GetNamedBoolean(JSON_KEY_VALUE);
+                inclusiveCrosshairsSettings.crosshairsIsFixedLengthEnabled = value;
+            }
+            catch (...)
+            {
+                Logger::warn("Failed to initialize fixed length enabled from settings. Will use default value");
+            }
+            try
+            {
+                // Parse fixed length
+                auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_CROSSHAIRS_FIXED_LENGTH);
+                int value = static_cast<int>(jsonPropertiesObject.GetNamedNumber(JSON_KEY_VALUE));
+                if (value >= 0)
+                {
+                    inclusiveCrosshairsSettings.crosshairsFixedLength = value;
+                }
+                else
+                {
+                    throw std::runtime_error("Invalid Fixed Length value");
+                }
+            }
+            catch (...)
+            {
+                Logger::warn("Failed to initialize fixed length from settings. Will use default value");
+            }
+            try
+            {
+                // Parse auto activate
+                auto jsonPropertiesObject = settingsObject.GetNamedObject(JSON_KEY_PROPERTIES).GetNamedObject(JSON_KEY_AUTO_ACTIVATE);
+                inclusiveCrosshairsSettings.autoActivate = jsonPropertiesObject.GetNamedBoolean(JSON_KEY_VALUE);
+            }
+            catch (...)
+            {
+                Logger::warn("Failed to initialize auto activate from settings. Will use default value");
             }
         }
         else

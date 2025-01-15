@@ -4,7 +4,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
+
 using Microsoft.Plugin.Indexer.Interop;
 using Wox.Plugin.Logger;
 
@@ -26,10 +26,7 @@ namespace Microsoft.Plugin.Indexer.SearchHelper
 
         public List<SearchResult> ExecuteQuery(ISearchQueryHelper queryHelper, string keyword)
         {
-            if (queryHelper == null)
-            {
-                throw new ArgumentNullException(paramName: nameof(queryHelper));
-            }
+            ArgumentNullException.ThrowIfNull(queryHelper);
 
             List<SearchResult> results = new List<SearchResult>();
 
@@ -69,17 +66,11 @@ namespace Microsoft.Plugin.Indexer.SearchHelper
             return results;
         }
 
-        public static void ModifyQueryHelper(ref ISearchQueryHelper queryHelper, string pattern)
+        public static void ModifyQueryHelper(ref ISearchQueryHelper queryHelper, string pattern, List<string> excludedPatterns = null)
         {
-            if (pattern == null)
-            {
-                throw new ArgumentNullException(paramName: nameof(pattern));
-            }
+            ArgumentNullException.ThrowIfNull(pattern);
 
-            if (queryHelper == null)
-            {
-                throw new ArgumentNullException(paramName: nameof(queryHelper));
-            }
+            ArgumentNullException.ThrowIfNull(queryHelper);
 
             // convert file pattern if it is not '*'. Don't create restriction for '*' as it includes all files.
             if (pattern != "*")
@@ -98,14 +89,40 @@ namespace Microsoft.Plugin.Indexer.SearchHelper
                     queryHelper.QueryWhereRestrictions += " AND Contains(System.FileName, '" + pattern + "') ";
                 }
             }
+
+            if (excludedPatterns != null)
+            {
+                foreach (string p in excludedPatterns)
+                {
+                    if (p == string.Empty)
+                    {
+                        continue;
+                    }
+
+                    var excludedPattern = p;
+
+                    excludedPattern = excludedPattern.Replace("\\", "/", StringComparison.Ordinal);
+
+                    if (excludedPattern.Contains('*', StringComparison.Ordinal) || excludedPattern.Contains('?', StringComparison.Ordinal))
+                    {
+                        excludedPattern = excludedPattern
+                            .Replace("%", "[%]", StringComparison.Ordinal)
+                            .Replace("_", "[_]", StringComparison.Ordinal)
+                            .Replace("*", "%", StringComparison.Ordinal)
+                            .Replace("?", "_", StringComparison.Ordinal);
+                        queryHelper.QueryWhereRestrictions += " AND System.ItemUrl NOT LIKE '%" + excludedPattern + "%' ";
+                    }
+                    else
+                    {
+                        queryHelper.QueryWhereRestrictions += " AND NOT Contains(System.ItemUrl, '" + excludedPattern + "') ";
+                    }
+                }
+            }
         }
 
         public static void InitQueryHelper(out ISearchQueryHelper queryHelper, ISearchManager manager, int maxCount, bool displayHiddenFiles)
         {
-            if (manager == null)
-            {
-                throw new ArgumentNullException(nameof(manager));
-            }
+            ArgumentNullException.ThrowIfNull(manager);
 
             // SystemIndex catalog is the default catalog in Windows
             ISearchCatalogManager catalogManager = manager.GetCatalog("SystemIndex");
@@ -124,7 +141,7 @@ namespace Microsoft.Plugin.Indexer.SearchHelper
 
             if (!displayHiddenFiles)
             {
-                // https://docs.microsoft.com/en-us/windows/win32/search/all-bitwise
+                // https://learn.microsoft.com/windows/win32/search/all-bitwise
                 queryHelper.QueryWhereRestrictions += " AND System.FileAttributes <> SOME BITWISE " + _fileAttributeHidden;
             }
 
@@ -135,16 +152,14 @@ namespace Microsoft.Plugin.Indexer.SearchHelper
             queryHelper.QuerySorting = "System.DateModified DESC";
         }
 
-        public IEnumerable<SearchResult> Search(string keyword, ISearchManager manager, string pattern = "*", int maxCount = 30)
+        public IEnumerable<SearchResult> Search(string keyword, ISearchManager manager, string pattern = "*", List<string> excludedPatterns = null, int maxCount = 30)
         {
-            if (manager == null)
-            {
-                throw new ArgumentNullException(nameof(manager));
-            }
+            ArgumentNullException.ThrowIfNull(manager);
+            excludedPatterns ??= new List<string>();
 
             ISearchQueryHelper queryHelper;
             InitQueryHelper(out queryHelper, manager, maxCount, DisplayHiddenFiles);
-            ModifyQueryHelper(ref queryHelper, pattern);
+            ModifyQueryHelper(ref queryHelper, pattern, excludedPatterns);
             return ExecuteQuery(queryHelper, keyword);
         }
     }

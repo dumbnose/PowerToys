@@ -17,6 +17,7 @@ namespace NonLocalizable
     const static wchar_t* FrameEnabledID = L"frame-enabled";
     const static wchar_t* FrameThicknessID = L"frame-thickness";
     const static wchar_t* FrameColorID = L"frame-color";
+    const static wchar_t* FrameOpacityID = L"frame-opacity";
     const static wchar_t* BlockInGameModeID = L"do-not-activate-on-game-mode";
     const static wchar_t* ExcludedAppsID = L"excluded-apps";
     const static wchar_t* FrameAccentColor = L"frame-accent-color";
@@ -134,6 +135,16 @@ void AlwaysOnTopSettings::LoadSettings()
             }
         }
 
+        if (const auto jsonVal = values.get_int_value(NonLocalizable::FrameOpacityID))
+        {
+            auto val = *jsonVal;
+            if (m_settings.frameOpacity != val)
+            {
+                m_settings.frameOpacity = val;
+                NotifyObservers(SettingId::FrameOpacity);
+            }
+        }
+
         if (const auto jsonVal = values.get_bool_value(NonLocalizable::FrameEnabledID))
         {
             auto val = *jsonVal;
@@ -169,7 +180,7 @@ void AlwaysOnTopSettings::LoadSettings()
             std::wstring apps = std::move(*jsonVal);
             std::vector<std::wstring> excludedApps;
             auto excludedUppercase = apps;
-            CharUpperBuffW(excludedUppercase.data(), (DWORD)excludedUppercase.length());
+            CharUpperBuffW(excludedUppercase.data(), static_cast<DWORD>(excludedUppercase.length()));
             std::wstring_view view(excludedUppercase);
             view = left_trim<wchar_t>(trim<wchar_t>(view));
 

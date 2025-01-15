@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Linq;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Wox.Infrastructure;
@@ -26,7 +27,7 @@ namespace Microsoft.PowerToys.Run.Plugin.System.UnitTests
         [DataRow("lock", "Images\\lock.dark.png")]
         [DataRow("sleep", "Images\\sleep.dark.png")]
         [DataRow("hibernate", "Images\\sleep.dark.png")]
-        [DataRow("empty recycle", "Images\\recyclebin.dark.png")]
+        [DataRow("recycle bin", "Images\\recyclebin.dark.png")]
         [DataRow("uefi firmware settings", "Images\\firmwareSettings.dark.png")]
         [DataRow("ip v4 addr", "Images\\networkAdapter.dark.png", true)]
         [DataRow("ip v6 addr", "Images\\networkAdapter.dark.png", true)]
@@ -53,7 +54,7 @@ namespace Microsoft.PowerToys.Run.Plugin.System.UnitTests
         [DataRow("lock", "Images\\lock.light.png")]
         [DataRow("sleep", "Images\\sleep.light.png")]
         [DataRow("hibernate", "Images\\sleep.light.png")]
-        [DataRow("empty recycle", "Images\\recyclebin.light.png")]
+        [DataRow("recycle bin", "Images\\recyclebin.light.png")]
         [DataRow("uefi firmware settings", "Images\\firmwareSettings.light.png")]
         [DataRow("ipv4 addr", "Images\\networkAdapter.light.png", true)]
         [DataRow("ipv6 addr", "Images\\networkAdapter.light.png", true)]

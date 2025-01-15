@@ -1,12 +1,16 @@
+#pragma warning disable IDE0073
 // Copyright (c) Brice Lambson
 // The Brice Lambson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.  Code forked from Brice Lambson's https://github.com/bricelam/ImageResizer/
+#pragma warning restore IDE0073
 
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
+
 using ImageResizer.Models;
 using ImageResizer.Test;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -16,6 +20,13 @@ namespace ImageResizer.Properties
     [TestClass]
     public class SettingsTests
     {
+        private static readonly JsonSerializerOptions _serializerOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+        };
+
+        private static readonly CompositeFormat ValueMustBeBetween = System.Text.CompositeFormat.Parse(Properties.Resources.ValueMustBeBetween);
+
         private static App _imageResizerApp;
 
         public SettingsTests()
@@ -25,9 +36,7 @@ namespace ImageResizer.Properties
         }
 
         [ClassInitialize]
-#pragma warning disable CA1801 // Review unused parameters
         public static void ClassInitialize(TestContext context)
-#pragma warning restore CA1801 // Review unused parameters
         {
             // new App() needs to be created since Settings.Reload() uses App.Current to update properties on the UI thread. App() can be created only once otherwise it results in System.InvalidOperationException : Cannot create more than one System.Windows.Application instance in the same AppDomain.
             _imageResizerApp = new App();
@@ -189,7 +198,7 @@ namespace ImageResizer.Properties
 
             // Using InvariantCulture since this is used internally
             Assert.AreEqual(
-                string.Format(CultureInfo.InvariantCulture, Resources.ValueMustBeBetween, 1, 100),
+                string.Format(CultureInfo.InvariantCulture, ValueMustBeBetween, 1, 100),
                 result);
         }
 
@@ -357,9 +366,9 @@ namespace ImageResizer.Properties
 
             // Execute readFile/writefile twice and see if serialized string is still correct
             var resultWrapper = JsonSerializer.Deserialize<SettingsWrapper>(defaultInput);
-            var serializedInput = JsonSerializer.Serialize(resultWrapper, new JsonSerializerOptions() { WriteIndented = true });
+            var serializedInput = JsonSerializer.Serialize(resultWrapper, _serializerOptions);
             var resultWrapper2 = JsonSerializer.Deserialize<SettingsWrapper>(serializedInput);
-            var serializedInput2 = JsonSerializer.Serialize(resultWrapper2, new JsonSerializerOptions() { WriteIndented = true });
+            var serializedInput2 = JsonSerializer.Serialize(resultWrapper2, _serializerOptions);
 
             Assert.AreEqual(serializedInput, serializedInput2);
             Assert.AreEqual("Image Resizer", resultWrapper2.Name);

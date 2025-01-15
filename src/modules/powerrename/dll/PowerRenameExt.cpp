@@ -22,7 +22,7 @@ struct InvokeStruct
 CPowerRenameMenu::CPowerRenameMenu()
 {
     ModuleAddRef();
-    app_name = GET_RESOURCE_STRING(IDS_POWERRENAME_APP_NAME);
+    context_menu_caption = GET_RESOURCE_STRING_FALLBACK(IDS_POWERRENAME_CONTEXT_MENU_ENTRY, L"Rename with PowerRename");
 }
 
 CPowerRenameMenu::~CPowerRenameMenu()
@@ -46,14 +46,26 @@ HRESULT CPowerRenameMenu::s_CreateInstance(_In_opt_ IUnknown*, _In_ REFIID riid,
 }
 
 // IShellExtInit
-HRESULT CPowerRenameMenu::Initialize(_In_opt_ PCIDLIST_ABSOLUTE, _In_ IDataObject* pdtobj, HKEY)
+HRESULT CPowerRenameMenu::Initialize(_In_opt_ PCIDLIST_ABSOLUTE idlist, _In_ IDataObject* pdtobj, HKEY)
 {
     // Check if we have disabled ourselves
     if (!CSettingsInstance().GetEnabled())
         return E_FAIL;
 
     // Cache the data object to be used later
-    m_spdo = pdtobj;
+    if (idlist != NULL)
+    {
+        CComPtr<IShellItemArray> spsia;
+        if (SUCCEEDED(SHCreateShellItemArrayFromIDLists(1, &idlist, &spsia)) && spsia != NULL)
+        {
+            spsia->BindToHandler(NULL, BHID_DataObject, IID_IDataObject, reinterpret_cast<void**>(&m_spdo));
+        }
+    }
+    else
+    {
+        m_spdo = pdtobj;
+    }
+
     return S_OK;
 }
 
@@ -75,8 +87,8 @@ HRESULT CPowerRenameMenu::QueryContextMenu(HMENU hMenu, UINT index, UINT uIDFirs
     HRESULT hr = E_UNEXPECTED;
     if (m_spdo && !(uFlags & (CMF_DEFAULTONLY | CMF_VERBSONLY | CMF_OPTIMIZEFORINVOKE)))
     {
-        wchar_t menuName[64] = { 0 };
-        LoadString(g_hInst, IDS_POWERRENAME, menuName, ARRAYSIZE(menuName));
+        wchar_t menuName[128] = { 0 };
+        wcscpy_s(menuName, ARRAYSIZE(menuName), context_menu_caption.c_str());
 
         MENUITEMINFO mii;
         mii.cbSize = sizeof(MENUITEMINFO);
@@ -88,7 +100,7 @@ HRESULT CPowerRenameMenu::QueryContextMenu(HMENU hMenu, UINT index, UINT uIDFirs
 
         if (CSettingsInstance().GetShowIconOnMenu())
         {
-            HICON hIcon = (HICON)LoadImage(g_hInst, MAKEINTRESOURCE(IDI_RENAME), IMAGE_ICON, 16, 16, 0);
+            HICON hIcon = static_cast<HICON>(LoadImage(g_hInst, MAKEINTRESOURCE(IDI_RENAME), IMAGE_ICON, 16, 16, 0));
             if (hIcon)
             {
                 mii.fMask |= MIIM_BITMAP;
@@ -121,17 +133,19 @@ HRESULT CPowerRenameMenu::InvokeCommand(_In_ LPCMINVOKECOMMANDINFO pici)
 
 HRESULT CPowerRenameMenu::RunPowerRename(CMINVOKECOMMANDINFO* pici, IShellItemArray* psiItemArray)
 {
+    m_etwTrace.UpdateState(true);
+
     HRESULT hr = E_FAIL;
 
     if (CSettingsInstance().GetEnabled() &&
-        (IS_INTRESOURCE(pici->lpVerb)) &&
+        pici && (IS_INTRESOURCE(pici->lpVerb)) &&
         (LOWORD(pici->lpVerb) == 0))
     {
         Trace::Invoked();
         // Set the application path based on the location of the dll
         std::wstring path = get_module_folderpath(g_hInst);
         path = path + L"\\PowerToys.PowerRename.exe";
-        LPTSTR lpApplicationName = (LPTSTR)path.c_str();
+        LPTSTR lpApplicationName = path.data();
         // Create an anonymous pipe to stream filenames
         SECURITY_ATTRIBUTES sa;
         HANDLE hReadPipe;
@@ -163,14 +177,7 @@ HRESULT CPowerRenameMenu::RunPowerRename(CMINVOKECOMMANDINFO* pici, IShellItemAr
         startupInfo.cb = sizeof(STARTUPINFO);
         startupInfo.hStdInput = hReadPipe;
         startupInfo.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
-        if (pici)
-        {
-            startupInfo.wShowWindow = pici->nShow;
-        }
-        else
-        {
-            startupInfo.wShowWindow = SW_SHOWNORMAL;
-        }
+        startupInfo.wShowWindow = static_cast<WORD>(pici->nShow);
 
         PROCESS_INFORMATION processInformation;
 
@@ -201,15 +208,18 @@ HRESULT CPowerRenameMenu::RunPowerRename(CMINVOKECOMMANDINFO* pici, IShellItemAr
         // psiItemArray is NULL if called from InvokeCommand. This part is used for the MSI installer. It is not NULL if it is called from Invoke (MSIX).
         if (!psiItemArray)
         {
-            // Stream the input files
-            HDropIterator i(m_spdo);
-            for (i.First(); !i.IsDone(); i.Next())
+            if (m_spdo)
             {
-                CString fileName(i.CurrentItem());
-                // File name can't contain '?'
-                fileName.Append(_T("?"));
+                // Stream the input files
+                HDropIterator i(m_spdo);
+                for (i.First(); !i.IsDone(); i.Next())
+                {
+                    CString fileName(i.CurrentItem());
+                    // File name can't contain '?'
+                    fileName.Append(_T("?"));
 
-                writePipe.Write(fileName, fileName.GetLength() * sizeof(TCHAR));
+                    writePipe.Write(fileName, fileName.GetLength() * sizeof(TCHAR));
+                }
             }
         }
         else
@@ -238,12 +248,15 @@ HRESULT CPowerRenameMenu::RunPowerRename(CMINVOKECOMMANDINFO* pici, IShellItemAr
     }
     Trace::InvokedRet(hr);
 
+    m_etwTrace.Flush();
+    m_etwTrace.UpdateState(false);
+
     return hr;
 }
 
 HRESULT __stdcall CPowerRenameMenu::GetTitle(IShellItemArray* /*psiItemArray*/, LPWSTR* ppszName)
 {
-    return SHStrDup(app_name.c_str(), ppszName);
+    return SHStrDup(context_menu_caption.c_str(), ppszName);
 }
 
 HRESULT __stdcall CPowerRenameMenu::GetIcon(IShellItemArray* /*psiItemArray*/, LPWSTR* ppszIcon)
@@ -272,7 +285,7 @@ HRESULT __stdcall CPowerRenameMenu::GetCanonicalName(GUID* pguidCommandName)
     return S_OK;
 }
 
-HRESULT __stdcall CPowerRenameMenu::GetState(IShellItemArray* psiItemArray, BOOL fOkToBeSlow, EXPCMDSTATE* pCmdState)
+HRESULT __stdcall CPowerRenameMenu::GetState(IShellItemArray* /*psiItemArray*/, BOOL /*fOkToBeSlow*/, EXPCMDSTATE* pCmdState)
 {
     *pCmdState = CSettingsInstance().GetEnabled() ? ECS_ENABLED : ECS_HIDDEN;
     return S_OK;
@@ -287,6 +300,8 @@ HRESULT __stdcall CPowerRenameMenu::Invoke(IShellItemArray* psiItemArray, IBindC
     swprintf_s(buffer, L"%d", GetCurrentProcessId());
     MessageBoxW(nullptr, buffer, L"PID", MB_OK);
 #endif
+    m_etwTrace.UpdateState(true);
+
     Trace::Invoked();
     InvokeStruct* pInvokeData = new (std::nothrow) InvokeStruct;
     HRESULT hr = E_OUTOFMEMORY;
@@ -303,6 +318,9 @@ HRESULT __stdcall CPowerRenameMenu::Invoke(IShellItemArray* psiItemArray, IBindC
         hr = RunPowerRename(nullptr, psiItemArray);
     }
     Trace::InvokedRet(hr);
+
+    m_etwTrace.Flush();
+    m_etwTrace.UpdateState(false);
     return S_OK;
 }
 

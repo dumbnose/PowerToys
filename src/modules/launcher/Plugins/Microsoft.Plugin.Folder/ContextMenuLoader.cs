@@ -8,6 +8,7 @@ using System.IO.Abstractions;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Input;
+
 using Wox.Infrastructure;
 using Wox.Plugin;
 using Wox.Plugin.Logger;
@@ -40,14 +41,14 @@ namespace Microsoft.Plugin.Folder
                     PluginName = Assembly.GetExecutingAssembly().GetName().Name,
                     Title = Properties.Resources.Microsoft_plugin_folder_copy_path,
                     Glyph = "\xE8C8",
-                    FontFamily = "Segoe MDL2 Assets",
+                    FontFamily = "Segoe Fluent Icons,Segoe MDL2 Assets",
                     AcceleratorKey = Key.C,
                     AcceleratorModifiers = ModifierKeys.Control,
                     Action = (context) =>
                     {
                         try
                         {
-                            Clipboard.SetText(record.FullPath);
+                            Clipboard.SetText(record.Path);
                             return true;
                         }
                         catch (Exception e)
@@ -65,7 +66,7 @@ namespace Microsoft.Plugin.Folder
                     PluginName = Assembly.GetExecutingAssembly().GetName().Name,
                     Title = Properties.Resources.Microsoft_plugin_folder_open_in_console,
                     Glyph = "\xE756",
-                    FontFamily = "Segoe MDL2 Assets",
+                    FontFamily = "Segoe Fluent Icons,Segoe MDL2 Assets",
                     AcceleratorKey = Key.C,
                     AcceleratorModifiers = ModifierKeys.Control | ModifierKeys.Shift,
 
@@ -75,18 +76,18 @@ namespace Microsoft.Plugin.Folder
                         {
                             if (record.Type == ResultType.File)
                             {
-                                Helper.OpenInConsole(_fileSystem.Path.GetDirectoryName(record.FullPath));
+                                Helper.OpenInConsole(_fileSystem.Path.GetDirectoryName(record.Path));
                             }
                             else
                             {
-                                Helper.OpenInConsole(record.FullPath);
+                                Helper.OpenInConsole(record.Path);
                             }
 
                             return true;
                         }
                         catch (Exception e)
                         {
-                            Log.Exception($"Failed to open {record.FullPath} in console, {e.Message}", e, GetType());
+                            Log.Exception($"Failed to open {record.Path} in console, {e.Message}", e, GetType());
 
                             return false;
                         }
@@ -104,14 +105,14 @@ namespace Microsoft.Plugin.Folder
                 PluginName = Assembly.GetExecutingAssembly().GetName().Name,
                 Title = Properties.Resources.Microsoft_plugin_folder_open_containing_folder,
                 Glyph = "\xE838",
-                FontFamily = "Segoe MDL2 Assets",
+                FontFamily = "Segoe Fluent Icons,Segoe MDL2 Assets",
                 AcceleratorKey = Key.E,
                 AcceleratorModifiers = ModifierKeys.Control | ModifierKeys.Shift,
                 Action = _ =>
                 {
-                    if (!Helper.OpenInShell("explorer.exe", $"/select,\"{record.FullPath}\""))
+                    if (!Helper.OpenInShell("explorer.exe", $"/select,\"{record.Path}\""))
                     {
-                        var message = $"{Properties.Resources.Microsoft_plugin_folder_file_open_failed} {record.FullPath}";
+                        var message = $"{Properties.Resources.Microsoft_plugin_folder_file_open_failed} {record.Path}";
                         _context.API.ShowMsg(message);
                         return false;
                     }

@@ -4,7 +4,7 @@
 #include "utils/com_object_factory.h"
 #include "utils/window.h"
 
-#include <unknwn.h>
+#include <Unknwn.h>
 #include <winrt/base.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Data.Xml.Dom.h>
@@ -49,7 +49,6 @@ namespace // Strings in this namespace should not be localized
     constexpr std::wstring_view TASK_NAME = L"PowerToysBackgroundNotificationsHandler";
     constexpr std::wstring_view TASK_ENTRYPOINT = L"BackgroundActivator.BackgroundHandler";
     constexpr std::wstring_view PACKAGED_APPLICATION_ID = L"PowerToys";
-    constexpr std::wstring_view APPIDS_REGISTRY = LR"(Software\Classes\AppUserModelId\)";
 
     std::wstring APPLICATION_ID = L"Microsoft.PowerToysWin32";
     constexpr std::wstring_view DEFAULT_TOAST_GROUP = L"PowerToysToastTag";
@@ -90,7 +89,7 @@ public:
     }
 
     virtual HRESULT STDMETHODCALLTYPE Activate(
-        LPCWSTR appUserModelId,
+        LPCWSTR /*appUserModelId*/,
         LPCWSTR invokedArgs,
         const NOTIFICATION_USER_INPUT_DATA*,
         ULONG) override
@@ -132,68 +131,6 @@ void notifications::run_desktop_app_activator_loop()
     CoRevokeClassObject(token);
 }
 
-bool notifications::register_application_id(const std::wstring_view appName, const std::wstring_view iconPath)
-{
-    std::wstring aumidPath{ APPIDS_REGISTRY };
-    aumidPath += APPLICATION_ID;
-    wil::unique_hkey aumidKey;
-    if (FAILED(RegCreateKeyW(HKEY_CURRENT_USER, aumidPath.c_str(), &aumidKey)))
-    {
-        return false;
-    }
-    if (FAILED(RegSetKeyValueW(aumidKey.get(),
-                               nullptr,
-                               L"DisplayName",
-                               REG_SZ,
-                               appName.data(),
-                               static_cast<DWORD>((size(appName) + 1) * sizeof(wchar_t)))))
-    {
-        return false;
-    }
-
-    if (FAILED(RegSetKeyValueW(aumidKey.get(),
-                               nullptr,
-                               L"IconUri",
-                               REG_SZ,
-                               iconPath.data(),
-                               static_cast<DWORD>((size(iconPath) + 1) * sizeof(wchar_t)))))
-    {
-        return false;
-    }
-
-    const std::wstring_view iconColor = L"FFDDDDDD";
-    if (FAILED(RegSetKeyValueW(aumidKey.get(),
-                               nullptr,
-                               L"IconBackgroundColor",
-                               REG_SZ,
-                               iconColor.data(),
-                               static_cast<DWORD>((size(iconColor) + 1) * sizeof(wchar_t)))))
-    {
-        return false;
-    }
-    return true;
-}
-
-void notifications::unregister_application_id()
-{
-    std::wstring aumidPath{ APPIDS_REGISTRY };
-    aumidPath += APPLICATION_ID;
-    wil::unique_hkey registryRoot;
-    RegOpenKeyW(HKEY_CURRENT_USER, aumidPath.c_str(), &registryRoot);
-    if (!registryRoot)
-    {
-        return;
-    }
-    RegDeleteTreeW(registryRoot.get(), nullptr);
-    registryRoot.reset();
-    RegOpenKeyW(HKEY_CURRENT_USER, APPIDS_REGISTRY.data(), &registryRoot);
-    if (!registryRoot)
-    {
-        return;
-    }
-    RegDeleteKeyW(registryRoot.get(), APPLICATION_ID.data());
-}
-
 void notifications::override_application_id(const std::wstring_view appID)
 {
     APPLICATION_ID = appID;
@@ -206,7 +143,7 @@ void notifications::show_toast(std::wstring message, std::wstring title, toast_p
     show_toast_with_activations(std::move(message), std::move(title), {}, {}, std::move(params));
 }
 
-inline void xml_escape(std::wstring data)
+constexpr inline void xml_escape(std::wstring data)
 {
     std::wstring buffer;
     buffer.reserve(data.size());
@@ -241,10 +178,11 @@ void notifications::show_toast_with_activations(std::wstring message,
                                                 std::wstring title,
                                                 std::wstring_view background_handler_id,
                                                 std::vector<action_t> actions,
-                                                toast_params params)
+                                                toast_params params,
+                                                std::wstring launch_uri)
 {
     // DO NOT LOCALIZE any string in this function, because they're XML tags and a subject to
-    // https://docs.microsoft.com/en-us/windows/uwp/design/shell/tiles-and-notifications/toast-xml-schema
+    // https://learn.microsoft.com/windows/uwp/design/shell/tiles-and-notifications/toast-xml-schema
 
     std::wstring toast_xml;
     toast_xml.reserve(2048);
@@ -252,7 +190,18 @@ void notifications::show_toast_with_activations(std::wstring message,
     // We must set toast's title and contents immediately, because some of the toasts we send could be snoozed.
     // Windows instantiates the snoozed toast from scratch before showing it again, so all bindings that were set
     // using NotificationData would be empty.
-    toast_xml += LR"(<?xml version="1.0"?><toast><visual><binding template="ToastGeneric">)";
+    // Add the launch attribute if launch_uri is provided, otherwise omit it
+    toast_xml += LR"(<?xml version="1.0"?>)";
+    if (!launch_uri.empty())
+    {
+        toast_xml += LR"(<toast launch=")" + launch_uri + LR"(" activationType="protocol">)"; // Use the launch URI if provided
+    }
+    else
+    {
+        toast_xml += LR"(<toast>)"; // No launch attribute if empty
+    }
+
+    toast_xml += LR"(<visual><binding template="ToastGeneric">)";
     toast_xml += LR"(<text id="1">)";
     toast_xml += std::move(title);
     toast_xml += LR"(</text>)";
@@ -405,7 +354,7 @@ void notifications::update_toast_progress_bar(std::wstring_view tag, progress_ba
     map.Insert(L"progressTitle", params.progress_title);
 
     NotificationData data(map);
-    NotificationUpdateResult res = notifier.Update(data, tag, DEFAULT_TOAST_GROUP);
+    notifier.Update(data, tag, DEFAULT_TOAST_GROUP);
 }
 
 void notifications::remove_toasts_by_tag(std::wstring_view tag)

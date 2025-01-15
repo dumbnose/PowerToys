@@ -9,7 +9,7 @@
 #include "Generated Files/resource.h"
 
 // We support only one instance of the overlay
-extern class OverlayWindow* instance;
+extern class OverlayWindow* overlay_window_instance;
 
 class TargetState;
 
@@ -18,7 +18,8 @@ enum class HideWindowType
     ESC_PRESSED,
     WIN_RELEASED,
     WIN_SHORTCUT_PRESSED,
-    THE_SHORTCUT_PRESSED
+    THE_SHORTCUT_PRESSED,
+    MOUSE_BUTTONUP
 };
 
 class OverlayWindow
@@ -34,6 +35,7 @@ public:
     void was_hidden();
 
     bool overlay_visible() const;
+    bool win_key_activation() const;
 
     bool is_disabled_app(wchar_t* exePath);
 
@@ -52,13 +54,14 @@ private:
     void update_disabled_apps();
     HWND activeWindow;
     HHOOK keyboardHook;
+    HHOOK mouseHook;
 
     struct OverlayOpacity
     {
         static inline PCWSTR name = L"overlay_opacity";
         int value;
         int resourceId = IDS_SETTING_DESCRIPTION_OVERLAY_OPACITY;
-    } overlayOpacity;
+    } overlayOpacity{};
 
     struct Theme
     {
@@ -84,10 +87,17 @@ private:
         bool value;
     } shouldReactToPressedWinKey;
 
-    struct WindowsKeyPressTime
+    struct WindowsKeyPressTimeForGlobalWindowsShortcuts
     {
         static inline PCWSTR name = L"press_time";
-    } windowsKeyPressTime;
+        int value;
+    } windowsKeyPressTimeForGlobalWindowsShortcuts;
+
+    struct WindowsKeyPressTimeForTaskbarIconShortcuts
+    {
+        static inline PCWSTR name = L"press_time_for_taskbar_icon_shortcuts";
+        int value;
+    } windowsKeyPressTimeForTaskbarIconShortcuts;
 
     struct OpenShortcut
     {

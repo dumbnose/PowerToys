@@ -1,5 +1,11 @@
 #include "pch.h"
+
+// Suppressing 26466 - Don't use static_cast downcasts - in CppUnitTest.h
+#pragma warning(push)
+#pragma warning(disable : 26466)
 #include "CppUnitTest.h"
+#pragma warning(pop)
+
 #include "MockedInput.h"
 #include <keyboardmanager/KeyboardManagerEngineLibrary/State.h>
 #include <keyboardmanager/KeyboardManagerEngineLibrary/KeyboardEventHandlers.h>
@@ -45,15 +51,13 @@ namespace RemappingLogicTests
             // Set the testApp as the foreground process
             mockedInputHandler.SetForegroundProcess(testApp1);
 
-            const int nInputs = 2;
-            INPUT input[nInputs] = {};
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = VK_CONTROL;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = 0x41;
+            std::vector<INPUT> inputs{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = 'A' } }
+            };
 
             // Send Ctrl+A keydown
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs);
 
             // Ctrl and A key states should be unchanged, Alt and V key states should be true
             Assert::AreEqual(mockedInputHandler.GetVirtualKeyState(VK_CONTROL), false);
@@ -77,15 +81,13 @@ namespace RemappingLogicTests
             // Set the testApp as the foreground process
             mockedInputHandler.SetForegroundProcess(testApp2);
 
-            const int nInputs = 2;
-            INPUT input[nInputs] = {};
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = VK_CONTROL;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = 0x41;
+            std::vector<INPUT> inputs{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = 'A' } }
+            };
 
             // Send Ctrl+A keydown
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs);
 
             // Ctrl and A key states should be true, Alt and V key states should be false
             Assert::AreEqual(mockedInputHandler.GetVirtualKeyState(VK_CONTROL), true);
@@ -109,28 +111,24 @@ namespace RemappingLogicTests
             // Set the testApp as the foreground process
             mockedInputHandler.SetForegroundProcess(testApp1);
 
-            const int nInputs = 2;
-            INPUT input[nInputs] = {};
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = VK_CONTROL;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = 0x41;
+            std::vector<INPUT> inputs1{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = 'A' } }
+            };
 
             // Send Ctrl+A keydown
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs1);
 
             // Activated app should be testApp1
             Assert::AreEqual(testApp1, testState.GetActivatedApp());
 
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = 0x41;
-            input[0].ki.dwFlags = KEYEVENTF_KEYUP;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = VK_CONTROL;
-            input[1].ki.dwFlags = KEYEVENTF_KEYUP;
+            std::vector<INPUT> inputs2{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = 'A', .dwFlags = KEYEVENTF_KEYUP } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL, .dwFlags = KEYEVENTF_KEYUP } }
+            };
 
             // Release A then Ctrl
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs2);
 
             // Activated app should be empty string
             Assert::AreEqual(std::wstring(KeyboardManagerConstants::NoActivatedApp), testState.GetActivatedApp());
@@ -150,28 +148,24 @@ namespace RemappingLogicTests
             // Set the testApp as the foreground process
             mockedInputHandler.SetForegroundProcess(testApp1);
 
-            const int nInputs = 2;
-            INPUT input[nInputs] = {};
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = VK_CONTROL;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = 0x41;
+            std::vector<INPUT> inputs1{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = 'A' } }
+            };
 
             // Send Ctrl+A keydown
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs1);
 
             // Set the testApp as the foreground process
             mockedInputHandler.SetForegroundProcess(testApp2);
 
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = 0x41;
-            input[0].ki.dwFlags = KEYEVENTF_KEYUP;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = VK_CONTROL;
-            input[1].ki.dwFlags = KEYEVENTF_KEYUP;
+            std::vector<INPUT> inputs2{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = 'A', .dwFlags = KEYEVENTF_KEYUP } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL, .dwFlags = KEYEVENTF_KEYUP } }
+            };
 
             // Release A then Ctrl
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs2);
 
             // Ctrl, A, Alt and Tab should all be false
             Assert::AreEqual(mockedInputHandler.GetVirtualKeyState(VK_CONTROL), false);
@@ -192,15 +186,13 @@ namespace RemappingLogicTests
             // Set the testApp as the foreground process
             mockedInputHandler.SetForegroundProcess(testApp1);
 
-            const int nInputs = 2;
-            INPUT input[nInputs] = {};
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = VK_CONTROL;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = 0x41;
+            std::vector<INPUT> inputs{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = 'A' } }
+            };
 
             // Send Ctrl+A keydown
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs);
 
             // Ctrl and A key states should be unchanged, V key states should be true
             Assert::AreEqual(mockedInputHandler.GetVirtualKeyState(VK_CONTROL), false);
@@ -220,15 +212,13 @@ namespace RemappingLogicTests
             // Set the testApp as the foreground process
             mockedInputHandler.SetForegroundProcess(testApp2);
 
-            const int nInputs = 2;
-            INPUT input[nInputs] = {};
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = VK_CONTROL;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = 0x41;
+            std::vector<INPUT> inputs{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = 'A' } }
+            };
 
             // Send Ctrl+A keydown
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs);
 
             // Ctrl and A key states should be true, V key state should be false
             Assert::AreEqual(mockedInputHandler.GetVirtualKeyState(VK_CONTROL), true);
@@ -248,28 +238,24 @@ namespace RemappingLogicTests
             // Set the testApp as the foreground process
             mockedInputHandler.SetForegroundProcess(testApp1);
 
-            const int nInputs = 2;
-            INPUT input[nInputs] = {};
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = VK_CONTROL;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = 0x41;
+            std::vector<INPUT> inputs1{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = 'A' } }
+            };
 
             // Send Ctrl+A keydown
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs1);
 
             // Activated app should be testApp1
             Assert::AreEqual(testApp1, testState.GetActivatedApp());
 
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = 0x41;
-            input[0].ki.dwFlags = KEYEVENTF_KEYUP;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = VK_CONTROL;
-            input[1].ki.dwFlags = KEYEVENTF_KEYUP;
+            std::vector<INPUT> inputs2{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = 'A', .dwFlags = KEYEVENTF_KEYUP } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL, .dwFlags = KEYEVENTF_KEYUP } }
+            };
 
             // Release A then Ctrl
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs2);
 
             // Activated app should be empty string
             Assert::AreEqual(std::wstring(KeyboardManagerConstants::NoActivatedApp), testState.GetActivatedApp());
@@ -286,28 +272,24 @@ namespace RemappingLogicTests
             // Set the testApp as the foreground process
             mockedInputHandler.SetForegroundProcess(testApp1);
 
-            const int nInputs = 2;
-            INPUT input[nInputs] = {};
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = VK_CONTROL;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = 0x41;
+            std::vector<INPUT> inputs1{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = 'A' } }
+            };
 
             // Send Ctrl+A keydown
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs1);
 
             // Set the testApp as the foreground process
             mockedInputHandler.SetForegroundProcess(testApp2);
 
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = 0x41;
-            input[0].ki.dwFlags = KEYEVENTF_KEYUP;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = VK_CONTROL;
-            input[1].ki.dwFlags = KEYEVENTF_KEYUP;
+            std::vector<INPUT> inputs2{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = 'A', .dwFlags = KEYEVENTF_KEYUP } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL, .dwFlags = KEYEVENTF_KEYUP } }
+            };
 
             // Release A then Ctrl
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs2);
 
             // Ctrl, A, V should all be false
             Assert::AreEqual(mockedInputHandler.GetVirtualKeyState(VK_CONTROL), false);
@@ -328,15 +310,13 @@ namespace RemappingLogicTests
             // Set the testApp as the foreground process
             mockedInputHandler.SetForegroundProcess(testApp1);
 
-            const int nInputs = 2;
-            INPUT input[nInputs] = {};
-            input[0].type = INPUT_KEYBOARD;
-            input[0].ki.wVk = VK_CONTROL;
-            input[1].type = INPUT_KEYBOARD;
-            input[1].ki.wVk = actionKey;
+            std::vector<INPUT> inputs{
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = VK_CONTROL } },
+                { .type = INPUT_KEYBOARD, .ki = { .wVk = actionKey } }
+            };
 
             // Send Ctrl+A keydown
-            mockedInputHandler.SendVirtualInput(nInputs, input, sizeof(INPUT));
+            mockedInputHandler.SendVirtualInput(inputs);
 
             // Check if Ctrl+A is released and disable key was not send
             Assert::AreEqual(mockedInputHandler.GetVirtualKeyState(VK_CONTROL), false);

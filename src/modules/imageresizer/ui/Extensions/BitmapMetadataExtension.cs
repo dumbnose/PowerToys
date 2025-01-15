@@ -111,9 +111,9 @@ namespace ImageResizer.Extensions
         /// <returns>
         /// metadata path and metadata value of all successfully read data items.
         /// </returns>
-        public static List<(string metadataPath, object value)> GetListOfMetadata(this BitmapMetadata metadata)
+        public static List<(string MetadataPath, object Value)> GetListOfMetadata(this BitmapMetadata metadata)
         {
-            var listOfAllMetadata = new List<(string metadataPath, object value)>();
+            var listOfAllMetadata = new List<(string MetadataPath, object Value)>();
 
             try
             {
@@ -183,7 +183,7 @@ namespace ImageResizer.Extensions
         /// Prints all metadata to debug console
         /// </summary>
         /// <remarks>
-        /// Intented for debug only!!!
+        /// Intended for debug only!!!
         /// </remarks>
         public static void PrintsAllMetadataToDebugOutput(this BitmapMetadata metadata)
         {
@@ -196,7 +196,7 @@ namespace ImageResizer.Extensions
             foreach (var metadataItem in listOfMetadata)
             {
                 // Debug.WriteLine($"modifiableMetadata.RemoveQuerySafe(\"{metadataItem.metadataPath}\");");
-                Debug.WriteLine($"{metadataItem.metadataPath} | {metadataItem.value}");
+                Debug.WriteLine($"{metadataItem.MetadataPath} | {metadataItem.Value}");
             }
         }
 
@@ -205,11 +205,11 @@ namespace ImageResizer.Extensions
         /// Iterates recursively through all metadata
         /// </summary>
         /// <remarks>
-        /// Intented for debug only!!!
+        /// Intended for debug only!!!
         /// </remarks>
-        public static List<(string metadataPath, object value)> GetListOfMetadataForDebug(this BitmapMetadata metadata)
+        public static List<(string MetadataPath, object Value)> GetListOfMetadataForDebug(this BitmapMetadata metadata)
         {
-            var listOfAllMetadata = new List<(string metadataPath, object value)>();
+            var listOfAllMetadata = new List<(string MetadataPath, object Value)>();
 
             try
             {

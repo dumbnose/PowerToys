@@ -4,7 +4,7 @@
 
 using System.Globalization;
 using System.Linq;
-using System.Threading;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Wox.Infrastructure;
@@ -25,9 +25,9 @@ namespace Microsoft.PowerToys.Run.Plugin.TimeDate.UnitTests
 
             // Set culture to 'en-us'
             originalCulture = CultureInfo.CurrentCulture;
-            CultureInfo.CurrentCulture = new CultureInfo("en-us");
+            CultureInfo.CurrentCulture = new CultureInfo("en-us", false);
             originalUiCulture = CultureInfo.CurrentUICulture;
-            CultureInfo.CurrentUICulture = new CultureInfo("en-us");
+            CultureInfo.CurrentUICulture = new CultureInfo("en-us", false);
         }
 
         [DataTestMethod]
@@ -37,6 +37,7 @@ namespace Microsoft.PowerToys.Run.Plugin.TimeDate.UnitTests
         [DataRow("now", "Now -", "Images\\timeDate.dark.png")]
         [DataRow("now u", "Now UTC -", "Images\\timeDate.dark.png")]
         [DataRow("unix", "Unix epoch time -", "Images\\timeDate.dark.png")]
+        [DataRow("unix epoch time in", "Unix epoch time in milliseconds -", "Images\\timeDate.dark.png")]
         [DataRow("hour", "Hour -", "Images\\time.dark.png")]
         [DataRow("minute", "Minute -", "Images\\time.dark.png")]
         [DataRow("second", "Second -", "Images\\time.dark.png")]
@@ -61,12 +62,13 @@ namespace Microsoft.PowerToys.Run.Plugin.TimeDate.UnitTests
         [DataRow("iso zone", "ISO 8601 with time zone - ", "Images\\timeDate.dark.png")]
         [DataRow("iso utc zone", "ISO 8601 UTC with time zone - ", "Images\\timeDate.dark.png")]
         [DataRow("rfc", "RFC1123 -", "Images\\timeDate.dark.png")]
+        [DataRow("compatible", "Date and time in filename-compatible format", "Images\\timeDate.dark.png")]
         public void IconThemeDarkTest(string typedString, string subTitleMatch, string expectedResult)
         {
             // Setup
-            Mock<Main> main = new ();
+            Mock<Main> main = new();
             main.Object.IconTheme = "dark";
-            Query expectedQuery = new ("(" + typedString, "(");
+            Query expectedQuery = new("(" + typedString, "(");
 
             // Act
             string result = main.Object.Query(expectedQuery).FirstOrDefault(predicate: x => x.SubTitle.StartsWith(subTitleMatch, System.StringComparison.CurrentCulture)).IcoPath;
@@ -82,6 +84,7 @@ namespace Microsoft.PowerToys.Run.Plugin.TimeDate.UnitTests
         [DataRow("now", "Now -", "Images\\timeDate.light.png")]
         [DataRow("now u", "Now UTC -", "Images\\timeDate.light.png")]
         [DataRow("unix", "Unix epoch time -", "Images\\timeDate.light.png")]
+        [DataRow("unix epoch time in", "Unix epoch time in milliseconds -", "Images\\timeDate.light.png")]
         [DataRow("hour", "Hour -", "Images\\time.light.png")]
         [DataRow("minute", "Minute -", "Images\\time.light.png")]
         [DataRow("second", "Second -", "Images\\time.light.png")]
@@ -106,12 +109,13 @@ namespace Microsoft.PowerToys.Run.Plugin.TimeDate.UnitTests
         [DataRow("iso zone", "ISO 8601 with time zone - ", "Images\\timeDate.light.png")]
         [DataRow("iso utc zone", "ISO 8601 UTC with time zone - ", "Images\\timeDate.light.png")]
         [DataRow("rfc", "RFC1123 -", "Images\\timeDate.light.png")]
+        [DataRow("compatible", "Date and time in filename-compatible format", "Images\\timeDate.light.png")]
         public void IconThemeLightTest(string typedString, string subTitleMatch, string expectedResult)
         {
             // Setup
-            Mock<Main> main = new ();
+            Mock<Main> main = new();
             main.Object.IconTheme = "light";
-            Query expectedQuery = new ("(" + typedString, "(");
+            Query expectedQuery = new("(" + typedString, "(");
 
             // Act
             var result = main.Object.Query(expectedQuery).FirstOrDefault(x => x.SubTitle.StartsWith(subTitleMatch, System.StringComparison.CurrentCulture)).IcoPath;

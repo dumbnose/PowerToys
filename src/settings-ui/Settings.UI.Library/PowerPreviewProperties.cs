@@ -5,13 +5,22 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using Microsoft.PowerToys.Settings.Telemetry;
 using Microsoft.PowerToys.Telemetry;
+using Settings.UI.Library.Enumerations;
 
 namespace Microsoft.PowerToys.Settings.UI.Library
 {
     public class PowerPreviewProperties
     {
+        public const string DefaultStlThumbnailColor = "#FFC924";
+        public const int DefaultMonacoMaxFileSize = 50;
+        public const int DefaultMonacoFontSize = 14;
+        public const int DefaultSvgBackgroundColorMode = (int)SvgPreviewColorMode.Default;
+        public const string DefaultSvgBackgroundSolidColor = "#FFFFFF";
+        public const int DefaultSvgBackgroundCheckeredShade = (int)SvgPreviewCheckeredShade.Light;
+
         private bool enableSvgPreview = true;
 
         [JsonPropertyName("svg-previewer-toggle-setting")]
@@ -28,6 +37,15 @@ namespace Microsoft.PowerToys.Settings.UI.Library
                 }
             }
         }
+
+        [JsonPropertyName("svg-previewer-background-color-mode")]
+        public IntProperty SvgBackgroundColorMode { get; set; }
+
+        [JsonPropertyName("svg-previewer-background-solid-color")]
+        public StringProperty SvgBackgroundSolidColor { get; set; }
+
+        [JsonPropertyName("svg-previewer-background-checkered-shade")]
+        public IntProperty SvgBackgroundCheckeredShade { get; set; }
 
         private bool enableSvgThumbnail = true;
 
@@ -93,6 +111,63 @@ namespace Microsoft.PowerToys.Settings.UI.Library
                 {
                     LogTelemetryEvent(value);
                     monacoPreviewWordWrap = value;
+                }
+            }
+        }
+
+        private bool monacoPreviewTryFormat;
+
+        [JsonPropertyName("monaco-previewer-toggle-try-format")]
+        [JsonConverter(typeof(BoolPropertyJsonConverter))]
+        public bool MonacoPreviewTryFormat
+        {
+            get => monacoPreviewTryFormat;
+            set
+            {
+                if (value != monacoPreviewTryFormat)
+                {
+                    LogTelemetryEvent(value);
+                    monacoPreviewTryFormat = value;
+                }
+            }
+        }
+
+        [JsonPropertyName("monaco-previewer-max-file-size")]
+        public IntProperty MonacoPreviewMaxFileSize { get; set; }
+
+        [JsonPropertyName("monaco-previewer-font-size")]
+        public IntProperty MonacoPreviewFontSize { get; set; }
+
+        private bool monacoPreviewStickyScroll = true;
+
+        [JsonPropertyName("monaco-previewer-sticky-scroll")]
+        [JsonConverter(typeof(BoolPropertyJsonConverter))]
+        public bool MonacoPreviewStickyScroll
+        {
+            get => monacoPreviewStickyScroll;
+            set
+            {
+                if (value != monacoPreviewStickyScroll)
+                {
+                    LogTelemetryEvent(value);
+                    monacoPreviewStickyScroll = value;
+                }
+            }
+        }
+
+        private bool monacoPreviewMinimap;
+
+        [JsonPropertyName("monaco-previewer-minimap")]
+        [JsonConverter(typeof(BoolPropertyJsonConverter))]
+        public bool MonacoPreviewMinimap
+        {
+            get => monacoPreviewMinimap;
+            set
+            {
+                if (value != monacoPreviewMinimap)
+                {
+                    LogTelemetryEvent(value);
+                    monacoPreviewMinimap = value;
                 }
             }
         }
@@ -182,8 +257,51 @@ namespace Microsoft.PowerToys.Settings.UI.Library
             }
         }
 
+        [JsonPropertyName("stl-thumbnail-color-setting")]
+        public StringProperty StlThumbnailColor { get; set; }
+
+        private bool enableQoiPreview = true;
+
+        [JsonPropertyName("qoi-previewer-toggle-setting")]
+        [JsonConverter(typeof(BoolPropertyJsonConverter))]
+        public bool EnableQoiPreview
+        {
+            get => enableQoiPreview;
+            set
+            {
+                if (value != enableQoiPreview)
+                {
+                    LogTelemetryEvent(value);
+                    enableQoiPreview = value;
+                }
+            }
+        }
+
+        private bool enableQoiThumbnail = true;
+
+        [JsonPropertyName("qoi-thumbnail-toggle-setting")]
+        [JsonConverter(typeof(BoolPropertyJsonConverter))]
+        public bool EnableQoiThumbnail
+        {
+            get => enableQoiThumbnail;
+            set
+            {
+                if (value != enableQoiThumbnail)
+                {
+                    LogTelemetryEvent(value);
+                    enableQoiThumbnail = value;
+                }
+            }
+        }
+
         public PowerPreviewProperties()
         {
+            SvgBackgroundColorMode = new IntProperty(DefaultSvgBackgroundColorMode);
+            SvgBackgroundSolidColor = new StringProperty(DefaultSvgBackgroundSolidColor);
+            SvgBackgroundCheckeredShade = new IntProperty(DefaultSvgBackgroundCheckeredShade);
+            StlThumbnailColor = new StringProperty(DefaultStlThumbnailColor);
+            MonacoPreviewMaxFileSize = new IntProperty(DefaultMonacoMaxFileSize);
+            MonacoPreviewFontSize = new IntProperty(DefaultMonacoFontSize);
         }
 
         public override string ToString()

@@ -1,116 +1,233 @@
 # See https://github.com/check-spelling/check-spelling/wiki/Configuration-Examples:-patterns
-https?://(?:(?:www\.|)youtube\.com|youtu.be)/[-a-zA-Z0-9?&=]*
-# GitHub SHAs
-\bapi.github\.com/repos/[^/]+/[^/]+/[^/]+/[0-9a-f]+\b
-://github\.(?:com|blog)/[^\w")]+
-(?:\[[0-9a-f]+\]\(https:/|)/github\.com/[^/]+/[^/]+/[^/]+/[0-9a-f]+(?:[-0-9a-zA-Z/#.]*|)\b
-# githubusercontent
-://githubusercontent\.com/[^\w")]+
-# gist github
-/gist\.github\.com/[^/]+/[0-9a-f]+
 
-# msdn
-\b(?:download\.visualstudio|docs|msdn)\.microsoft\.com/[-_a-zA-Z0-9()=./]*
+# #includes
+^\s*#include\s*(?:<.*?>|".*?")
 
-# medium
-link\.medium\.com/[a-zA-Z0-9]+
-\bmedium\.com/\@[^/]+/[-\w]+
+# #pragma lib
+^\s*#pragma comment\(lib, ".*?"\)
 
-publicKeyToken=(['"]|)[0-9a-f]+\g{-1}
-\@sha256:[0-9a-f]{64}\b
+# languageHashTable
+"\w+(?:-\w+|)"\s+=\s+@\(".*"\)
 
-# data urls
-(['"])data:.*?\g{-1}
-data:[-a-zA-Z=;:/0-9+]*,\S*
+# wikipedia
+\b\w\w\.wikipedia\.org/wiki/[-\w%.#]+
+
+# css fonts
+\bfont-family:[^;}]+
+
+# .github/policies/resourceManagement.yml
+pattern: '.*'
+
+# tabs in c#
+\$"\\t
+
+# Hexadecimal character pattern in code
+\\x[0-9a-fA-F][0-9a-fA-F]
+
+# windows line breaks in strings
+\\r\\n
+
+# power shell gallery website
+\bpowershellgallery.com/[-_a-zA-Z0-9()=./%]*
 
 # uuid: (or CompGUIDPrefix)
 L?(["']|[-<({>]|\b)[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{10,12}(?:\g{-1}|[<})>])
 
-# c99 hex digits (not the full format, just one I've seen)
-0x[0-9a-fA-F](?:\.[0-9a-fA-F]*|)[pP]
-
-# URL escaped characters
-\%[0-9A-F]{2}
-
-# wregex
-std::wregex\(L"[^"]*"\)
-
-# hash
-Hash="[0-9A-F]{40}"
-# SHA256 hash
-'[0-9A-F]{64}'
-
-# hex digits including css/html color classes:
-(?:[\\0][xX]|\\u|[uU]\+|#x?|\%23|L")[0-9a-fA-FgGrR_]{2,}(?:[uU]?[lL]{0,2}|u\d+)\b
-
 (?:L"[abAB]+", ){3}L"[abAB]+"
-"Lorem[^"]+?\."
-TestCase\("[^"]+"
 
-# Test line with hexadecimal colors
-\[DataRow\("[0-9A-F]{6}", \d{3}, \d{3}, \d{3}\)\]
-\[DataRow\("[0-9A-F]{6}", \d{3}.\d{1}, \d{3}.\d{1}, \d{3}.\d{1}\)\]
-\[DataRow\("[0-9A-F]{6}", "[BCGMRY]\d\d?", \d{3}, \d{3}\)\]
-
-# version suffix <word>v#
-[Vv]\d+(?:\b|(?=[a-zA-Z_]))
-
-# Windows paths
-\\native
-\\netcoreapp
-\\netstandard
-\\network
-\\notifications
-\\recyclebin
-\\Registry
-\\registry
-\\reinstall
-\\Resize
-\\resource
-\\Resources
-\\restart
-\\restore
-\\result
-\\rotating
-\\runner
-\\runtimes
-\\Telemetry
-\\telemetry
-\\testapp
-\\tests
-\\tools
-
-# plugin.json
-^  "ID": "[0-9A-F]{32}",$
+# hit-count: 1 file-count: 1
+# marker to ignore all code on line
+^.*/\* #no-spell-check-line \*/.*$
 
 # UnitTests
 \[DataRow\(.*\)\]
 
-# Id info inside markdown file (registry.md) 
-^\|\s+ID\s+\|\s*\`[0-9A-F]{32}\`
+# AdditionalDependencies
+<AdditionalDependencies>.*<
 
-# TestCase strings intentionally have non dictionary items
-\[TestCase\(new string.*\]
+# the last line of mimetype="application/x-microsoft.net.object.bytearray.base64" things in .resx files
+^\s*[-a-zA-Z=;:/0-9+]*[-a-zA-Z;:/0-9+][-a-zA-Z=;:/0-9+]*=$
 
+# Automatically suggested patterns
+
+# hit-count: 3715 file-count: 992
+# IServiceProvider / isAThing
+(?:\b|_)(?:(?:ns|)I|isA)(?=(?:[A-Z][a-z]{2,})+(?:[A-Z\d]|\b))
+
+# hit-count: 404 file-count: 42
+# base64 encoded content, possibly wrapped in mime
+(?:^|[\s=;:?])[-a-zA-Z=;:/0-9+]{50,}(?:[\s=;:?]|$)
+
+# hit-count: 402 file-count: 160
+# hex runs
+\b[0-9a-fA-F]{16,}\b
+
+# hit-count: 337 file-count: 110
+# hex digits including css/html color classes:
+(?:[\\0][xX]|\\u|[uU]\+|#x?|%23)[0-9_a-fA-FgGrR]*?[a-fA-FgGrR]{2,}[0-9_a-fA-FgGrR]*(?:[uUlL]{0,3}|[iu]\d+)\b
+
+# hit-count: 311 file-count: 43
 # D2D
-D2D
+D?2D(?!efault)
 
-# marker for ignoring a comment to the end of the line
-^.*/\* #no-spell-check-line \*/.*$
-// #no-spell-check.*$
+# hit-count: 272 file-count: 75
+# GitHub SHAs (markdown)
+(?:\[`?[0-9a-f]+`?\]\(https:/|)/(?:www\.|)github\.com(?:/[^/\s"]+){2,}(?:/[^/\s")]+)(?:[0-9a-f]+(?:[-0-9a-zA-Z/#.]*|)\b|)
 
-http://tes/
+# hit-count: 146 file-count: 27
+# version suffix <word>v#
+(?:(?<=[A-Z]{2})V|(?<=[a-z]{2}|[A-Z]{2})v)\d+(?:\b|(?=[a-zA-Z_]))
 
+# hit-count: 105 file-count: 103
+# w3
+\bw3\.org/[-0-9a-zA-Z/#.]+
+
+# hit-count: 94 file-count: 6
+# Contributor
+\[[^\]]+\]\(https://github\.com/[^/\s"]+/?\)
+
+RegExp\(([`'"]).*?\g{-1}\)|(?:escapes|regEx):\s*(?:/.*/|([`'"]).*?\g{-1})|return/.*?/
+
+# hit-count: 65 file-count: 38
+# regex choice
+\(\?:[^)]+\|[^)]+\)
+
+# hit-count: 37 file-count: 14
+# Markdown anchor links
+\(#\S*?[a-zA-Z]\S*?\)
+
+# hit-count: 33 file-count: 5
+# base64 encoded pkcs
+\bMII[-a-zA-Z=;:/0-9+]+
+
+# hit-count: 28 file-count: 22
+# stackexchange -- https://stackexchange.com/feeds/sites
+\b(?:askubuntu|serverfault|stack(?:exchange|overflow)|superuser).com/(?:questions/\w+/[-\w]+|a/)
+
+# hit-count: 14 file-count: 3
+# node packages
+(["'])@[^/'" ]+/[^/'" ]+\g{-1}
+
+# hit-count: 13 file-count: 1
+# Intel intrinsics
+_mm_(?!dd)\w+
+
+# hit-count: 11 file-count: 5
+# URL escaped characters
+%[0-9A-F][A-F](?=[A-Za-z])
+
+# hit-count: 9 file-count: 5
+# Wikipedia
+\ben\.wikipedia\.org/wiki/[-\w%.#]+
+
+# hit-count: 5 file-count: 4
+# vs devops
+\bvisualstudio.com(?::443|)/[-\w/?=%&.]*
+
+# hit-count: 5 file-count: 4
+# Alternatively, if you're using check-spelling v0.0.25+, and you would like to _check_ the Non-English content for spelling errors, you can. For information on how to do so, see:
+# https://docs.check-spelling.dev/Feature:-Configurable-word-characters.html#unicode
+[a-zA-Z]*[ÀÁÂÃÄÅÆČÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝßàáâãäåæčçèéêëìíîïðñòóôõöøùúûüýÿĀāŁłŃńŅņŒœŚśŠšŜŝŸŽžź][a-zA-Z]{3}[a-zA-ZÀÁÂÃÄÅÆČÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝßàáâãäåæčçèéêëìíîïðñòóôõöøùúûüýÿĀāŁłŃńŅņŒœŚśŠšŜŝŸŽžź]*|[a-zA-Z]{3,}[ÀÁÂÃÄÅÆČÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝßàáâãäåæčçèéêëìíîïðñòóôõöøùúûüýÿĀāŁłŃńŅņŒœŚśŠšŜŝŸŽžź]|[ÀÁÂÃÄÅÆČÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝßàáâãäåæčçèéêëìíîïðñòóôõöøùúûüýÿĀāŁłŃńŅņŒœŚśŠšŜŝŸŽžź][a-zA-Z]{3,}
+
+# hit-count: 4 file-count: 4
+# microsoft
+\b(?:https?://|)(?:(?:(?:blogs|download\.visualstudio|developer|docs|learn|msdn2?|research)\.|)microsoft|blogs\.msdn)\.co(?:m|\.\w\w)/[-_a-zA-Z0-9()=./%#]*
+
+aka\.ms/[a-zA-Z0-9]+
+
+# hit-count: 3 file-count: 3
+# githubusercontent
+/[-a-z0-9]+\.githubusercontent\.com/[-a-zA-Z0-9?&=_\/.]*
+
+# hit-count: 3 file-count: 2
+# css url wrappings
+\burl\([^)]+\)
+
+# hit-count: 3 file-count: 1
+# kubernetes crd patterns
+^\s*pattern: .*$
+
+# hit-count: 3 file-count: 1
+# Lorem
+# Update Lorem based on your content (requires `ge` and `w` from https://github.com/jsoref/spelling; and `review` from https://github.com/check-spelling/check-spelling/wiki/Looking-for-items-locally )
+# grep '^[^#].*lorem' .github/actions/spelling/patterns.txt|perl -pne 's/.*i..\?://;s/\).*//' |tr '|' "\n"|sort -f |xargs -n1 ge|perl -pne 's/^[^:]*://'|sort -u|w|sed -e 's/ .*//'|w|review -
+# Warning, while `(?i)` is very neat and fancy, if you have some binary files that aren't proper unicode, you might run into:
+# ... Operation "substitution (s///)" returns its argument for non-Unicode code point 0x1C19AE (the code point will vary).
+# ... You could manually change `(?i)X...` to use `[Xx]...`
+# ... or you could add the files to your `excludes` file (a version after 0.0.19 should identify the file path)
+(?:(?:\w|\s|[,.])*\b(?i)(?:amet|consectetur|cursus|dolor|eros|ipsum|lacus|libero|ligula|lorem|magna|neque|nulla|suscipit|tempus)\b(?:\w|\s|[,.])*)
+
+# hit-count: 3 file-count: 1
+# libraries
+(?:\b|_)lib(?:re(?=office)|)(?!era[lt]|ero|erty|rar(?:i(?:an|es)|y))(?=[a-z])
+
+# hit-count: 2 file-count: 1
+# While you could try to match `http://` and `https://` by using `s?` in `https?://`, sometimes there
+# YouTube url
+\b(?:(?:www\.|)youtube\.com|youtu.be)/(?:channel/|embed/|user/|playlist\?list=|watch\?v=|v/|)[-a-zA-Z0-9?&=_%]*
+
+# hit-count: 1 file-count: 1
+# GHSA
+GHSA(?:-[0-9a-z]{4}){3}
+
+# hit-count: 1 file-count: 1
+# GitHub actions
+\buses:\s+[-\w.]+/[-\w./]+@[-\w.]+
+
+# hit-count: 1 file-count: 1
+# medium
+\bmedium\.com/@?[^/\s"]+/[-\w]+
+
+# hit-count: 1 file-count: 1
+# sha-... -- uses a fancy capture
+(\\?['"]|&quot;)[0-9a-f]{40,}\g{-1}
+
+# hit-count: 1 file-count: 1
 # tar arguments
-\b(?:\\n|)tar(?:\s+-[a-zA-Z]+|\s[a-z]+)+
+\b(?:\\n|)g?tar(?:\.exe|)(?:(?:\s+--[-a-zA-Z]+|\s+-[a-zA-Z]+|\s[ABGJMOPRSUWZacdfh-pr-xz]+\b)(?:=[^ ]*|))+
+
+# Questionably acceptable forms of `in to`
+# Personally, I prefer `log into`, but people object
+# https://www.tprteaching.com/log-into-log-in-to-login/
+\b(?:(?:[Ll]og(?:g(?=[a-z])|)|[Ss]ign)(?:ed|ing)?) in to\b
+
+# to opt in
+\bto opt in\b
 
 # acceptable duplicates
-# /bin/ls -l output
-[-bcdlpsw](?:[-r][-w][-sx]){3}\s+\d+\s+(\S+)\s+\g{-1}\s+\d+\s+
-# C types
-\s(long|LONG) \g{-1}\s
-# javadoc / .net
-(?:\@(?:groupname|param)|(?:public|private)(?:\s+static|\s+readonly)*)\s+(\w+)\s+\g{-1}\s
+# ls directory listings
+[-bcdlpsw](?:[-r][-w][-SsTtx]){3}[\.+*]?\s+\d+\s+\S+\s+\S+\s+[.\d]+(?:[KMGT]|)\s+
+# mount
+\bmount\s+-t\s+(\w+)\s+\g{-1}\b
+# C types and repeated CSS values
+\s(auto|buffalo|center|div|inherit|long|LONG|none|normal|solid|thin|transparent|very)(?: \g{-1})+\s
+# C enum and struct
+\b(?:enum|struct)\s+(\w+)\s+\g{-1}\b
+# go templates
+\s(\w+)\s+\g{-1}\s+\`(?:graphql|inject|json|yaml):
+# doxygen / javadoc / .net
+(?:[\\@](?:brief|defgroup|groupname|link|t?param|return|retval)|(?:public|private|\[Parameter(?:\(.+\)|)\])(?:\s+(?:static|override|readonly|required|virtual))*)(?:\s+\{\w+\}|)\s+(\w+)\s+\g{-1}\s
+
+# macOS file path
+(?:Contents\W+|(?!iOS)/)MacOS\b
+
+# Python package registry has incorrect spelling for macOS / Mac OS X
+"Operating System :: MacOS :: MacOS X"
+
+# "company" in Germany
+\bGmbH\b
+
+# IntelliJ
+\bIntelliJ\b
+
+# Commit message -- Signed-off-by and friends
+^\s*(?:(?:Based-on-patch|Co-authored|Helped|Mentored|Reported|Reviewed|Signed-off)-by|Thanks-to): (?:[^<]*<[^>]*>|[^<]*)\s*$
+
+# Autogenerated revert commit message
+^This reverts commit [0-9a-f]{40}\.$
+
+# Compile flag added to Cpp.Build.props
+_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
 
 # ignore long runs of a single character:
 \b([A-Za-z])\g{-1}{3,}\b

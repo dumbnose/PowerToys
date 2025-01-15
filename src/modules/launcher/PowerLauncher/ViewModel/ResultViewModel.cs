@@ -4,11 +4,15 @@
 
 using System;
 using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Media;
+
 using PowerLauncher.Helper;
 using PowerLauncher.Plugin;
 using Wox.Infrastructure.Image;
+using Wox.Infrastructure.UserSettings;
 using Wox.Plugin;
 using Wox.Plugin.Logger;
 
@@ -22,6 +26,8 @@ namespace PowerLauncher.ViewModel
             Hover,
         }
 
+        private readonly PowerToysRunSettings _settings;
+
         public ObservableCollection<ContextMenuItemViewModel> ContextMenuItems { get; } = new ObservableCollection<ContextMenuItemViewModel>();
 
         public ICommand ActivateContextButtonsHoverCommand { get; }
@@ -33,6 +39,9 @@ namespace PowerLauncher.ViewModel
         public bool IsHovered { get; private set; }
 
         private bool _areContextButtonsActive;
+
+        private ImageSource _image;
+        private volatile bool _imageLoaded;
 
         public bool AreContextButtonsActive
         {
@@ -64,18 +73,21 @@ namespace PowerLauncher.ViewModel
 
         public const int NoSelectionIndex = -1;
 
-        public ResultViewModel(Result result)
+        public ResultViewModel(Result result, IMainViewModel mainViewModel, PowerToysRunSettings settings)
         {
             if (result != null)
             {
                 Result = result;
             }
 
+            _settings = settings;
+
             ContextMenuSelectedIndex = NoSelectionIndex;
             LoadContextMenu();
 
             ActivateContextButtonsHoverCommand = new RelayCommand(ActivateContextButtonsHoverAction);
             DeactivateContextButtonsHoverCommand = new RelayCommand(DeactivateContextButtonsHoverAction);
+            MainViewModel = mainViewModel;
         }
 
         private void ActivateContextButtonsHoverAction(object sender)
@@ -151,16 +163,14 @@ namespace PowerLauncher.ViewModel
                     {
                         bool hideWindow =
                             r.Action != null &&
-                            r.Action(
-                                new ActionContext
-                                {
-                                    SpecialKeyState = KeyboardHelper.CheckModifiers(),
-                                });
+                            r.Action(new ActionContext
+                            {
+                                SpecialKeyState = KeyboardHelper.CheckModifiers(),
+                            });
 
                         if (hideWindow)
                         {
-                            // TODO - Do we hide the window
-                            // MainWindowVisibility = Visibility.Collapsed;
+                            MainViewModel.Hide();
                         }
                     })));
             }
@@ -186,23 +196,49 @@ namespace PowerLauncher.ViewModel
         {
             get
             {
-                var imagePath = Result.IcoPath;
-                if (string.IsNullOrEmpty(imagePath) && Result.Icon != null)
+                if (!_imageLoaded)
                 {
-                    try
-                    {
-                        return Result.Icon();
-                    }
-                    catch (Exception e)
-                    {
-                        Log.Exception($"IcoPath is empty and exception when calling Icon() for result <{Result.Title}> of plugin <{Result.PluginDirectory}>", e, GetType());
-                        imagePath = ImageLoader.ErrorIconPath;
-                    }
+                    _imageLoaded = true;
+                    _ = LoadImageAsync();
                 }
 
-                // will get here either when icoPath has value\icon delegate is null\when had exception in delegate
-                return ImageLoader.Load(imagePath);
+                return _image;
             }
+
+            private set
+            {
+                _image = value;
+                OnPropertyChanged(nameof(Image));
+            }
+        }
+
+        private async Task<ImageSource> LoadImageInternalAsync(string imagePath, Result.IconDelegate icon, bool loadFullImage)
+        {
+            if (string.IsNullOrEmpty(imagePath) && icon != null)
+            {
+                try
+                {
+                    var image = icon();
+                    return image;
+                }
+                catch (Exception e)
+                {
+                    Log.Exception(
+                        $"IcoPath is empty and exception when calling Icon() for result <{Result.Title}> of plugin <{Result.PluginDirectory}>",
+                        e,
+                        System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+                    imagePath = ImageLoader.ErrorIconPath;
+                }
+            }
+
+            return await ImageLoader.LoadAsync(imagePath, _settings.GenerateThumbnailsFromFiles, loadFullImage).ConfigureAwait(false);
+        }
+
+        private async Task LoadImageAsync()
+        {
+            var imagePath = Result.IcoPath;
+            var iconDelegate = Result.Icon;
+            Image = await LoadImageInternalAsync(imagePath, iconDelegate, false).ConfigureAwait(false);
         }
 
         // Returns false if we've already reached the last item.
@@ -258,6 +294,8 @@ namespace PowerLauncher.ViewModel
 
         public Result Result { get; }
 
+        public IMainViewModel MainViewModel { get; }
+
         public override bool Equals(object obj)
         {
             var r = obj as ResultViewModel;
@@ -283,7 +321,9 @@ namespace PowerLauncher.ViewModel
 
         public override string ToString()
         {
-            return Result.ToString();
+            // Using CurrentCulture since this is user facing
+            var contextMenuInfo = ContextMenuItems.Count > 0 ? string.Format(CultureInfo.CurrentCulture, "{0} {1}", ContextMenuItems.Count, Properties.Resources.ContextMenuItemsAvailable) : string.Empty;
+            return string.Format(CultureInfo.CurrentCulture, "{0}, {1}", Result.ToString(), contextMenuInfo);
         }
     }
 }

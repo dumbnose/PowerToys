@@ -4,6 +4,7 @@
 #include <windowsx.h>
 
 #include <common/Themes/windows_colors.h>
+#include <common/Display/dpi_aware.h>
 
 #include "Logging.h"
 #include "VideoConferenceModule.h"
@@ -14,23 +15,24 @@ const int REFRESH_RATE = 100;
 const int OVERLAY_SHOW_TIME = 500;
 const int BORDER_OFFSET = 12;
 const int TOP_RIGHT_BORDER_OFFSET = 40;
+std::wstring cached_position = L"";
 
 Toolbar::Toolbar()
 {
     toolbar = this;
-    darkImages.camOnMicOn = Gdiplus::Image::FromFile(L"modules/VideoConference/Icons/On-On Dark.png");
-    darkImages.camOffMicOn = Gdiplus::Image::FromFile(L"modules/VideoConference/Icons/On-Off Dark.png");
-    darkImages.camOnMicOff = Gdiplus::Image::FromFile(L"modules/VideoConference/Icons/Off-On Dark.png");
-    darkImages.camOffMicOff = Gdiplus::Image::FromFile(L"modules/VideoConference/Icons/Off-Off Dark.png");
-    darkImages.camUnusedMicOn = Gdiplus::Image::FromFile(L"modules/VideoConference/Icons/On-NotInUse Dark.png");
-    darkImages.camUnusedMicOff = Gdiplus::Image::FromFile(L"modules/VideoConference/Icons/Off-NotInUse Dark.png");
+    darkImages.camOnMicOn = Gdiplus::Image::FromFile(L"Assets/VCM/On-On Dark.png");
+    darkImages.camOffMicOn = Gdiplus::Image::FromFile(L"Assets/VCM/On-Off Dark.png");
+    darkImages.camOnMicOff = Gdiplus::Image::FromFile(L"Assets/VCM/Off-On Dark.png");
+    darkImages.camOffMicOff = Gdiplus::Image::FromFile(L"Assets/VCM/Off-Off Dark.png");
+    darkImages.camUnusedMicOn = Gdiplus::Image::FromFile(L"Assets/VCM/On-NotInUse Dark.png");
+    darkImages.camUnusedMicOff = Gdiplus::Image::FromFile(L"Assets/VCM/Off-NotInUse Dark.png");
 
-    lightImages.camOnMicOn = Gdiplus::Image::FromFile(L"modules/VideoConference/Icons/On-On Light.png");
-    lightImages.camOffMicOn = Gdiplus::Image::FromFile(L"modules/VideoConference/Icons/On-Off Light.png");
-    lightImages.camOnMicOff = Gdiplus::Image::FromFile(L"modules/VideoConference/Icons/Off-On Light.png");
-    lightImages.camOffMicOff = Gdiplus::Image::FromFile(L"modules/VideoConference/Icons/Off-Off Light.png");
-    lightImages.camUnusedMicOn = Gdiplus::Image::FromFile(L"modules/VideoConference/Icons/On-NotInUse Light.png");
-    lightImages.camUnusedMicOff = Gdiplus::Image::FromFile(L"modules/VideoConference/Icons/Off-NotInUse Light.png");
+    lightImages.camOnMicOn = Gdiplus::Image::FromFile(L"Assets/VCM/On-On Light.png");
+    lightImages.camOffMicOn = Gdiplus::Image::FromFile(L"Assets/VCM/On-Off Light.png");
+    lightImages.camOnMicOff = Gdiplus::Image::FromFile(L"Assets/VCM/Off-On Light.png");
+    lightImages.camOffMicOff = Gdiplus::Image::FromFile(L"Assets/VCM/Off-Off Light.png");
+    lightImages.camUnusedMicOn = Gdiplus::Image::FromFile(L"Assets/VCM/On-NotInUse Light.png");
+    lightImages.camUnusedMicOff = Gdiplus::Image::FromFile(L"Assets/VCM/Off-NotInUse Light.png");
 }
 
 void Toolbar::scheduleModuleSettingsUpdate()
@@ -43,6 +45,44 @@ void Toolbar::scheduleGeneralSettingsUpdate()
     generalSettingsUpdateScheduled = true;
 }
 
+inline POINT calculateToolbarPositioning(Box const& screenSize, std::wstring& position, const int desiredWidth, const int desiredHeight)
+{
+    POINT p;
+    p.x = p.y = 0;
+
+    if (position == L"Top left corner")
+    {
+        p.x = screenSize.left() + BORDER_OFFSET;
+        p.y = screenSize.top() + BORDER_OFFSET;
+    }
+    else if (position == L"Top center")
+    {
+        p.x = screenSize.middle().x - desiredWidth / 2;
+        p.y = screenSize.top() + BORDER_OFFSET;
+    }
+    else if (position == L"Bottom left corner")
+    {
+        p.x = screenSize.left() + BORDER_OFFSET;
+        p.y = screenSize.bottom() - desiredHeight - BORDER_OFFSET;
+    }
+    else if (position == L"Bottom center")
+    {
+        p.x = screenSize.middle().x - desiredWidth / 2;
+        p.y = screenSize.bottom() - desiredHeight - BORDER_OFFSET;
+    }
+    else if (position == L"Bottom right corner")
+    {
+        p.x = screenSize.right() - desiredWidth - BORDER_OFFSET;
+        p.y = screenSize.bottom() - desiredHeight - BORDER_OFFSET;
+    }
+    else //"Top right corner" or non-present
+    {
+        p.x = screenSize.right() - desiredWidth - BORDER_OFFSET;
+        p.y = screenSize.top() + TOP_RIGHT_BORDER_OFFSET;
+    }
+    return p;
+}
+
 LRESULT Toolbar::WindowProcessMessages(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
@@ -53,8 +93,10 @@ LRESULT Toolbar::WindowProcessMessages(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     {
         int x = GET_X_LPARAM(lparam);
         int y = GET_Y_LPARAM(lparam);
+        UINT dpi = DPIAware::DEFAULT_DPI;
+        DPIAware::GetScreenDPIForWindow(hwnd, dpi);
 
-        if (x < 322 / 2)
+        if (x < 322 * static_cast<int>(dpi) / static_cast<int>(DPIAware::DEFAULT_DPI) / 2)
         {
             VideoConferenceModule::reverseMicrophoneMute();
         }
@@ -65,11 +107,41 @@ LRESULT Toolbar::WindowProcessMessages(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         return DefWindowProcW(hwnd, msg, wparam, lparam);
     }
+    case WM_DPICHANGED:
+    {
+        UINT dpi = LOWORD(wparam);
+        RECT* prcNewWindow = reinterpret_cast<RECT*>(lparam);
+
+        POINT suggestedPosition;
+        suggestedPosition.x = prcNewWindow->left;
+        suggestedPosition.y = prcNewWindow->top;
+
+        int desiredWidth = prcNewWindow->right - prcNewWindow->left;
+        int desiredHeight = prcNewWindow->bottom - prcNewWindow->top;
+
+        HMONITOR hMonitor = MonitorFromPoint(suggestedPosition, MONITOR_DEFAULTTONEAREST);
+
+        MonitorInfo info{ hMonitor };
+
+        suggestedPosition = calculateToolbarPositioning(info.GetScreenSize(false), cached_position, desiredWidth, desiredHeight);
+
+        SetWindowPos(hwnd,
+                     NULL,
+                     suggestedPosition.x,
+                     suggestedPosition.y,
+                     desiredWidth,
+                     desiredHeight,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+        return DefWindowProcW(hwnd, msg, wparam, lparam);
+    }
     case WM_CREATE:
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
         HDC hdc;
+        UINT dpi = DPIAware::DEFAULT_DPI;
+
+        DPIAware::GetScreenDPIForWindow(hwnd, dpi);
 
         hdc = BeginPaint(hwnd, &ps);
 
@@ -119,7 +191,8 @@ LRESULT Toolbar::WindowProcessMessages(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 toolbarImage = themeImages->camOnMicOn;
             }
         }
-        graphic.DrawImage(toolbarImage, 0, 0, toolbarImage->GetWidth(), toolbarImage->GetHeight());
+        // Images are scaled by 4 to support higher dpi values.
+        graphic.DrawImage(toolbarImage, 0, 0, toolbarImage->GetWidth() / 4 * dpi / DPIAware::DEFAULT_DPI, toolbarImage->GetHeight() / 4 * dpi / DPIAware::DEFAULT_DPI);
 
         EndPaint(hwnd, &ps);
         break;
@@ -152,29 +225,27 @@ LRESULT Toolbar::WindowProcessMessages(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         const bool showOverlayTimeout = nowMillis - toolbar->lastTimeCamOrMicMuteStateChanged > OVERLAY_SHOW_TIME;
 
         static bool previousShow = false;
-        bool show = false;
+        bool show = toolbar->ToolbarHide == L"Never";
 
-        if (toolbar->cameraInUse)
+        const bool cameraJustStoppedInUse = toolbar->previouscameraInUse && !toolbar->cameraInUse;
+        bool shouldUnmuteAll = cameraJustStoppedInUse;
+
+        if (toolbar->ToolbarHide == L"When both camera and microphone are muted")
         {
-            show = toolbar->HideToolbarWhenUnmuted ? toolbar->microphoneMuted || toolbar->cameraMuted : true;
+            // We shouldn't unmute devices, since we'd like to only show the toolbar only
+            // when something is unmuted -> the use case is to keep everything muted by default and track it
+            shouldUnmuteAll = false;
+            show = (!toolbar->cameraMuted && toolbar->cameraInUse) || !toolbar->microphoneMuted;
         }
-        else if (toolbar->previouscameraInUse)
-        {
+        else if (toolbar->ToolbarHide == L"When both camera and microphone are unmuted")
+            show = (toolbar->cameraMuted && toolbar->cameraInUse) || toolbar->microphoneMuted;
+
+        if (shouldUnmuteAll && !toolbar->moduleSettingsUpdateScheduled)
             VideoConferenceModule::unmuteAll();
-        }
-        else
-        {
-            show = toolbar->microphoneMuted;
-        }
+
         show = show || !showOverlayTimeout;
-        if (show)
-        {
-            ShowWindow(hwnd, SW_SHOW);
-        }
-        else
-        {
-            ShowWindow(hwnd, SW_HIDE);
-        }
+        ShowWindow(hwnd, show ? SW_SHOW : SW_HIDE);
+
         if (previousShow != show)
         {
             previousShow = show;
@@ -196,14 +267,16 @@ LRESULT Toolbar::WindowProcessMessages(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
 void Toolbar::show(std::wstring position, std::wstring monitorString)
 {
+    cached_position = position;
     for (auto& hwnd : hwnds)
     {
         PostMessageW(hwnd, WM_CLOSE, 0, 0);
     }
     hwnds.clear();
 
-    int overlayWidth = darkImages.camOffMicOff->GetWidth();
-    int overlayHeight = darkImages.camOffMicOff->GetHeight();
+    // Images are scaled by 4 to support higher dpi values.
+    int overlayWidth = darkImages.camOffMicOff->GetWidth() / 4;
+    int overlayHeight = darkImages.camOffMicOff->GetHeight() / 4;
 
     // Register the window class
     LPCWSTR CLASS_NAME = L"MuteNotificationWindowClass";
@@ -211,7 +284,7 @@ void Toolbar::show(std::wstring position, std::wstring monitorString)
     wc.hInstance = GetModuleHandleW(nullptr);
     wc.lpszClassName = CLASS_NAME;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
+    wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW);
     wc.lpfnWndProc = WindowProcessMessages;
     RegisterClassW(&wc);
 
@@ -232,39 +305,14 @@ void Toolbar::show(std::wstring position, std::wstring monitorString)
 
     for (auto& monitorInfo : monitorInfos)
     {
-        int positionX = 0;
-        int positionY = 0;
+        const auto screenSize = monitorInfo.GetScreenSize(false);
+        UINT dpi = DPIAware::DEFAULT_DPI;
+        DPIAware::GetScreenDPIForMonitor(monitorInfo.GetHandle(), dpi);
 
-        if (position == L"Top left corner")
-        {
-            positionX = monitorInfo.left() + BORDER_OFFSET;
-            positionY = monitorInfo.top() + BORDER_OFFSET;
-        }
-        else if (position == L"Top center")
-        {
-            positionX = monitorInfo.middle().x - overlayWidth / 2;
-            positionY = monitorInfo.top() + BORDER_OFFSET;
-        }
-        else if (position == L"Bottom left corner")
-        {
-            positionX = monitorInfo.left() + BORDER_OFFSET;
-            positionY = monitorInfo.bottom() - overlayHeight - BORDER_OFFSET;
-        }
-        else if (position == L"Bottom center")
-        {
-            positionX = monitorInfo.middle().x - overlayWidth / 2;
-            positionY = monitorInfo.bottom() - overlayHeight - BORDER_OFFSET;
-        }
-        else if (position == L"Bottom right corner")
-        {
-            positionX = monitorInfo.right() - overlayWidth - BORDER_OFFSET;
-            positionY = monitorInfo.bottom() - overlayHeight - BORDER_OFFSET;
-        }
-        else //"Top right corner" or non-present
-        {
-            positionX = monitorInfo.right() - overlayWidth - BORDER_OFFSET;
-            positionY = monitorInfo.top() + TOP_RIGHT_BORDER_OFFSET;
-        }
+        int scaledOverlayWidth = overlayWidth * dpi / DPIAware::DEFAULT_DPI;
+        int scaledOverlayHeight = overlayHeight * dpi / DPIAware::DEFAULT_DPI;
+
+        POINT p = calculateToolbarPositioning(screenSize, position, scaledOverlayWidth, scaledOverlayHeight);
 
         HWND hwnd;
         hwnd = CreateWindowExW(
@@ -272,10 +320,10 @@ void Toolbar::show(std::wstring position, std::wstring monitorString)
             CLASS_NAME,
             CLASS_NAME,
             WS_POPUP,
-            positionX,
-            positionY,
-            overlayWidth,
-            overlayHeight,
+            static_cast<int>(p.x),
+            static_cast<int>(p.y),
+            scaledOverlayWidth,
+            scaledOverlayHeight,
             nullptr,
             nullptr,
             GetModuleHandleW(nullptr),
@@ -283,7 +331,7 @@ void Toolbar::show(std::wstring position, std::wstring monitorString)
 
         auto transparentColorKey = RGB(0, 0, 255);
         HBRUSH brush = CreateSolidBrush(transparentColorKey);
-        SetClassLongPtr(hwnd, GCLP_HBRBACKGROUND, (LONG_PTR)brush);
+        SetClassLongPtr(hwnd, GCLP_HBRBACKGROUND, reinterpret_cast<LONG_PTR>(brush));
 
         SetLayeredWindowAttributes(hwnd, transparentColorKey, 0, LWA_COLORKEY);
 
@@ -331,9 +379,9 @@ void Toolbar::setMicrophoneMute(bool mute)
     microphoneMuted = mute;
 }
 
-void Toolbar::setHideToolbarWhenUnmuted(bool hide)
+void Toolbar::setToolbarHide(std::wstring hide)
 {
-    HideToolbarWhenUnmuted = hide;
+    ToolbarHide = hide;
 }
 
 void Toolbar::setTheme(std::wstring theme)

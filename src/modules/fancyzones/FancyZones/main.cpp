@@ -3,6 +3,7 @@
 #include <common/utils/ProcessWaiter.h>
 #include <common/utils/window.h>
 #include <common/utils/UnhandledExceptionHandler.h>
+#include <common/utils/gpo.h>
 
 #include <FancyZonesLib/trace.h>
 #include <FancyZonesLib/Generated Files/resource.h>
@@ -10,6 +11,8 @@
 #include <common/utils/logger_helper.h>
 #include <common/hooks/LowlevelKeyboardEvent.h>
 #include <common/utils/resources.h>
+
+#include <common/Telemetry/EtwTrace/EtwTrace.h>
 
 #include <FancyZonesLib/FancyZones.h>
 #include <FancyZonesLib/FancyZonesWinHookEventIDs.h>
@@ -24,8 +27,18 @@ const std::wstring instanceMutexName = L"Local\\PowerToys_FancyZones_InstanceMut
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR lpCmdLine, _In_ int nCmdShow)
 {
+    Shared::Trace::ETWTrace trace{};
+    trace.UpdateState(true);
+
     winrt::init_apartment();
     LoggerHelpers::init_logger(moduleName, internalPath, LogSettings::fancyZonesLoggerName);
+
+    if (powertoys_gpo::getConfiguredFancyZonesEnabledValue() == powertoys_gpo::gpo_rule_configured_disabled)
+    {
+        Logger::warn(L"Tried to start with a GPO policy setting the utility to always be disabled. Please contact your systems administrator.");
+        return 0;
+    }
+
     InitUnhandledExceptionHandler();    
 
     auto mutex = CreateMutex(nullptr, true, instanceMutexName.c_str());
@@ -38,6 +51,13 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     {
         Logger::warn(L"FancyZones instance is already running");
         return 0;
+    }
+
+    auto process = GetCurrentProcess();
+    if (!SetPriorityClass(process, NORMAL_PRIORITY_CLASS))
+    {
+        std::wstring err = get_last_error_or_default(GetLastError());
+        Logger::warn(L"Failed to set priority to FancyZones: {}", err);
     }
 
     std::wstring pid = std::wstring(lpCmdLine);
@@ -67,6 +87,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     run_message_loop();
 
     Trace::UnregisterProvider();
-    
+
+    trace.Flush();
+
     return 0;
 }

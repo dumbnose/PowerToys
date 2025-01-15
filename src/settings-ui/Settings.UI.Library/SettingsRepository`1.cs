@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Threading;
+
 using Microsoft.PowerToys.Settings.UI.Library.Interfaces;
 
 namespace Microsoft.PowerToys.Settings.UI.Library
@@ -12,7 +14,7 @@ namespace Microsoft.PowerToys.Settings.UI.Library
     public class SettingsRepository<T> : ISettingsRepository<T>
         where T : class, ISettingsConfig, new()
     {
-        private static readonly object _SettingsRepoLock = new object();
+        private static readonly Lock _SettingsRepoLock = new Lock();
 
         private static ISettingsUtils _settingsUtils;
 
@@ -42,6 +44,23 @@ namespace Microsoft.PowerToys.Settings.UI.Library
         // The Singleton class must have a private constructor so that it cannot be instantiated by any other object other than itself.
         private SettingsRepository()
         {
+        }
+
+        public bool ReloadSettings()
+        {
+            try
+            {
+                T settingsItem = new T();
+                settingsConfig = _settingsUtils.GetSettingsOrDefault<T>(settingsItem.GetModuleName());
+
+                SettingsConfig = settingsConfig;
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         // Settings configurations shared across all viewmodels

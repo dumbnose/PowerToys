@@ -88,6 +88,15 @@ namespace Microsoft.PowerToys.Run.Plugin.Calculator.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Expression contains division by zero.
+        /// </summary>
+        public static string wox_plugin_calculator_division_by_zero {
+            get {
+                return ResourceManager.GetString("wox_plugin_calculator_division_by_zero", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsupported use of square brackets.
         /// </summary>
         public static string wox_plugin_calculator_double_array_returned {
@@ -160,7 +169,7 @@ namespace Microsoft.PowerToys.Run.Plugin.Calculator.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Does mathematical calculations (e.g. 5*3-2)..
+        ///   Looks up a localized string similar to Calculates mathematical equations (e.g. 5*3-2).
         /// </summary>
         public static string wox_plugin_calculator_plugin_description {
             get {
@@ -174,6 +183,24 @@ namespace Microsoft.PowerToys.Run.Plugin.Calculator.Properties {
         public static string wox_plugin_calculator_plugin_name {
             get {
                 return ResourceManager.GetString("wox_plugin_calculator_plugin_name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Replace input if query ends with &apos;=&apos;.
+        /// </summary>
+        public static string wox_plugin_calculator_replace_input {
+            get {
+                return ResourceManager.GetString("wox_plugin_calculator_replace_input", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to When using direct activation, appending &apos;=&apos; to the expression will replace the input with the calculated result (e.g. &apos;=5*3-2=&apos; will change the query to &apos;=13&apos;)..
+        /// </summary>
+        public static string wox_plugin_calculator_replace_input_description {
+            get {
+                return ResourceManager.GetString("wox_plugin_calculator_replace_input_description", resourceCulture);
             }
         }
     }

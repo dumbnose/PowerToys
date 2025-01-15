@@ -11,9 +11,12 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+
 using ColorPicker.Helpers;
-using ModernWpf.Controls;
-using ModernWpf.Controls.Primitives;
+using ManagedCommon;
+using Wpf.Ui.Controls;
+
+using static System.Net.Mime.MediaTypeNames;
 
 namespace ColorPicker.Controls
 {
@@ -73,15 +76,15 @@ namespace ColorPicker.Controls
             control._ignoreRGBChanges = true;
 
             control.HexCode.Text = ColorToHex(newColor);
-            control.RNumberBox.Text = newColor.R.ToString(CultureInfo.InvariantCulture);
-            control.GNumberBox.Text = newColor.G.ToString(CultureInfo.InvariantCulture);
-            control.BNumberBox.Text = newColor.B.ToString(CultureInfo.InvariantCulture);
+            control.RNumberBox.Value = newColor.R;
+            control.GNumberBox.Value = newColor.G;
+            control.BNumberBox.Value = newColor.B;
             control.SetColorFromTextBoxes(System.Drawing.Color.FromArgb(newColor.R, newColor.G, newColor.B));
 
             control._ignoreRGBChanges = false;
             control._ignoreHexChanges = false;
 
-            var hsv = ColorHelper.ConvertToHSVColor(System.Drawing.Color.FromArgb(newColor.R, newColor.G, newColor.B));
+            var hsv = ColorFormatHelper.ConvertToHSVColor(System.Drawing.Color.FromArgb(newColor.R, newColor.G, newColor.B));
 
             SetColorVariationsForCurrentColor(d, hsv);
         }
@@ -102,28 +105,28 @@ namespace ColorPicker.Controls
             HueGradientSlider.Background = gradientBrush;
         }
 
-        private static void SetColorVariationsForCurrentColor(DependencyObject d, (double hue, double saturation, double value) hsv)
+        private static void SetColorVariationsForCurrentColor(DependencyObject d, (double Hue, double Saturation, double Value) hsv)
         {
             var hueCoefficient = 0;
             var hueCoefficient2 = 0;
-            if (1 - hsv.value < 0.15)
+            if (1 - hsv.Value < 0.15)
             {
                 hueCoefficient = 1;
             }
 
-            if (hsv.value - 0.3 < 0)
+            if (hsv.Value - 0.3 < 0)
             {
                 hueCoefficient2 = 1;
             }
 
-            var s = hsv.saturation;
+            var s = hsv.Saturation;
             var control = (ColorPickerControl)d;
 
-            control.colorVariation1Button.Background = new SolidColorBrush(HSVColor.RGBFromHSV(Math.Min(hsv.hue + (hueCoefficient * 8), 360), s, Math.Min(hsv.value + 0.3, 1)));
-            control.colorVariation2Button.Background = new SolidColorBrush(HSVColor.RGBFromHSV(Math.Min(hsv.hue + (hueCoefficient * 4), 360), s, Math.Min(hsv.value + 0.15, 1)));
+            control.colorVariation1Button.Background = new SolidColorBrush(HSVColor.RGBFromHSV(Math.Min(hsv.Hue + (hueCoefficient * 8), 360), s, Math.Min(hsv.Value + 0.3, 1)));
+            control.colorVariation2Button.Background = new SolidColorBrush(HSVColor.RGBFromHSV(Math.Min(hsv.Hue + (hueCoefficient * 4), 360), s, Math.Min(hsv.Value + 0.15, 1)));
 
-            control.colorVariation3Button.Background = new SolidColorBrush(HSVColor.RGBFromHSV(Math.Max(hsv.hue - (hueCoefficient2 * 4), 0), s, Math.Max(hsv.value - 0.2, 0)));
-            control.colorVariation4Button.Background = new SolidColorBrush(HSVColor.RGBFromHSV(Math.Max(hsv.hue - (hueCoefficient2 * 8), 0), s, Math.Max(hsv.value - 0.3, 0)));
+            control.colorVariation3Button.Background = new SolidColorBrush(HSVColor.RGBFromHSV(Math.Max(hsv.Hue - (hueCoefficient2 * 4), 0), s, Math.Max(hsv.Value - 0.2, 0)));
+            control.colorVariation4Button.Background = new SolidColorBrush(HSVColor.RGBFromHSV(Math.Max(hsv.Hue - (hueCoefficient2 * 8), 0), s, Math.Max(hsv.Value - 0.3, 0)));
         }
 
         private void UpdateValueColorGradient(double posX)
@@ -172,9 +175,9 @@ namespace ColorPicker.Controls
 
             if (!_ignoreRGBChanges)
             {
-                RNumberBox.Text = currentColor.R.ToString(CultureInfo.InvariantCulture);
-                GNumberBox.Text = currentColor.G.ToString(CultureInfo.InvariantCulture);
-                BNumberBox.Text = currentColor.B.ToString(CultureInfo.InvariantCulture);
+                RNumberBox.Value = currentColor.R;
+                GNumberBox.Value = currentColor.G;
+                BNumberBox.Value = currentColor.B;
             }
 
             _currentColor = currentColor;
@@ -192,17 +195,17 @@ namespace ColorPicker.Controls
             {
                 _isCollapsed = false;
 
-                var resizeColor = new DoubleAnimation(349, new Duration(TimeSpan.FromMilliseconds(250)));
+                var resizeColor = new DoubleAnimation(256, new Duration(TimeSpan.FromMilliseconds(250)));
                 resizeColor.EasingFunction = new ExponentialEase() { EasingMode = EasingMode.EaseInOut };
 
                 var moveColor = new ThicknessAnimation(new Thickness(0), new Duration(TimeSpan.FromMilliseconds(250)));
                 moveColor.EasingFunction = new ExponentialEase() { EasingMode = EasingMode.EaseInOut };
 
-                ControlHelper.SetCornerRadius(CurrentColorButton, new CornerRadius(2));
-                CurrentColorButton.BeginAnimation(Button.WidthProperty, resizeColor);
-                CurrentColorButton.BeginAnimation(Button.MarginProperty, moveColor);
+                CurrentColorButton.BeginAnimation(System.Windows.Controls.Button.HeightProperty, resizeColor);
+                CurrentColorButton.BeginAnimation(System.Windows.Controls.Button.MarginProperty, moveColor);
                 CurrentColorButton.IsEnabled = false;
                 SessionEventHelper.Event.EditorAdjustColorOpened = true;
+                DetailsFlyout.IsOpen = true;
             }
         }
 
@@ -215,27 +218,23 @@ namespace ColorPicker.Controls
                 var resizeColor = new DoubleAnimation(165, new Duration(TimeSpan.FromMilliseconds(150)));
                 resizeColor.EasingFunction = new ExponentialEase() { EasingMode = EasingMode.EaseInOut };
 
-                var moveColor = new ThicknessAnimation(new Thickness(92, 0, 0, 0), new Duration(TimeSpan.FromMilliseconds(150)));
+                var moveColor = new ThicknessAnimation(new Thickness(0, 72, 0, 72), new Duration(TimeSpan.FromMilliseconds(150)));
                 moveColor.EasingFunction = new ExponentialEase() { EasingMode = EasingMode.EaseInOut };
 
-                ControlHelper.SetCornerRadius(CurrentColorButton, new CornerRadius(0));
-                CurrentColorButton.BeginAnimation(Button.WidthProperty, resizeColor);
-                CurrentColorButton.BeginAnimation(Button.MarginProperty, moveColor);
+                CurrentColorButton.BeginAnimation(System.Windows.Controls.Button.HeightProperty, resizeColor);
+                CurrentColorButton.BeginAnimation(System.Windows.Controls.Button.MarginProperty, moveColor);
                 CurrentColorButton.IsEnabled = true;
             }
         }
 
         private void OKButton_Click(object sender, RoutedEventArgs e)
         {
-            HideDetails();
             SelectedColorChangedCommand.Execute(_currentColor);
             SessionEventHelper.Event.EditorColorAdjusted = true;
             DetailsFlyout.Hide();
         }
 
-#pragma warning disable CA1801 // Review unused parameters
         private void DetailsFlyout_Closed(object sender, object e)
-#pragma warning restore CA1801 // Review unused parameters
         {
             HideDetails();
             AppStateHandler.BlockEscapeKeyClosingColorPickerEditor = false;
@@ -247,18 +246,14 @@ namespace ColorPicker.Controls
             HexCode.Text = ColorToHex(_originalColor);
         }
 
-#pragma warning disable CA1822 // Mark members as static
-#pragma warning disable CA1801 // Review unused parameters
         private void DetailsFlyout_Opened(object sender, object e)
-#pragma warning restore CA1801 // Review unused parameters
-#pragma warning restore CA1822 // Mark members as static
         {
             AppStateHandler.BlockEscapeKeyClosingColorPickerEditor = true;
         }
 
         private void ColorVariationButton_Click(object sender, RoutedEventArgs e)
         {
-            var selectedColor = ((SolidColorBrush)((Button)sender).Background).Color;
+            var selectedColor = ((SolidColorBrush)((System.Windows.Controls.Button)sender).Background).Color;
             SelectedColorChangedCommand.Execute(selectedColor);
             SessionEventHelper.Event.EditorSimilarColorPicked = true;
         }
@@ -289,7 +284,7 @@ namespace ColorPicker.Controls
 
         private void HexCode_TextChanged(object sender, TextChangedEventArgs e)
         {
-            var newValue = (sender as TextBox).Text;
+            var newValue = (sender as System.Windows.Controls.TextBox).Text;
 
             // support hex with 3 and 6 characters and optional with hashtag
             var reg = new Regex("^#?([0-9A-Fa-f]{3}){1,2}$");
@@ -315,11 +310,11 @@ namespace ColorPicker.Controls
         {
             if (!_ignoreGradientsChanges)
             {
-                var hsv = ColorHelper.ConvertToHSVColor(color);
+                var hsv = ColorFormatHelper.ConvertToHSVColor(color);
 
-                var huePosition = (hsv.hue / 360) * HueGradientSlider.Maximum;
-                var saturationPosition = hsv.saturation * SaturationGradientSlider.Maximum;
-                var valuePosition = hsv.value * ValueGradientSlider.Maximum;
+                var huePosition = (hsv.Hue / 360) * HueGradientSlider.Maximum;
+                var saturationPosition = hsv.Saturation * SaturationGradientSlider.Maximum;
+                var valuePosition = hsv.Value * ValueGradientSlider.Maximum;
                 UpdateHueColorGradient(huePosition);
                 UpdateSaturationColorGradient(saturationPosition);
                 UpdateValueColorGradient(valuePosition);
@@ -330,14 +325,11 @@ namespace ColorPicker.Controls
 
         private static string ColorToHex(Color color, string oldValue = "")
         {
-            string newHexString = BitConverter.ToString(new byte[] { color.R, color.G, color.B }).Replace("-", string.Empty, StringComparison.InvariantCulture);
-
-#pragma warning disable CA1308 // Normalize strings to uppercase - Supressed because we want to show hex value in lower case on all places
+            string newHexString = Convert.ToHexString(new byte[] { color.R, color.G, color.B });
             newHexString = newHexString.ToLowerInvariant();
-#pragma warning restore CA1308 // Normalize strings to uppercase
 
             // Return only with hashtag if user typed it before
-            bool addHashtag = oldValue.StartsWith("#", StringComparison.InvariantCulture);
+            bool addHashtag = oldValue.StartsWith('#');
             return addHashtag ? "#" + newHexString : newHexString;
         }
 
@@ -356,7 +348,7 @@ namespace ColorPicker.Controls
             else
             {
                 // Hex with or without hashtag and six characters
-                return hexCodeText.StartsWith("#", StringComparison.InvariantCulture) ? hexCodeText : "#" + hexCodeText;
+                return hexCodeText.StartsWith('#') ? hexCodeText : "#" + hexCodeText;
             }
         }
 
@@ -370,9 +362,11 @@ namespace ColorPicker.Controls
             if (!_ignoreRGBChanges)
             {
                 var numberBox = sender as NumberBox;
-                var r = numberBox.Name == "RNumberBox" ? GetValueFromNumberBox(numberBox) : (byte)RNumberBox.Value;
-                var g = numberBox.Name == "GNumberBox" ? GetValueFromNumberBox(numberBox) : (byte)GNumberBox.Value;
-                var b = numberBox.Name == "BNumberBox" ? GetValueFromNumberBox(numberBox) : (byte)BNumberBox.Value;
+
+                byte r = numberBox.Name == "RNumberBox" ? GetValueFromNumberBox(numberBox) : (byte)RNumberBox.Value;
+                byte g = numberBox.Name == "GNumberBox" ? GetValueFromNumberBox(numberBox) : (byte)GNumberBox.Value;
+                byte b = numberBox.Name == "BNumberBox" ? GetValueFromNumberBox(numberBox) : (byte)BNumberBox.Value;
+
                 _ignoreRGBChanges = true;
                 SetColorFromTextBoxes(System.Drawing.Color.FromArgb(r, g, b));
                 _ignoreRGBChanges = false;
@@ -387,11 +381,12 @@ namespace ColorPicker.Controls
         /// <returns>Validated value as per numberbox conditions, if content is invalid it returns previous value</returns>
         private static byte GetValueFromNumberBox(NumberBox numberBox)
         {
-            var internalTextBox = GetChildOfType<TextBox>(numberBox);
-            var parsedValue = numberBox.NumberFormatter.ParseDouble(internalTextBox.Text);
+            double? parsedValue = ParseDouble(numberBox.Text);
+
             if (parsedValue != null)
             {
                 var parsedValueByte = (byte)parsedValue;
+
                 if (parsedValueByte >= numberBox.Minimum && parsedValueByte <= numberBox.Maximum)
                 {
                     return parsedValueByte;
@@ -400,6 +395,16 @@ namespace ColorPicker.Controls
 
             // not valid input, return previous value
             return (byte)numberBox.Value;
+        }
+
+        public static double? ParseDouble(string text)
+        {
+            if (double.TryParse(text, out double result))
+            {
+                return result;
+            }
+
+            return null;
         }
 
         public static T GetChildOfType<T>(DependencyObject depObj)

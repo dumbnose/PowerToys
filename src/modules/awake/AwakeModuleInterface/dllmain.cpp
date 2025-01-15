@@ -17,7 +17,7 @@
 #include <filesystem>
 #include <set>
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
+BOOL APIENTRY DllMain(HMODULE /*hModule*/, DWORD ul_reason_for_call, LPVOID /*lpReserved*/)
 {
     switch (ul_reason_for_call)
     {
@@ -44,9 +44,7 @@ class Awake : public PowertoyModuleIface
 
 private:
     bool m_enabled = false;
-    HANDLE send_telemetry_event;
-    HANDLE m_hInvokeEvent;
-    PROCESS_INFORMATION p_info;
+    PROCESS_INFORMATION p_info = {};
 
     bool is_process_running()
     {
@@ -59,7 +57,7 @@ private:
         unsigned long powertoys_pid = GetCurrentProcessId();
 
         std::wstring executable_args = L"--use-pt-config --pid " + std::to_wstring(powertoys_pid);
-        std::wstring application_path = L"modules\\Awake\\PowerToys.Awake.exe";
+        std::wstring application_path = L"PowerToys.Awake.exe";
         std::wstring full_command_path = application_path + L" " + executable_args.data();
         Logger::trace(L"PowerToys Awake launching with parameters: " + executable_args);
 
@@ -84,6 +82,12 @@ public:
         Logger::init(LogSettings::launcherLoggerName, logFilePath.wstring(), PTSettingsHelper::get_log_settings_file_location());
         Logger::info("Launcher object is constructing");
     };
+
+    // Return the configured status for the gpo policy for the module
+    virtual powertoys_gpo::gpo_rule_configured_t gpo_policy_enabled_configuration() override
+    {
+        return powertoys_gpo::getConfiguredAwakeEnabledValue();
+    }
 
     virtual void destroy() override
     {
@@ -130,8 +134,7 @@ public:
 
     virtual void enable()
     {
-        ResetEvent(send_telemetry_event);
-        ResetEvent(m_hInvokeEvent);
+        Trace::EnableAwake(true);
         launch_process();
         m_enabled = true;
     };
@@ -140,9 +143,8 @@ public:
     {
         if (m_enabled)
         {
+            Trace::EnableAwake(false);
             Logger::trace(L"Disabling Awake...");
-            ResetEvent(send_telemetry_event);
-            ResetEvent(m_hInvokeEvent);
 
             auto exitEvent = CreateEvent(nullptr, false, false, CommonSharedConstants::AWAKE_EXIT_EVENT);
             if (!exitEvent)

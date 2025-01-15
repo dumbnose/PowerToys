@@ -8,7 +8,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Windows.Media;
+
 using ColorPicker.Models;
 
 namespace ColorPicker.Helpers
@@ -21,6 +23,9 @@ namespace ColorPicker.Helpers
 
     internal static class SerializationHelper
     {
+        public static readonly JsonSerializerOptions DefaultOptions = new JsonSerializerOptions { WriteIndented = false };
+        public static readonly JsonSerializerOptions IndentedOptions = new JsonSerializerOptions { WriteIndented = true };
+
         public static Dictionary<string, Dictionary<string, string>> ConvertToDesiredColorFormats(
             IList colorsToExport,
             IEnumerable<ColorFormatModel> colorRepresentations,
@@ -32,62 +37,58 @@ namespace ColorPicker.Helpers
             switch (method)
             {
                 case GroupExportedColorsBy.Color:
-                {
-                    foreach (Color color in (IList)colorsToExport)
                     {
-                        var tmp = new Dictionary<string, string>();
-                        foreach (var colorFormatModel in colorFormatModels)
-                        {
-                            var colorInSpecificFormat = colorFormatModel.Convert(color);
-                            if (colorFormatModel.FormatName == "HEX")
-                            {
-                                colorInSpecificFormat = "#" + colorInSpecificFormat;
-                            }
-
-                            tmp.Add(
-                                colorFormatModel.FormatName,
-#pragma warning disable CA1308 // Normalize strings to uppercase
-                                colorInSpecificFormat.Replace(
-                                                              colorFormatModel.FormatName.ToLower(CultureInfo.InvariantCulture),
-                                                              string.Empty,
-                                                              StringComparison.InvariantCultureIgnoreCase));
-#pragma warning restore CA1308 // Normalize strings to uppercase
-                        }
-
-                        colors.Add($"color{i++}", tmp);
-                    }
-                }
-
-                break;
-                case GroupExportedColorsBy.Format:
-                {
-                    foreach (var colorFormatModel in colorFormatModels)
-                    {
-                        var tmp = new Dictionary<string, string>();
-                        i = 1;
                         foreach (Color color in (IList)colorsToExport)
                         {
-                            var colorInSpecificFormat = colorFormatModel.Convert(color);
-                            if (colorFormatModel.FormatName == "HEX")
+                            var tmp = new Dictionary<string, string>();
+                            foreach (var colorFormatModel in colorFormatModels)
                             {
-                                colorInSpecificFormat = "#" + colorInSpecificFormat;
+                                var colorInSpecificFormat = colorFormatModel.GetColorText(color);
+                                if (colorFormatModel.FormatName == "HEX")
+                                {
+                                    colorInSpecificFormat = "#" + colorInSpecificFormat;
+                                }
+
+                                tmp.Add(
+                                    colorFormatModel.FormatName,
+                                    colorInSpecificFormat.Replace(
+                                                                  colorFormatModel.FormatName.ToLower(CultureInfo.InvariantCulture),
+                                                                  string.Empty,
+                                                                  StringComparison.InvariantCultureIgnoreCase));
                             }
 
-                            tmp.Add(
-                                $"color{i++}",
-#pragma warning disable CA1308 // Normalize strings to uppercase
-                                colorInSpecificFormat.Replace(
-                                                              colorFormatModel.FormatName.ToLower(CultureInfo.InvariantCulture),
-                                                              string.Empty,
-                                                              StringComparison.InvariantCultureIgnoreCase));
-#pragma warning restore CA1308 // Normalize strings to uppercase
+                            colors.Add($"color{i++}", tmp);
                         }
-
-                        colors.Add(colorFormatModel.FormatName, tmp);
                     }
-                }
 
-                break;
+                    break;
+                case GroupExportedColorsBy.Format:
+                    {
+                        foreach (var colorFormatModel in colorFormatModels)
+                        {
+                            var tmp = new Dictionary<string, string>();
+                            i = 1;
+                            foreach (Color color in (IList)colorsToExport)
+                            {
+                                var colorInSpecificFormat = colorFormatModel.GetColorText(color);
+                                if (colorFormatModel.FormatName == "HEX")
+                                {
+                                    colorInSpecificFormat = "#" + colorInSpecificFormat;
+                                }
+
+                                tmp.Add(
+                                    $"color{i++}",
+                                    colorInSpecificFormat.Replace(
+                                                                  colorFormatModel.FormatName.ToLower(CultureInfo.InvariantCulture),
+                                                                  string.Empty,
+                                                                  StringComparison.InvariantCultureIgnoreCase));
+                            }
+
+                            colors.Add(colorFormatModel.FormatName, tmp);
+                        }
+                    }
+
+                    break;
             }
 
             return colors;
@@ -120,10 +121,7 @@ namespace ColorPicker.Helpers
 
         public static string ToJson(this Dictionary<string, Dictionary<string, string>> source, bool indented = true)
         {
-            var options = new JsonSerializerOptions
-                          {
-                              WriteIndented = indented,
-                          };
+            var options = indented ? IndentedOptions : DefaultOptions;
 
             return JsonSerializer.Serialize(source, options);
         }

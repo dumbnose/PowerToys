@@ -19,7 +19,7 @@ namespace FancyZonesEditor.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resources {
@@ -214,11 +214,38 @@ namespace FancyZonesEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {0} slider. Possible range is from {1} to {2}. Value is {3}..
+        /// </summary>
+        public static string Custom_slider_announce {
+            get {
+                return ResourceManager.GetString("Custom_slider_announce", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Custom layout.
         /// </summary>
         public static string Default_Custom_Layout_Name {
             get {
                 return ResourceManager.GetString("Default_Custom_Layout_Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Default layout for horizontal monitor orientation.
+        /// </summary>
+        public static string Default_Layout_Horizontal {
+            get {
+                return ResourceManager.GetString("Default_Layout_Horizontal", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Default layout for vertical monitor orientation.
+        /// </summary>
+        public static string Default_Layout_Vertical {
+            get {
+                return ResourceManager.GetString("Default_Layout_Vertical", resourceCulture);
             }
         }
         
@@ -239,47 +266,7 @@ namespace FancyZonesEditor.Properties {
                 return ResourceManager.GetString("Delete_Layout_Dialog_Announce", resourceCulture);
             }
         }
-
-        /// <summary>
-        ///   Looks up a localized string for representing the names of a single zone.
-        /// </summary>
-        public static string Zone_Name {
-            get
-            {
-                return ResourceManager.GetString("Zone_Name", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string for representing the name of the width dimension.
-        /// </summary>
-        public static string Width_Name {
-            get
-            {
-                return ResourceManager.GetString("Width_Name", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string for representing the name of the height dimension.
-        /// </summary>
-        public static string Height_Name {
-            get
-            {
-                return ResourceManager.GetString("Height_Name", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string for explaining how to use the thumbs to resize zone.
-        /// </summary>
-        public static string Resizer_Thumb_Announce {
-            get
-            {
-                return ResourceManager.GetString("Resizer_Thumb_Announce", resourceCulture);
-            }
-        }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Delete zone.
         /// </summary>
@@ -443,11 +430,29 @@ namespace FancyZonesEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to An error occurred while parsing default layouts..
+        /// </summary>
+        public static string Error_Parsing_Default_Layouts_Message {
+            get {
+                return ResourceManager.GetString("Error_Parsing_Default_Layouts_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Error parsing device info data..
         /// </summary>
         public static string Error_Parsing_Device_Info {
             get {
                 return ResourceManager.GetString("Error_Parsing_Device_Info", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to An error occurred while parsing editor parameters..
+        /// </summary>
+        public static string Error_Parsing_Editor_Parameters_Message {
+            get {
+                return ResourceManager.GetString("Error_Parsing_Editor_Parameters_Message", resourceCulture);
             }
         }
         
@@ -524,12 +529,21 @@ namespace FancyZonesEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Height.
+        /// </summary>
+        public static string Height_Name {
+            get {
+                return ResourceManager.GetString("Height_Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to 
-        ///     - [Shift]+S to split currently focused zone.
-        ///     - Ctrl+Tab to focus zones/resizers.
-        ///     - Tab to cycle zones and resizers.
-        ///     - Delete to remove the focused resizer.
-        ///     - Arrows to move the focused resizer..
+        ///• [Shift]+S to split currently focused zone.
+        ///• Ctrl+Tab to focus zones/resizers.
+        ///• Tab to cycle zones and resizers.
+        ///• Delete to remove the focused resizer.
+        ///• Arrows to move the focused resizer..
         /// </summary>
         public static string KeyboardControlsDescription {
             get {
@@ -538,7 +552,21 @@ namespace FancyZonesEditor.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Keyboard Navigation:.
+        ///   Looks up a localized string similar to 
+        ///• Ctrl+Tab to switch focus between dialog and zones.
+        ///• [Shift]+Arrows to resize the focused zone by 10px (5px per edge).
+        ///• Ctrl+[Shift]+Arrows to resize the focused zone by 2px (1px per edge).
+        ///• Arrows to move the focused zone by 10px.
+        ///• Ctrl+Arrows to move the focused zone by 1px..
+        /// </summary>
+        public static string KeyboardControlsDescriptionCanvas {
+            get {
+                return ResourceManager.GetString("KeyboardControlsDescriptionCanvas", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Keyboard navigation:.
         /// </summary>
         public static string KeyboardControlsName {
             get {
@@ -682,6 +710,15 @@ namespace FancyZonesEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {0} pixels.
+        /// </summary>
+        public static string Pixel_Value {
+            get {
+                return ResourceManager.GetString("Pixel_Value", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to px.
         /// </summary>
         public static string Pixels {
@@ -727,6 +764,15 @@ namespace FancyZonesEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Use the arrow keys to resize, delete key to remove..
+        /// </summary>
+        public static string Resizer_Thumb_Announce {
+            get {
+                return ResourceManager.GetString("Resizer_Thumb_Announce", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Save.
         /// </summary>
         public static string Save {
@@ -741,6 +787,24 @@ namespace FancyZonesEditor.Properties {
         public static string Save_Apply {
             get {
                 return ResourceManager.GetString("Save_Apply", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Set layout as a default for horizontal monitor orientation.
+        /// </summary>
+        public static string Set_Layout_As_Horizontal_Default {
+            get {
+                return ResourceManager.GetString("Set_Layout_As_Horizontal_Default", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Set layout as a default for vertical monitor orientation.
+        /// </summary>
+        public static string Set_Layout_As_Vertical_Default {
+            get {
+                return ResourceManager.GetString("Set_Layout_As_Vertical_Default", resourceCulture);
             }
         }
         
@@ -844,11 +908,29 @@ namespace FancyZonesEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {0} zones.
+        /// </summary>
+        public static string Template_Zone_Count_Value {
+            get {
+                return ResourceManager.GetString("Template_Zone_Count_Value", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Templates.
         /// </summary>
         public static string Templates {
             get {
                 return ResourceManager.GetString("Templates", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Width.
+        /// </summary>
+        public static string Width_Name {
+            get {
+                return ResourceManager.GetString("Width_Name", resourceCulture);
             }
         }
         
@@ -867,6 +949,24 @@ namespace FancyZonesEditor.Properties {
         public static string Zone_Count_Increment {
             get {
                 return ResourceManager.GetString("Zone_Count_Increment", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Zone.
+        /// </summary>
+        public static string Zone_Name {
+            get {
+                return ResourceManager.GetString("Zone_Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to zones.
+        /// </summary>
+        public static string Zones {
+            get {
+                return ResourceManager.GetString("Zones", resourceCulture);
             }
         }
     }

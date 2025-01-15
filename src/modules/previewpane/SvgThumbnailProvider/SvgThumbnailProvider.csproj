@@ -1,30 +1,45 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- Look at Directory.Build.props in root for common stuff as well -->
+  <Import Project="..\..\..\Common.Dotnet.CsWinRT.props" />
+  <Import Project="..\..\..\Common.SelfContained.props" />
+      
   <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
     <ProjectGuid>{8FFE09DA-FA4F-4EE1-B3A2-AD5497FBD1AD}</ProjectGuid>
     <RootNamespace>Microsoft.PowerToys.ThumbnailHandler.Svg</RootNamespace>
     <AssemblyName>PowerToys.SvgThumbnailProvider</AssemblyName>
     <AssemblyTitle>PowerToys.SvgThumbnailProvider</AssemblyTitle>
     <AssemblyDescription>PowerToys SvgPreviewHandler</AssemblyDescription>
-    <TargetFramework>net6.0-windows10.0.19041.0</TargetFramework>
-    <EnableComHosting>true</EnableComHosting>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Description>PowerToys SvgPreviewHandler</Description>
-    <OutputPath>..\..\..\..\$(Platform)\$(Configuration)\modules\FileExplorerPreview\</OutputPath>
+    <OutputPath>..\..\..\..\$(Platform)\$(Configuration)</OutputPath>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <RuntimeIdentifiers>win10-x64;win10-arm64</RuntimeIdentifiers>
   </PropertyGroup>
 
-  <Import Project="..\..\..\Version.props" />
+  <!-- See https://learn.microsoft.com/windows/apps/develop/platform/csharp-winrt/net-projection-from-cppwinrt-component for more info -->
+  <PropertyGroup>
+    <CsWinRTIncludes>PowerToys.GPOWrapper</CsWinRTIncludes>
+    <CsWinRTGeneratedFilesDir>$(OutDir)</CsWinRTGeneratedFilesDir>
+    <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
+  </PropertyGroup>
+  <PropertyGroup>
+    <!-- Disable missing comment warning. WinRT/C++ libraries added won't have comments on their reflections. -->
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <OutputType>WinExe</OutputType>
+  </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.1150.38" />
+    <PackageReference Include="Microsoft.Web.WebView2" />
   </ItemGroup>
+
   <ItemGroup>
+    <ProjectReference Include="..\..\..\common\GPOWrapper\GPOWrapper.vcxproj" />
     <ProjectReference Include="..\..\..\common\ManagedTelemetry\Telemetry\ManagedTelemetry.csproj" />
     <ProjectReference Include="..\Common\PreviewHandlerCommon.csproj" />
+    <ProjectReference Include="..\..\..\common\Common.UI\Common.UI.csproj" />
   </ItemGroup>
 </Project>
